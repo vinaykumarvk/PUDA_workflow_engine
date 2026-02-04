@@ -1,0 +1,457 @@
+**Business Requirement Document (BRD)**
+
+**Service: Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards**
+
+**Project: PUDA Citizen Services Portal & Mobile App**
+
+Version: 1.0 (Draft)  
+Date: 02 Feb 2026  
+Prepared by: Senior Business Analyst / Domain Consultant
+
+# **1\. Document Control & Approvals**
+
+Document Title: BRD \- Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards
+
+Owning Department: Engineering / Building Control Wing (Assumption)
+
+Primary Source of Truth: PUDA service details page (input) accessed on 02 Feb 2026: https://www.puda.gov.in/service-details/1787
+
+Application Disposal Time (SLS): 14 Day(s) (as published on service details page).
+
+## **1.1 Version History**
+
+| Version | Date | Prepared By | Change Summary | Status |
+| :---- | :---- | :---- | :---- | :---- |
+| 1.0 | 02 Feb 2026 | Senior Business Analyst / Domain Consultant | Initial draft based on PUDA service details PDF. | Draft |
+
+## **1.2 Review & Approval**
+
+| Name | Role | Department/Organisation | Review Comments | Approval (Yes/No) |
+| :---- | :---- | :---- | :---- | :---- |
+|  |  |  |  |  |
+|  |  |  |  |  |
+|  |  |  |  |  |
+
+# **2\. Executive Summary**
+
+The 'Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards' service enables citizens to apply online through the PUDA portal/mobile app, upload required documents, and obtain Completion Certificate / Occupation Certificate after role-based scrutiny and approvals. The workflow supports tracking, queries/rework, and issuance of the final output.
+
+# **3\. Service Overview**
+
+## **3.1 Service Metadata**
+
+| Attribute | Value |
+| :---- | :---- |
+| Service Name | Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards |
+| Authority/Jurisdiction | PUDA / GMADA / GLADA / BDA (as displayed on portal) |
+| Channel | Web Portal and Mobile App |
+| Applicant Type | Citizen/Applicant (property-linked service) |
+| Output | Completion Certificate / Occupation Certificate |
+| Physical Verification | Yes (as indicated on service page) |
+| Fees/Payments | Not specified in input (Open Question). |
+| Published Disposal Time (SLS) | 14 Day(s) |
+| Source URL | https://www.puda.gov.in/service-details/1787 |
+
+## **3.2 Trigger & Preconditions**
+
+* Citizen is authenticated on portal/mobile (Assumption).  
+* Property is identifiable using published property fields (UPN/Plot/Property No./Scheme).  
+* Required documents are available for upload.
+
+## **3.3 Postconditions**
+
+* Application is approved and Completion Certificate / Occupation Certificate is issued to applicant, OR application is rejected with recorded reason.  
+* All actions, documents, and decisions are stored for audit and reporting.
+
+# **4\. Stakeholders and Roles**
+
+## **4.1 External Users**
+
+* Applicant/Citizen: submits application, uploads documents, responds to queries, downloads output.  
+* Authorized Representative (if allowed): submits on behalf of applicant (Open Question).
+
+## **4.2 Internal Users (Role-based)**
+
+| Role | Primary Responsibilities | System Access | SLS Allocation |
+| :---- | :---- | :---- | :---- |
+| Clerk | Scrutiny/verification and forwarding as per stage. | View assigned applications; verify docs; record remarks; forward/query/reject per permissions. | 2 day(s) |
+| Junior Engineer | Site/technical verification and inspection report (if required). | View assigned applications; verify docs; record remarks; forward/query/reject per permissions. | 2 day(s) |
+| Senior Assistant | Scrutiny/verification and forwarding as per stage. | View assigned applications; verify docs; record remarks; forward/query/reject per permissions. | 2 day(s) |
+| SDO | Supervisory scrutiny and approval/rejection. | View assigned applications; verify docs; record remarks; forward/query/reject per permissions. | 2 day(s) |
+| Estate Officer | Final competent approval for high-value/large plot cases (Assumption). | View assigned applications; verify docs; record remarks; forward/query/reject per permissions. | 2 day(s) |
+
+# **5\. Scope**
+
+## **5.1 In Scope**
+
+* Citizen-facing online application form for the service.  
+* Document upload and document checklist enforcement.  
+* Role-based internal workflow with task assignment and due dates.  
+* Query/rework and rejection handling with communication to applicant.  
+* Generation and delivery of Completion Certificate / Occupation Certificate via portal/mobile download.  
+* Capture of physical verification/inspection status and report (recommended; confirm).
+
+## **5.2 Out of Scope (for this BRD)**
+
+* Appeals, revisions, or legal dispute handling beyond initial decision.  
+* Back-office manual activities not captured in the portal (e.g., physical file movement) \- to be documented separately if required.  
+* Any policy/rule changes not published on the service details page.
+
+# **6\. Definitions & Acronyms**
+
+| Term | Definition |
+| :---- | :---- |
+| ARN | Application Reference Number generated by the system. |
+| SLS/SLA | Service Level Standard / Service Level Agreement for disposal timelines. |
+| UPN | Unique Property Number used for property identification on PUDA portal. |
+| SDO | Sub Divisional Officer (internal approving role) \- exact naming to be confirmed. |
+| AEO | Assistant Estate Officer (internal role) \- to be confirmed. |
+| DWG | AutoCAD drawing file format used for building plans. |
+| OC | Occupation Certificate (also referred as Occupancy Certificate). |
+| DPC | Damp Proof Course. |
+
+# **7\. Current Process (As-Is)**
+
+The detailed existing (as-is) manual process is not provided in the input. It is assumed that legacy processing involved physical submission/verification of documents and in-office movement of files. Business stakeholders to confirm as-is steps if required.
+
+# **8\. To-Be Process Overview (Digital)**
+
+* Online application submission with document uploads and automated acknowledgement.  
+* Automated task routing to internal roles based on service and authority.  
+* Online status tracking and query/resubmission loops.  
+* Digitally generated Completion Certificate / Occupation Certificate published to applicant dashboard.
+
+# **9\. Workflow Details**
+
+## **9.1 Workflow Step Table**
+
+| Step No | Actor | Inputs | Action | Output/Decision | Next State | SLS | Exceptions / Notes |
+| :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| 1 | Citizen/Applicant | Completed form; uploaded documents | Fill application, upload documents, submit | Application submitted; acknowledgement generated | Submitted | Instant | If submission fails, application remains Draft. |
+| 2 | Clerk | Application data; documents | Scrutinize application as per role responsibilities; verify documents; record remarks. | Approve to next stage / Raise query / Recommend rejection | Under Review \- Clerk | 2 day(s) | Query can be raised for missing/invalid documents; applicant resubmits. |
+| 3 | Junior Engineer | Application data; documents | Scrutinize application as per role responsibilities; verify documents; record remarks. | Approve to next stage / Raise query / Recommend rejection | Under Review \- Junior Engineer | 2 day(s) | Query can be raised for missing/invalid documents; applicant resubmits. |
+| 4 | Field Inspection | Inspection assignment; site details | Conduct physical verification/site inspection; upload report and photos; record findings | Inspection report submitted | Inspection Completed | Within overall SLS (configure) | If site not accessible, record attempt and reschedule (Open Question). |
+| 5 | Senior Assistant | Application data; documents | Scrutinize application as per role responsibilities; verify documents; record remarks. | Approve to next stage / Raise query / Recommend rejection | Under Review \- Senior Assistant | 2 day(s) | Query can be raised for missing/invalid documents; applicant resubmits. |
+| 6 | SDO | Application data; documents | Scrutinize application as per role responsibilities; verify documents; record remarks. | Approve to next stage / Raise query / Recommend rejection | Under Review \- SDO | 2 day(s) | Query can be raised for missing/invalid documents; applicant resubmits. |
+| 7 | Estate Officer | Application data; documents | Scrutinize application as per role responsibilities; verify documents; record remarks. | Approve to next stage / Raise query / Recommend rejection | Under Review \- Estate Officer | 2 day(s) | Query can be raised for missing/invalid documents; applicant resubmits. |
+| 8 | System | Final approval decision | Generate Completion Certificate / Occupation Certificate with unique number; apply digital signature (if enabled); store and publish to applicant dashboard | Completion Certificate / Occupation Certificate issued / Application closed | Approved \- Issued / Rejected | Same day | If rejected, reason is communicated and application is closed. |
+
+## **9.2 State Model**
+
+| State | Description | Entry Trigger | Exit Trigger | Allowed Transitions |
+| :---- | :---- | :---- | :---- | :---- |
+| Draft | Application created but not submitted. | Citizen starts service. | Citizen submits application. | Draft \-\> Submitted; Draft \-\> Cancelled |
+| Submitted | Application submitted to authority and awaits scrutiny. | Successful submission. | Assigned to first internal role. | Submitted \-\> Under Scrutiny; Submitted \-\> Cancelled (admin) |
+| Under Scrutiny | Application under verification by internal roles. | Task assignment to role. | Approve to next role OR raise query OR reject. | Under Scrutiny \-\> Query Raised; Under Scrutiny \-\> Approved; Under Scrutiny \-\> Rejected |
+| Query Raised | Deficiency/query raised to applicant for correction. | Internal user raises query. | Applicant resubmits response. | Query Raised \-\> Resubmitted; Query Raised \-\> Closed (no response) |
+| Resubmitted | Applicant has responded to query and resubmitted. | Applicant resubmits. | Assigned back to relevant scrutiny stage. | Resubmitted \-\> Under Scrutiny |
+| Approved | Final approver approved the application. | Final approval action. | Certificate/letter generation. | Approved \-\> Issued |
+| Issued | Certificate/letter generated and delivered to applicant. | System generates output. | None. | Issued \-\> Closed |
+| Rejected | Application rejected with reason. | Rejection action by authorised role. | None. | Rejected \-\> Closed |
+| Closed | Application lifecycle completed. | Issued or rejected or auto-closed. | N/A. | N/A |
+
+# **9A. Data Requirements (DR)**
+
+## **9A.1 Key Entities & Attributes**
+
+* Application (ARN, service, authority, submission date/time, current status, decision details)  
+* Applicant (user id, name, contact details, identifiers as applicable)  
+* Property (UPN/plot/scheme/property identifiers) \- for property-linked services  
+* Document (doc id/type, filename, version, checksum/hash, upload timestamps, verification status)  
+* Workflow Task (stage, assignee, action, remarks, timestamps, SLA due date)  
+* Verification/Inspection (physical verification flag, verifier, findings, attachments, dates)  
+* Output (certificate/letter/order number, issue date, signed file reference)  
+* Audit Log (event type, actor, timestamp, before/after changes)
+
+## **9A.2 Field List Grouped by Screen/Step**
+
+Fields are derived from the published form on the service details page and grouped for implementation clarity.
+
+| Screen/Step | Field Group | Fields | Ownership & Editability |
+| :---- | :---- | :---- | :---- |
+| Application Form | Applicant Details | Full Name Remark | Citizen (editable until submission); read-only post submission |
+| Application Form | Property Details | UPN Area Authority Name; Plot Number Property Type Scheme Name | Citizen selects/enters; key attributes may be auto-fetched (assumption) |
+| Documents Upload | Document Uploads | Upload required documents as per checklist (DOC-01..). | Citizen uploads; replacement allowed only during query/rework |
+| Internal Scrutiny | Verification & Remarks | Document verification status; deficiency reasons; internal remarks; inspection report reference (if applicable). | Internal users only |
+
+## **9A.3 Data Validations & Mandatory Rules**
+
+* Mandatory fields: all published form fields must be validated on submit.  
+* Format validation: mobile/email format validation as applicable; identifiers (UPN/plot number) validated as per configured patterns (Open Question).  
+* Document validations: file type and size limits enforced per document; legibility check to be done during scrutiny.  
+* Rework: during query/resubmission, only queried fields/documents are editable (recommendation; confirm with PUDA).  
+* If physical verification is marked required, inspection report must be captured before final approval (to be confirmed).
+
+## **9A.4 Data Retention & Archival Flags**
+
+* Retention schedule to be confirmed with business; system shall support configurable retention categories (operational/audit/archival).  
+* Closed applications and issued outputs shall be archived for audit/legal needs (Open Question).  
+* Archival exports should maintain referential integrity between application, documents, tasks and audit logs.
+
+## **9A.5 Data Requirements (DR) \- Requirement List**
+
+| ID | Description | Priority | Acceptance Criteria |
+| :---- | :---- | :---- | :---- |
+| DR-01 | System shall store an Application record with unique ARN, service/authority, timestamps, current status and decision details. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-02 | System shall capture core application fields as per the published form (applicant and property identifiers) and maintain history of changes across rework cycles. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-03 | System shall link the application to the authenticated user profile and store applicant identifiers used for communication. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-04 | System shall store service-specific structured data (e.g., building plan, purchaser details, inspection details) as applicable. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-05 | System shall store Document metadata (type, filename, version, checksum/hash, upload timestamps, verifier status) and maintain linkage to the application. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-06 | System shall store Workflow Task data (stage/role, assignee, actions, remarks, timestamps, SLA due dates) for each processing step. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-07 | System shall store Decision data (approve/reject/query) with reason codes/remarks and decision-maker details. | Must | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-08 | System shall store Generated Output details (certificate/letter number, issue date, signed file reference, QR/verification reference if used). | Should | Data is persisted and retrievable via application view; updates follow ownership rules; audit reflects changes. |
+| DR-09 | System shall store Audit Log events for all critical actions and provide read-only audit view to authorised roles. | Must | Audit view shows complete event timeline per ARN with actor, timestamp and state transitions. |
+
+# **10\. Document Requirements**
+
+The following document checklist is derived from the service details page. Mandatory flags are based on the published requirement list (assumed mandatory unless stated otherwise).
+
+## **10.1 Document Checklist**
+
+| Doc ID | Document Name | Provided By | Mandatory | Stage | Validation/Notes |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| DOC-01 | Undertaking by owner with photograph | Citizen/Applicant | Yes | Submission | Verify legibility, relevance to property, and authenticity as per internal SOP. |
+| DOC-02 | Structure stability certificate | Citizen/Applicant | Yes | Submission | Verify legibility, relevance to property, and authenticity as per internal SOP. |
+| DOC-03 | Photographs of the completed building, to be pasted on the blank pages and duly attested by empanelled Architects | Citizen/Applicant | Yes | Submission | Verify legibility, relevance to property, and authenticity as per internal SOP. |
+| DOC-04 | Notice of completion | Citizen/Applicant | Yes | Submission | Verify legibility, relevance to property, and authenticity as per internal SOP. |
+| DOC-05 | Certificate of completion by empanelled Architect, of Authority as per list of empanelled Architects | Citizen/Applicant | Yes | Submission | Verify legibility, relevance to property, and authenticity as per internal SOP. |
+| DOC-06 | Any other supporting document | Citizen/Applicant | Yes | Submission | Verify legibility, relevance to property, and authenticity as per internal SOP. |
+
+# **11\. Functional Requirements (FR)**
+
+| ID | Description | Priority | Acceptance Criteria |
+| :---- | :---- | :---- | :---- |
+| FR-01 | System shall allow users to select the relevant Authority/jurisdiction and initiate a new application for the service. | Must | User can start a new application and is assigned a draft ARN. |
+| FR-02 | System shall provide an online application form capturing Applicant Details and Property Details as per the published form. | Must | All published form fields are available; required fields are validated on submit. |
+| FR-03 | System shall support Save Draft and Resume for partially filled applications. | Must | User can save a draft and later resume without data loss. |
+| FR-04 | System shall allow upload of mandatory and optional documents as listed for the service. | Must | User can upload documents; each document is listed with name, upload time, and status. |
+| FR-05 | System shall enforce mandatory data/document validations before allowing final submission. | Must | System blocks submission when mandatory field/document is missing/invalid and shows actionable errors. |
+| FR-06 | On successful submission, system shall generate acknowledgement (ARN) and show an on-screen receipt and downloadable PDF (recommended). | Should | Acknowledgement contains ARN, service name, date/time and is available on dashboard. |
+| FR-07 | System shall provide citizen dashboard to track application status, view task history and download issued output. | Must | Citizen can view status timeline and download issued output once available. |
+| FR-08 | System shall route the submitted application to the first internal processing role and create a task with due date. | Must | First internal user sees the application in inbox with SLA due date. |
+| FR-09 | Internal users shall be able to view application, verify documents, record remarks and either forward, raise query, or reject as per role permissions. | Must | Actions are permission-controlled; remarks are mandatory; decision is recorded with timestamp. |
+| FR-10 | System shall support query/rework loop: raise query with deficiency reasons, allow citizen resubmission, and re-route back to the appropriate stage. | Must | Citizen can respond to query; resubmission creates new document versions; workflow resumes at configured stage. |
+| FR-11 | System shall support capturing physical verification/inspection details where required (inspector, date, findings, attachments). | Should | Inspection report and evidence can be uploaded and linked to the application before final approval. |
+| FR-12 | System shall allow competent authority to approve/reject and system shall generate the final certificate/letter/order and publish it to citizen dashboard. | Must | On approval, output is generated with unique number and downloadable; on rejection, reason is shown to citizen. |
+| FR-13 | System shall allow internal users to generate/print internal notes and letters (if applicable) and attach them to the case file. | Could | Generated internal notes are stored and visible to authorised roles. |
+| FR-14 | System shall maintain complete application history including versions of documents and workflow actions for audit. | Must | History view shows all versions and actions with timestamps. |
+| FR-15 | System shall support search and filters for internal users by ARN, property identifiers and applicant name. | Should | Search returns relevant applications; results respect jurisdiction access. |
+| FR-16 | System shall provide configurable reason codes for query and rejection to standardise communication. | Should | Internal users can select reason codes; codes appear in notifications and letters. |
+| FR-17 | System shall support download/print of blank application form and sample document templates where provided on the portal. | Should | User can download blank form and sample templates from the service page. |
+| FR-18 | System shall provide configurable SLA timers and escalation alerts for each workflow stage. | Should | Stage due dates are computed; breaches are highlighted and alerts are triggered. |
+
+# **12\. Non-Functional Requirements (NFR)**
+
+| ID | Description | Priority | Acceptance Criteria |
+| :---- | :---- | :---- | :---- |
+| NFR-01 | System shall be available for citizens and staff as per agreed uptime target (to be confirmed). | Should | Uptime is measured monthly and meets target; downtime incidents are logged. |
+| NFR-02 | Key user actions (login, service load, submit, status view) shall meet performance targets. | Should | 95th percentile response times meet agreed thresholds (Open Question). |
+| NFR-03 | System shall support scalability to handle peak loads without service disruption. | Should | Load testing demonstrates throughput and stability. |
+| NFR-04 | System shall enforce role-based access control (RBAC) for all citizen and internal functions. | Must | Unauthorised actions are blocked; roles can access only permitted data. |
+| NFR-05 | All sensitive data (PII, documents) shall be encrypted in transit and at rest (recommendation). | Must | TLS is enforced; storage encryption is enabled. |
+| NFR-06 | System shall maintain audit logs and provide traceability for every application action. | Must | Audit view shows who did what and when; logs are tamper-resistant. |
+| NFR-07 | System shall ensure usability and guidance (field help, validations, clear error messages). | Must | Users can complete application with minimal training; validation messages are actionable. |
+| NFR-08 | System shall be mobile responsive and compatible with common browsers. | Must | UI works on Android/iOS web views and modern browsers. |
+| NFR-09 | System shall support accessibility and localisation as per government guidelines (to be confirmed). | Could | UI supports language switching; accessible labels and contrast. |
+| NFR-10 | System shall support configurable document formats, size limits, and service configurations without code changes where feasible. | Should | Admin can update configurations and changes reflect in forms/validations. |
+
+# **12A. Audit & Compliance Requirements**
+
+## **12A.1 Audit Trail Events**
+
+* Citizen login/logout; assisted channel marker (if applicable).  
+* Application created, saved, edited, submitted, withdrawn/cancelled (if supported).  
+* Document upload, replacement/version update, download/view by internal users.  
+* Workflow assignment changes, forward actions, query issuance, resubmission events.  
+* Decision events: approve/reject, with remarks and reason codes.  
+* System-generated outputs: acknowledgement, letter/certificate generation, digital signing events (if used).  
+* Notifications dispatched (SMS/email/in-app) including failures and retries.  
+* Administrative configuration changes (SLA settings, document requirements, role mappings).  
+* Physical verification/inspection events: assignment, completion, findings, verifier remarks.
+
+## **12A.2 Document Integrity & Versioning**
+
+* Each uploaded file shall be stored with checksum/hash to detect tampering (recommendation).  
+* If a document is re-uploaded during query cycle, system shall create a new version and retain older versions.  
+* Generated outputs shall be stored as immutable files once issued.
+
+## **12A.3 Access Logging & Role-based Viewing**
+
+* All document views/downloads by internal users shall be logged with user id, timestamp and ARN.  
+* RBAC shall restrict access to applications and documents based on role and jurisdiction/authority mapping.  
+* Sensitive identifiers should be masked for roles that do not require full visibility (recommendation).
+
+## **12A.4 Retention & Archival**
+
+* Retention schedule to be confirmed with business; system shall support configurable retention categories (operational/audit/archival).  
+* Archival exports should maintain referential integrity between application, documents, tasks and audit logs.
+
+# **13\. Business Rules (BR)**
+
+| ID | Rule Description | Priority | Acceptance Criteria |
+| :---- | :---- | :---- | :---- |
+| BR-01 | Application submission is allowed only when all mandatory fields and documents are provided. | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-02 | Internal roles must record remarks for all actions (forward/query/reject/approve). | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-03 | If query is raised, citizen can resubmit; system retains previous versions and maintains rework count. | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-04 | Final approval is allowed only after all verification steps configured for the service are completed. | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-05 | Issued output shall carry unique number and be retrievable for verification and audit. | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-06 | Completion/occupation certificate application must include attested photographs and structure stability certificate as per required documents list. | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-07 | Completion certificate by empanelled architect must be from authority empanelled list (Open Question on validation method). | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-08 | (Reserved for future rule configuration) | Must | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-09 | (Reserved for future rule configuration) | Should | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-10 | (Reserved for future rule configuration) | Should | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+| BR-11 | (Reserved for future rule configuration) | Should | Rule is enforced via validations/workflow; evidence is visible in case history/audit. |
+
+# **14\. Integrations (IR)**
+
+| ID | Integration Requirement | Priority | Acceptance Criteria |
+| :---- | :---- | :---- | :---- |
+| IR-01 | Property master/UPN lookup for fetching property metadata (scheme, plot size, status, dues flag). | Must | After property identification, system can fetch and display read-only property attributes; failures are handled gracefully. |
+| IR-02 | Document Management System (DMS) / object storage for uploaded documents and generated certificates. | Must | Documents are stored securely with unique IDs and retrievable by authorised users. |
+| IR-03 | Notification gateway (SMS/Email/WhatsApp) for status updates. | Should | Notifications are triggered on configured events and delivery status is logged. |
+| IR-04 | Digital signature/eSign service for issuing digitally signed letters/certificates. | Should | System can apply digital signature on generated output and verify signature validity. |
+| IR-05 | External fee verification (if any fee is paid outside portal) via receipt upload and manual verification. | Could | Verifier can mark receipt as verified/unverified with remarks. |
+| IR-06 | Integration with user profile (SSO) to fetch verified contact details for communication. | Must | Contact details are available for notifications and stored with the application. |
+| IR-07 | Integration with MIS/data warehouse for reporting (if applicable). | Could | MIS exports include required dimensions and are refreshed as per schedule. |
+| IR-08 | Integration with grievance/helpdesk module to raise tickets from application context (optional). | Could | Citizen can raise ticket referencing ARN; status sync is visible. |
+
+# **15\. Notifications & Communication**
+
+## **15.1 Notification Events**
+
+* Application submitted \- send acknowledgement with ARN.  
+* Query raised \- notify applicant with due date and link to respond.  
+* Application approved \- notify applicant and provide download link.  
+* Application rejected \- notify applicant with reason and next steps (if any).  
+* SLA nearing breach / breached \- internal alerts to supervisors (recommended).
+
+## **15.2 Sample Notification Templates (Indicative)**
+
+SMS \- Application Submitted (Template)
+
+PUDA: Your 'Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards' application has been submitted. ARN: {ARN}. Track status on portal.
+
+SMS \- Query Raised (Template)
+
+PUDA: Query raised for ARN {ARN} in 'Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards'. Please respond by {DUE\_DATE} on portal.
+
+SMS \- Application Approved (Template)
+
+PUDA: Your 'Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards' application ARN {ARN} is approved. Download certificate/letter from portal.
+
+SMS \- Application Rejected (Template)
+
+PUDA: Your 'Issue of Completion Certificate/ Occupation Certificate Above 1000 Sq Yards' application ARN {ARN} is rejected. Reason: {SHORT\_REASON}. Details on portal.
+
+# **16\. Reporting & MIS (REP)**
+
+| ID | Report/Metric | Priority | Acceptance Criteria |
+| :---- | :---- | :---- | :---- |
+| REP-01 | Daily applications received/approved/rejected by service and authority. | Must | Report shows counts by date, authority, service, and status. |
+| REP-02 | Stage-wise pending and ageing dashboard. | Must | Dashboard shows pending applications by role/stage with ageing buckets (0-2, 3-5, \>5 days configurable). |
+| REP-03 | SLA compliance report. | Should | Report shows % within SLS, average handling time, and breached cases with reasons. |
+| REP-04 | Query/rework analytics. | Could | Report shows number of queries raised, average turnaround time for citizen resubmission, and common deficiency reasons. |
+| REP-05 | Document deficiency/mismatch reasons. | Could | Report shows top document rejection/deficiency categories for process improvement. |
+| REP-06 | Inspection/physical verification pending report (if applicable). | Could | Report lists applications with inspection status and ageing. |
+| REP-07 | Branch-wise workload distribution by role (tasks assigned/completed). | Should | Report shows counts by role and office/authority. |
+
+# **17\. SLAs/SLS, Escalation & Rework Rules**
+
+## **17.1 Published SLS**
+
+As per the service details page, overall application disposal time is 14 day(s) with stage-wise allocation:
+
+* Clerk: 2 day(s)  
+* Junior Engineer: 2 day(s)  
+* Senior Assistant: 2 day(s)  
+* SDO: 2 day(s)  
+* Estate Officer: 2 day(s)
+
+## **17.2 SLA Clock Handling (Recommendations)**
+
+* SLA timer starts when application is successfully submitted (and payment/instrument details captured successfully, if applicable).  
+* SLA timer pauses during applicant query response window (recommended) and resumes upon resubmission (policy to be confirmed).  
+* Stage-wise SLA should be tracked per task with due dates and escalation triggers.
+
+## **17.3 Escalation Matrix (To be confirmed)**
+
+The input does not provide escalation roles. Recommended approach (to be validated):
+
+* If first stage exceeds SLA: escalate to immediate supervisor (e.g., Superintendent/Section Head).  
+* If final stage exceeds SLA: escalate to Branch Head/Competent Authority.  
+* If overall SLS is breached: escalate to Chief Administrator/Head Office as per PUDA escalation SOP (Open Question).
+
+## **17.4 Rework & Rejection Rules**
+
+* Query can be raised for missing documents, invalid formats, data mismatch, or need for clarification.  
+* Citizen can resubmit corrected information/documents; system maintains rework count and history.  
+* If citizen does not respond within configured window, application may be auto-closed (Open Question).  
+* Rejection must capture reason code and remarks; citizen can view reason on dashboard.
+
+# **18\. Test Scenarios**
+
+Test cases below cover happy path, rework, rejection, SLA breach, document mismatch, and payment failure (conditional).
+
+| TC ID | Scenario | Preconditions | Steps (High-level) | Expected Result | Type |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| TC-01 | Happy path submission and approval | Citizen logged in; valid property; all documents available | Fill form \-\> upload docs \-\> submit \-\> internal approves all stages \-\> output issued | Application reaches Issued; certificate/letter downloadable | Happy Path |
+| TC-02 | Missing mandatory document at submission | Citizen logged in | Attempt submit without uploading one required document | System blocks submission and shows missing document error | Negative |
+| TC-03 | Invalid document format/size | Citizen logged in | Upload file with unsupported format/oversized file | System rejects upload with clear message | Negative |
+| TC-04 | Query raised by verifier and resubmission | Application submitted | Clerk/Verifier raises query \-\> citizen uploads corrected doc \-\> resubmits | Application returns to scrutiny; audit shows rework; can be approved | Rework |
+| TC-05 | Rejection by competent authority | Application submitted | Approver rejects with reason | Citizen sees rejection reason; status is Rejected/Closed | Negative |
+| TC-06 | Physical verification required and completed | Application submitted; inspection required | Inspector completes site visit and uploads report | Inspection report attached; application can proceed to approval | Inspection |
+| TC-07 | SLA breach handling | Application submitted | Do not action at a stage beyond configured SLS | System flags SLA breach; escalation notification triggered; dashboard reflects breach | SLA |
+| TC-08 | Document mismatch detected | Application submitted | Verifier marks document as deficient due to mismatch (e.g., property no. mismatch) | Query raised with deficiency reason; citizen required to correct | Negative |
+| TC-09 | External receipt upload (if applicable) | Receipt required | Upload mining/other fee receipt and submit | Verifier can mark receipt verified/unverified | Conditional |
+| TC-10 | System downtime during upload | Citizen logged in | Upload document when network interruption occurs | Auto-retry or clear error; previously uploaded docs remain saved | Resilience |
+
+# **19\. Traceability Matrix, Risks, Dependencies, Assumptions & Open Questions**
+
+## **19.1 Traceability Matrix**
+
+| Workflow Step | Step Name | Mapped Requirements (FR/BR/DR/IR/NFR/REP) | Mapped Test Cases |
+| :---- | :---- | :---- | :---- |
+| 1 | Citizen submission | FR-01, FR-02, FR-03, FR-04, FR-05, DR-01, DR-02, DR-05 | TC-01, TC-02, TC-03 |
+| 2 | System validation & assignment | FR-08, FR-14, IR-01, IR-02, NFR-02 | TC-01 |
+| 3 | Clerk scrutiny | FR-09, FR-10, BR-01, BR-02, DR-06, REP-02 | TC-04, TC-08 |
+| 4 | Citizen resubmission | FR-10, BR-03, DR-05 | TC-04 |
+| 5 | Subsequent role review/approval | FR-09, FR-12, BR-04, BR-05 | TC-01, TC-05 |
+| 6 | SLA monitoring & escalation | FR-18, NFR-06, REP-03 | TC-07 |
+| 7 | Output issuance & closure | FR-12, DR-08, DR-09, IR-04 | TC-01 |
+| 8 | Citizen download | FR-07, NFR-08 | TC-01 |
+
+## **19.2 Dependencies**
+
+* Property master data availability for selected authority/scheme (UPN/property number lookup).  
+* Document storage and retrieval service.  
+* Notification gateway availability.  
+* Digital signature/eSign setup (if output requires signing).
+
+## **19.3 Risks**
+
+* Mismatch between published overall SLS and sum of stage-wise allocations in input; may require reconciliation with PUDA (Open Question).  
+* Physical verification dependency may cause delays if not scheduled/tracked digitally.  
+* Applicants may upload incorrect/unclear documents leading to rework and SLA breaches.  
+* If original documents must be submitted physically, lack of tracking may cause dispute (Open Question).
+
+## **19.4 Assumptions**
+
+* Citizen authentication and profile management are available as part of PUDA portal platform.  
+* Role mapping (Clerk/Senior Assistant/JE/SDO/etc.) and jurisdiction assignment are configured by PUDA admin.  
+* Issued output is generated in a standard PDF format and is downloadable by applicant; exact format and signing method to be confirmed.
+
+## **19.5 Open Questions for Business Confirmation**
+
+* Eligibility: Who can apply (owner, purchaser/transferee, authorised representative)?  
+* Fee/Payment: Is any processing fee applicable for this service? If yes, fee heads and payment mode (online vs offline).  
+* Property identification: Which fields are manually entered vs auto-fetched from property master? Is UPN mandatory for all authorities?  
+* Physical verification: What is the checklist and what evidence is required (photos, geo-tag)? Who performs it?  
+* Document formats/size limits: What are the allowed file types and maximum sizes for each document?  
+* Original document submission: Are any originals required physically? How should the portal acknowledge and track it?  
+* Digital signature: Which role signs the final output and what certificate standard is used?  
+* Is there any linkage with previous approvals (building plan sanction, DPC, water/sewer connection) required before issuing occupation certificate?
+
+## **19.6 References**
+
+* Service details page (input): https://www.puda.gov.in/service-details/1787  
+* No external/public policy sources were used to define PUDA rules. Any best-practice statements are treated as recommendations and require business confirmation.
