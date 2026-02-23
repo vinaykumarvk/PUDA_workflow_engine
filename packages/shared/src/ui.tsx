@@ -109,6 +109,50 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   );
 }
 
+export function PasswordInput({ className, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const [visible, setVisible] = useState(false);
+  const fieldContext = useContext(FieldContext);
+  const { id, "aria-describedby": ariaDescribedByProp, "aria-invalid": ariaInvalidProp, ...rest } = props;
+  const ariaDescribedBy = mergeDescribedBy(ariaDescribedByProp, [
+    fieldContext?.hintId,
+    fieldContext?.errorId
+  ]);
+  const ariaInvalid = ariaInvalidProp ?? (fieldContext?.hasError ? true : undefined);
+
+  return (
+    <div className="ui-password-wrapper">
+      <input
+        {...rest}
+        type={visible ? "text" : "password"}
+        id={id ?? fieldContext?.controlId}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        className={cx("ui-input", "ui-input--has-toggle", className)}
+      />
+      <button
+        type="button"
+        className="ui-password-toggle"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+        tabIndex={-1}
+      >
+        {visible ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   const fieldContext = useContext(FieldContext);
   const { id, "aria-describedby": ariaDescribedByProp, "aria-invalid": ariaInvalidProp, ...rest } = props;

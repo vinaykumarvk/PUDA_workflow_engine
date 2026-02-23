@@ -465,6 +465,36 @@ textarea,
   resize: vertical;
 }
 
+.ui-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ui-password-wrapper .ui-input {
+  padding-right: 2.75rem;
+}
+
+.ui-password-toggle {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.ui-password-toggle:hover {
+  color: var(--color-text);
+}
+
 .ui-field {
   display: grid;
   gap: var(--space-2);

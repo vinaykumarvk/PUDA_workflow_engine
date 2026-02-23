@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, Field, Input } from "@puda/shared";
+import { Alert, Button, Field, Input, PasswordInput } from "@puda/shared";
 import "./login.css";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "./theme";
@@ -414,9 +414,8 @@ export default function Login() {
             </Field>
 
             <Field label="Password" htmlFor="password" required>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

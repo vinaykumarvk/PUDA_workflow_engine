@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Button, Field, Input } from "@puda/shared";
+import { Alert, Button, Field, Input, PasswordInput } from "@puda/shared";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "./theme";
 
@@ -61,9 +61,8 @@ export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
             />
           </Field>
           <Field label="Password" htmlFor="officer-login-password" required>
-            <Input
+            <PasswordInput
               id="officer-login-password"
-              type="password"
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
               required
