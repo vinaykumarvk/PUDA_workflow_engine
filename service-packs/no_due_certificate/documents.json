@@ -1,0 +1,12 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_PAYMENT_RECEIPT",
+      "name": "Upload payment receipt in case payment details of transaction is not updated in system",
+      "mandatory": false,
+      "requiredWhenRuleId": "RECEIPT_REQUIRED_WHEN_PAYMENT_NOT_UPDATED",
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

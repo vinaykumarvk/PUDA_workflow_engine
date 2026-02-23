@@ -1,0 +1,25 @@
+serviceKey: sanction_of_sewerage_connection
+displayName: Sanction of Sewerage Connection
+category: WATER_SEWERAGE_SERVICES
+description: Sanction/approval for sewerage connection
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: warn

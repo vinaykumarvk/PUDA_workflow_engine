@@ -1,0 +1,55 @@
+# ==============================================================================
+# PUDA Citizen Portal — Static SPA
+# Multi-stage build: Vite build → nginx for Cloud Run
+# ==============================================================================
+
+# --- Stage 1: Install dependencies and build ---
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copy workspace-level package files
+COPY package.json package-lock.json ./
+COPY apps/citizen/package.json apps/citizen/package.json
+COPY packages/shared/package.json packages/shared/package.json
+
+# Install dependencies (including devDependencies for vite build)
+RUN npm ci --workspace=apps/citizen --workspace=packages/shared --include-workspace-root
+
+# Copy source files needed for compilation
+COPY tsconfig.base.json ./
+COPY packages/shared/tsconfig.json packages/shared/
+COPY packages/shared/src/ packages/shared/src/
+COPY apps/citizen/tsconfig.json apps/citizen/
+COPY apps/citizen/vite.config.ts apps/citizen/
+COPY apps/citizen/index.html apps/citizen/
+COPY apps/citizen/src/ apps/citizen/src/
+
+# Build-time env vars for the SPA (baked into the JS bundle)
+# Override at build time: docker build --build-arg VITE_API_BASE_URL=https://api.puda.gov.in
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+# Build the citizen SPA
+RUN npm run build:citizen
+
+# --- Stage 2: Serve with nginx ---
+FROM nginx:1.27-alpine AS production
+
+# Copy built SPA assets from build stage
+# Vite outputs to apps/citizen/dist/ by default
+COPY --from=build /app/apps/citizen/dist/ /usr/share/nginx/html/
+
+# Custom nginx config for SPA routing and Cloud Run PORT
+COPY nginx.citizen.conf /etc/nginx/templates/default.conf.template
+
+# Cloud Run requires the container to listen on $PORT (default 8080)
+ENV PORT=8080
+
+EXPOSE 8080
+
+# nginx with envsubst for dynamic PORT
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/ || exit 1
+
+CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

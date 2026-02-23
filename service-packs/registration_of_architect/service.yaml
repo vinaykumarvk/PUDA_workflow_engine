@@ -1,0 +1,25 @@
+serviceKey: registration_of_architect
+displayName: Registration of Architect
+category: PROFESSIONAL_REGISTRATION
+description: Registration/empanelment of architects with the authority
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 4
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: false
+
+submissionValidation:
+  propertyRequired: false
+  enforcementMode: warn

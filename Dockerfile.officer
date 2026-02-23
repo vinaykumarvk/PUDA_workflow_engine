@@ -1,0 +1,50 @@
+# ==============================================================================
+# PUDA Officer Portal — Static SPA
+# Multi-stage build: Vite build → nginx for Cloud Run
+# ==============================================================================
+
+# --- Stage 1: Install dependencies and build ---
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copy workspace-level package files
+COPY package.json package-lock.json ./
+COPY apps/officer/package.json apps/officer/package.json
+COPY packages/shared/package.json packages/shared/package.json
+
+# Install dependencies (including devDependencies for vite build)
+RUN npm ci --workspace=apps/officer --workspace=packages/shared --include-workspace-root
+
+# Copy source files needed for compilation
+COPY tsconfig.base.json ./
+COPY packages/shared/tsconfig.json packages/shared/
+COPY packages/shared/src/ packages/shared/src/
+COPY apps/officer/tsconfig.json apps/officer/
+COPY apps/officer/vite.config.ts apps/officer/
+COPY apps/officer/index.html apps/officer/
+COPY apps/officer/src/ apps/officer/src/
+
+# Build-time env vars for the SPA
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+# Build the officer SPA
+RUN npm run build:officer
+
+# --- Stage 2: Serve with nginx ---
+FROM nginx:1.27-alpine AS production
+
+# Copy built SPA assets
+COPY --from=build /app/apps/officer/dist/ /usr/share/nginx/html/
+
+# Reuse the same nginx config pattern
+COPY nginx.officer.conf /etc/nginx/templates/default.conf.template
+
+ENV PORT=8080
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/ || exit 1
+
+CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

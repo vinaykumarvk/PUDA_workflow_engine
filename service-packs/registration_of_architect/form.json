@@ -1,0 +1,88 @@
+{
+  "formId": "FORM_REGISTRATION_OF_ARCHITECT",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_APPLICATION",
+      "title": "Application Details",
+      "sections": [
+        {
+          "sectionId": "SEC_AUTHORITY",
+          "title": "Authority",
+          "fields": [
+            {
+              "key": "authority_id",
+              "label": "Select Authority",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "PUDA", "label": "PUDA" },
+                  { "value": "GMADA", "label": "GMADA" },
+                  { "value": "GLADA", "label": "GLADA" },
+                  { "value": "BDA", "label": "BDA" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_PERSONAL",
+      "title": "Personal Details",
+      "sections": [
+        {
+          "sectionId": "SEC_PERSONAL",
+          "title": "Applicant Information",
+          "fields": [
+            { "sharedSection": "applicant" }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_COA",
+      "title": "Council of Architecture Registration",
+      "sections": [
+        {
+          "sectionId": "SEC_COA",
+          "title": "CoA Registration Details",
+          "fields": [
+            { "key": "coa.certificate_number", "label": "Certificate Number", "type": "string", "required": true },
+            { "key": "coa.valid_from", "label": "Valid From", "type": "date", "required": true },
+            { "key": "coa.valid_till", "label": "Valid Till", "type": "date", "required": true }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_ADDRESS",
+      "title": "Address Details",
+      "sections": [
+        {
+          "sectionId": "SEC_PERMANENT_ADDRESS",
+          "title": "Permanent Address",
+          "fields": [
+            { "key": "address.permanent.line1", "label": "Address Line 1", "type": "string", "required": true },
+            { "key": "address.permanent.state", "label": "State", "type": "string", "required": true },
+            { "key": "address.permanent.district", "label": "District", "type": "string", "required": true },
+            { "key": "address.permanent.pincode", "label": "Pincode", "type": "string", "required": true }
+          ]
+        },
+        {
+          "sectionId": "SEC_OFFICIAL_ADDRESS",
+          "title": "Official Address",
+          "fields": [
+            { "key": "address.official.same_as_permanent", "label": "Same as Permanent Address", "type": "boolean", "required": false },
+            { "key": "address.official.line1", "label": "Address Line 1", "type": "string", "required": true },
+            { "key": "address.official.state", "label": "State", "type": "string", "required": true },
+            { "key": "address.official.district", "label": "District", "type": "string", "required": true },
+            { "key": "address.official.pincode", "label": "Pincode", "type": "string", "required": true }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+serviceKey: sanction_of_water_supply
+displayName: Sanction of Water Supply
+category: WATER_SEWERAGE_SERVICES
+description: Sanction/approval for permanent water supply connection
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: warn

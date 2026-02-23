@@ -1,0 +1,547 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  service-pack-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate service-pack metadata preflight
+        run: npm --workspace apps/api run preflight:service-packs
+
+  runtime-adapter-preflight:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      PAYMENT_GATEWAY_PROVIDER: razorpay
+      RAZORPAY_KEY_ID: ci-placeholder-key-id
+      RAZORPAY_KEY_SECRET: ci-placeholder-key-secret
+      PAYMENT_GATEWAY_WEBHOOK_SECRET: ci-placeholder-webhook-secret
+      PAYMENT_SIGNATURE_REQUIRED: "true"
+      EMAIL_PROVIDER: smtp
+      SMTP_HOST: smtp.example.local
+      SMTP_PORT: "587"
+      SMTP_FROM: noreply@example.local
+      EMAIL_ENABLED: "true"
+      SMS_PROVIDER: stub
+      SMS_ENABLED: "false"
+      OFFICER_MFA_REQUIRED_ON_DECISION: "true"
+      OFFICER_MFA_DELIVERY_CHANNELS: email
+      ALLOW_STUB_SMS_PROVIDER_IN_PRODUCTION: "true"
+      ALLOW_STUB_EMAIL_PROVIDER_IN_PRODUCTION: "false"
+      ALLOW_STUB_PAYMENT_PROVIDER_IN_PRODUCTION: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate runtime provider adapter preflight
+        run: npm --workspace apps/api run preflight:runtime-adapters
+
+  iac-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt check
+        run: terraform -chdir=ops/iac/terraform fmt -check -recursive
+
+      - name: Terraform init (no backend)
+        run: terraform -chdir=ops/iac/terraform init -backend=false
+
+      - name: Terraform validate
+        run: terraform -chdir=ops/iac/terraform validate
+
+  endpoint-matrix-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check endpoint matrix drift
+        run: npm --workspace apps/api run check:endpoint-matrix
+
+  openapi-drift:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      VITEST: "true"
+      JWT_SECRET: ci-test-secret
+      ALLOWED_ORIGINS: http://localhost:5173
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check OpenAPI drift
+        run: npm --workspace apps/api run check:openapi
+
+  openapi-contract-quality:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      VITEST: "true"
+      JWT_SECRET: ci-test-secret
+      ALLOWED_ORIGINS: http://localhost:5173
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve OpenAPI compare ref
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF}" ]; then
+            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+            echo "OPENAPI_COMPARE_REF=origin/${GITHUB_BASE_REF}" >> "$GITHUB_ENV"
+          else
+            echo "OPENAPI_COMPARE_REF=" >> "$GITHUB_ENV"
+          fi
+
+      - name: Enforce OpenAPI contract quality
+        run: npm --workspace apps/api run check:openapi:contracts
+
+  observability-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate observability artifacts and runbook links
+        run: npm run check:observability
+
+  slo-alert-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate SLO burn-rate alert rules via synthetic replay
+        run: npm run check:slo-alerts
+
+  citizen-cache-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run citizen cache unit tests (fail fast)
+        run: npm run test:citizen:unit
+
+  build-and-typecheck:
+    needs: [service-pack-preflight, runtime-adapter-preflight, iac-validate, endpoint-matrix-drift, openapi-drift, openapi-contract-quality, observability-artifacts, slo-alert-tests, citizen-cache-unit]
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: ci-test-secret
+      DATABASE_URL: postgres://puda:puda@localhost:5432/puda
+      ALLOWED_ORIGINS: http://localhost:5173
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (if configured)
+        run: npm run lint --if-present
+
+      - name: Build (workspace typecheck gate)
+        run: npm run build:all
+
+  frontend-performance-budget:
+    needs: [build-and-typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build citizen and officer portals
+        run: npm run build:citizen && npm run build:officer
+
+      - name: Enforce frontend performance budgets
+        run: npm run check:frontend-budgets
+
+      - name: Upload bundle size report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-bundle-report
+          path: frontend-bundle-report.json
+          if-no-files-found: ignore
+
+  api-load-smoke:
+    needs: [build-and-typecheck]
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      VITEST: "true"
+      JWT_SECRET: ci-test-secret
+      ALLOWED_ORIGINS: http://localhost:5173
+      LOAD_TEST_DURATION_SECONDS: "10"
+      LOAD_TEST_CONNECTIONS: "20"
+      LOAD_TEST_PIPELINING: "1"
+      LOAD_TEST_P95_MS_BUDGET: "400"
+      LOAD_TEST_MIN_RPS: "50"
+      LOAD_TEST_MAX_ERRORS: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run API load smoke gate
+        run: npm run test:api:load
+
+  api-dast-local:
+    needs: [build-and-typecheck]
+    runs-on: ubuntu-latest
+    env:
+      ZAP_MAX_HIGH: "0"
+      ZAP_MAX_MEDIUM: "10"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run local API DAST smoke gate
+        run: npm run test:api:dast:local
+
+      - name: Upload local DAST reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-local-report
+          path: outputs/dast-local
+          if-no-files-found: warn
+
+  ui-a11y-smoke:
+    needs: [build-and-typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build citizen and officer portals
+        run: npm run build:citizen && npm run build:officer
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run accessibility smoke tests
+        run: npm run test:e2e:a11y
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-a11y-report
+          path: playwright-report
+          if-no-files-found: ignore
+
+  api-tests:
+    name: api-tests-${{ matrix.suite }}
+    needs: [service-pack-preflight, runtime-adapter-preflight, iac-validate, endpoint-matrix-drift, openapi-drift, openapi-contract-quality, observability-artifacts, slo-alert-tests]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [authz, brd, rest]
+    env:
+      NODE_ENV: test
+      VITEST: "true"
+      JWT_SECRET: ci-test-secret
+      DATABASE_URL: postgres://puda:puda@localhost:5432/puda
+      DATABASE_URL_TEST: postgres://puda:puda@localhost:5432/puda
+      ALLOWED_ORIGINS: http://localhost:5173
+      RATE_LIMIT_MAX: "10000"
+      AADHAR_OTP_DEV_BYPASS: "false"
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: puda
+          POSTGRES_USER: puda
+          POSTGRES_PASSWORD: puda
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U puda -d puda"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run migrations
+        run: npm --workspace apps/api run migrate
+
+      - name: Seed test data
+        run: npm --workspace apps/api run seed
+
+      - name: Run API regression shard
+        run: npm --workspace apps/api run test:${{ matrix.suite }}
+
+  api-critical-coverage:
+    needs: [service-pack-preflight, runtime-adapter-preflight, iac-validate, endpoint-matrix-drift, openapi-drift, openapi-contract-quality, observability-artifacts, slo-alert-tests]
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      VITEST: "true"
+      JWT_SECRET: ci-test-secret
+      DATABASE_URL: postgres://puda:puda@localhost:5432/puda
+      DATABASE_URL_TEST: postgres://puda:puda@localhost:5432/puda
+      ALLOWED_ORIGINS: http://localhost:5173
+      RATE_LIMIT_MAX: "10000"
+      AADHAR_OTP_DEV_BYPASS: "false"
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: puda
+          POSTGRES_USER: puda
+          POSTGRES_PASSWORD: puda
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U puda -d puda"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run migrations
+        run: npm --workspace apps/api run migrate
+
+      - name: Seed test data
+        run: npm --workspace apps/api run seed
+
+      - name: Run critical coverage suite (workflow + payments)
+        run: npm --workspace apps/api run test:critical
+
+      - name: Upload critical coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-critical-coverage-summary
+          path: apps/api/coverage-critical/coverage-summary.json
+          if-no-files-found: warn
+
+  e2e-tests:
+    needs: [build-and-typecheck]
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      VITEST: "true"
+      JWT_SECRET: ci-test-secret
+      DATABASE_URL: postgres://puda:puda@localhost:5432/puda
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+      RATE_LIMIT_MAX: "10000"
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: puda
+          POSTGRES_USER: puda
+          POSTGRES_PASSWORD: puda
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U puda -d puda"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run migrations
+        run: npm --workspace apps/api run migrate
+
+      - name: Seed test data
+        run: npm --workspace apps/api run seed
+
+      - name: Build frontends
+        run: npm run build:citizen && npm run build:officer
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_RETRIES: "2"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-report
+          path: playwright-report
+          if-no-files-found: ignore
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency audit (high severity)
+        run: npm audit --omit=dev --audit-level=high

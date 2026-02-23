@@ -1,0 +1,133 @@
+.login-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+}
+
+.login-container {
+  width: min(100%, 30rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-7);
+}
+
+.login-header {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.login-header h1 {
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  letter-spacing: -0.02em;
+}
+
+.login-header-controls {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.lang-toggle {
+  min-height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+}
+
+.lang-toggle:hover {
+  background: var(--color-bg-elevated);
+}
+
+.login-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.tab {
+  min-height: 2.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0 var(--space-3);
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: var(--color-bg-elevated);
+}
+
+.tab.active {
+  border-color: color-mix(in srgb, var(--color-brand), var(--color-border) 50%);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-hover);
+}
+
+.login-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.form-group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.form-group label {
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.form-hint {
+  color: var(--color-text-subtle);
+  font-size: 0.8rem;
+}
+
+.btn-primary {
+  width: 100%;
+}
+
+.btn-link {
+  width: 100%;
+  text-align: center;
+}
+
+.login-footer {
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+@media (max-width: 30rem) {
+  .login-page {
+    padding: var(--space-4);
+  }
+
+  .login-container {
+    padding: var(--space-5);
+  }
+
+  .login-tabs {
+    grid-template-columns: 1fr;
+  }
+}

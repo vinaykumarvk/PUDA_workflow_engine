@@ -1,0 +1,91 @@
+name: Deploy Cloud Run (Canary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Cloud Run service name (e.g. puda-api)"
+        required: true
+        type: string
+      image:
+        description: "Container image URL with tag/digest"
+        required: true
+        type: string
+      project_id:
+        description: "GCP project ID"
+        required: true
+        type: string
+      region:
+        description: "Cloud Run region"
+        required: false
+        default: "asia-south1"
+        type: string
+      canary_percent:
+        description: "Percent traffic to new revision (1-99)"
+        required: false
+        default: "10"
+        type: string
+      health_path:
+        description: "Health probe path used by canary script"
+        required: false
+        default: "/health"
+        type: string
+      promote_full_traffic:
+        description: "Promote canary revision to 100% traffic if healthy"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloudrun-${{ github.event.inputs.service }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-canary:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run canary deploy + automated rollback probe
+        env:
+          HEALTH_PATH: ${{ github.event.inputs.health_path }}
+        run: |
+          ./scripts/deploy-cloudrun-canary.sh \
+            "${{ github.event.inputs.service }}" \
+            "${{ github.event.inputs.image }}" \
+            "${{ github.event.inputs.project_id }}" \
+            "${{ github.event.inputs.region }}" \
+            "${{ github.event.inputs.canary_percent }}"
+
+      - name: Promote healthy canary to 100% traffic
+        if: ${{ github.event.inputs.promote_full_traffic == 'true' }}
+        run: |
+          NEW_REVISION="$(gcloud run services describe "${{ github.event.inputs.service }}" \
+            --project "${{ github.event.inputs.project_id }}" \
+            --region "${{ github.event.inputs.region }}" \
+            --format='value(status.latestCreatedRevisionName)')"
+          if [ -z "${NEW_REVISION}" ]; then
+            echo "Failed to resolve latest created revision for promotion."
+            exit 1
+          fi
+          gcloud run services update-traffic "${{ github.event.inputs.service }}" \
+            --project "${{ github.event.inputs.project_id }}" \
+            --region "${{ github.event.inputs.region }}" \
+            --to-revisions "${NEW_REVISION}=100" \
+            --quiet
+          echo "Promoted ${NEW_REVISION} to 100% traffic."

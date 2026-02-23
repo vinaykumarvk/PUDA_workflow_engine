@@ -1,0 +1,25 @@
+serviceKey: no_due_certificate
+displayName: Issue of No Due Certificate
+category: PROPERTY_SERVICES
+description: Issue of No Due Certificate for property dues clearance
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 5
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: false
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

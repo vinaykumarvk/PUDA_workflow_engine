@@ -1,0 +1,221 @@
+{
+  "formId": "FORM_WATER_SUPPLY_SANCTION",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_PROPERTY",
+      "title": "Property Details",
+      "sections": [
+        {
+          "sectionId": "SEC_PROPERTY",
+          "title": "Property Information",
+          "fields": [
+            {
+              "key": "property.upn",
+              "label": "Unique Property Number (UPN / Bhu-Aadhar)",
+              "type": "string",
+              "required": true,
+              "ui": {
+                "widget": "upn-picker"
+              }
+            },
+            {
+              "key": "property.area_sqyd",
+              "label": "Area (Sq. Yards)",
+              "type": "number",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "area_sqyd"
+              }
+            },
+            {
+              "key": "property.authority_name",
+              "label": "Authority Name",
+              "type": "string",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "authority_id"
+              }
+            },
+            {
+              "key": "property.plot_no",
+              "label": "Plot Number",
+              "type": "string",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "property_number"
+              }
+            },
+            {
+              "key": "property.type",
+              "label": "Property Type",
+              "type": "enum",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "usage_type",
+                "options": [
+                  {
+                    "value": "RESIDENTIAL",
+                    "label": "Residential"
+                  },
+                  {
+                    "value": "COMMERCIAL",
+                    "label": "Commercial"
+                  },
+                  {
+                    "value": "INDUSTRIAL",
+                    "label": "Industrial"
+                  }
+                ]
+              }
+            },
+            {
+              "key": "property.scheme_name",
+              "label": "Scheme Name",
+              "type": "string",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "scheme_name"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_APPLICANT",
+      "title": "Applicant Details",
+      "sections": [
+        {
+          "sectionId": "SEC_APPLICANT",
+          "title": "Applicant Information",
+          "fields": [
+            {
+              "sharedSection": "applicant"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_BUILDING",
+      "title": "Building / Construction Details",
+      "sections": [
+        {
+          "sectionId": "SEC_BUILDING",
+          "title": "Construction Details",
+          "fields": [
+            {
+              "key": "building.plan_sanction_date",
+              "label": "Date of Sanction of Building Plan",
+              "type": "date",
+              "required": true
+            },
+            {
+              "key": "building.floors_constructed",
+              "label": "Number of Floors Constructed",
+              "type": "number",
+              "required": true
+            },
+            {
+              "key": "building.basement_constructed",
+              "label": "Is Basement Constructed",
+              "type": "boolean",
+              "required": true
+            },
+            {
+              "key": "building.basement_area_sqft",
+              "label": "Proposed Covered Area for Basement (sq ft)",
+              "type": "number",
+              "required": false
+            },
+            {
+              "key": "building.ground_floor_area_sqft",
+              "label": "Proposed Covered Area for Ground Floor (sq ft)",
+              "type": "number",
+              "required": true
+            },
+            {
+              "key": "building.first_floor_area_sqft",
+              "label": "Proposed Covered Area for First Floor (sq ft)",
+              "type": "number",
+              "required": false
+            },
+            {
+              "key": "building.second_floor_area_sqft",
+              "label": "Proposed Covered Area for Second Floor (sq ft)",
+              "type": "number",
+              "required": false
+            },
+            {
+              "key": "building.mumty_constructed",
+              "label": "Is Mumty Constructed",
+              "type": "boolean",
+              "required": false
+            },
+            {
+              "key": "building.mumty_area_sqft",
+              "label": "Proposed Covered Area for Mumty (sq ft)",
+              "type": "number",
+              "required": false
+            },
+            {
+              "key": "building.estimated_cost",
+              "label": "Total Estimated Cost of Construction",
+              "type": "number",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_WATER_CONNECTION",
+      "title": "Water Connection Details",
+      "sections": [
+        {
+          "sectionId": "SEC_WATER_CONNECTION",
+          "title": "Technical Details",
+          "fields": [
+            {
+              "key": "water.purpose",
+              "label": "Purpose of Water Connection",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "water.service_pipe_length_ft",
+              "label": "Service Pipe Length (feet)",
+              "type": "number",
+              "required": true
+            },
+            {
+              "key": "water.service_pipe_size",
+              "label": "Service Pipe Size",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "water.number_of_taps",
+              "label": "Number of Taps",
+              "type": "number",
+              "required": true
+            },
+            {
+              "key": "water.tap_size",
+              "label": "Size of Tap",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "water.ferrule_cock_size",
+              "label": "Size of Ferrule Cock",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

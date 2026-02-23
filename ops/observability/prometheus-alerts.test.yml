@@ -1,0 +1,90 @@
+rule_files:
+  - prometheus-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: fast burn-rate pages when sustained critical errors
+    interval: 1m
+    input_series:
+      - series: 'puda_api_http_requests_total'
+        values: '0+100x180'
+      - series: 'puda_api_http_errors_total'
+        values: '0+10x180'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PudaApiSloErrorBudgetBurnFast
+        exp_alerts:
+          - exp_labels:
+              alertname: PudaApiSloErrorBudgetBurnFast
+              severity: page
+              service: puda-api
+              slo: availability
+              burn_window: fast
+            exp_annotations:
+              summary: "PUDA API fast burn-rate alert (error budget)"
+              description: "Availability error-budget burn is critically high across 5m/30m windows."
+              runbook: "ops/runbooks/auth-outage.md"
+      - eval_time: 40m
+        alertname: PudaApiSloErrorBudgetBurnSlow
+        exp_alerts: []
+
+  - name: slow burn-rate warns on sustained elevated errors
+    interval: 1m
+    input_series:
+      - series: 'puda_api_http_requests_total'
+        values: '0+100x500'
+      - series: 'puda_api_http_errors_total'
+        values: '0+4x500'
+    alert_rule_test:
+      - eval_time: 6h45m
+        alertname: PudaApiSloErrorBudgetBurnSlow
+        exp_alerts:
+          - exp_labels:
+              alertname: PudaApiSloErrorBudgetBurnSlow
+              severity: warning
+              service: puda-api
+              slo: availability
+              burn_window: slow
+            exp_annotations:
+              summary: "PUDA API slow burn-rate alert (error budget)"
+              description: "Availability error-budget burn is elevated across 30m/6h windows."
+              runbook: "ops/runbooks/auth-outage.md"
+      - eval_time: 6h45m
+        alertname: PudaApiSloErrorBudgetBurnFast
+        exp_alerts: []
+
+  - name: healthy error rate does not trigger burn alerts
+    interval: 1m
+    input_series:
+      - series: 'puda_api_http_requests_total'
+        values: '0+100x500'
+      - series: 'puda_api_http_errors_total'
+        values: '0+1x500'
+    alert_rule_test:
+      - eval_time: 6h45m
+        alertname: PudaApiSloErrorBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 6h45m
+        alertname: PudaApiSloErrorBudgetBurnSlow
+        exp_alerts: []
+
+  - name: legacy high-error alert still pages
+    interval: 1m
+    input_series:
+      - series: 'puda_api_http_requests_total'
+        values: '0+100x180'
+      - series: 'puda_api_http_errors_total'
+        values: '0+2x180'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: PudaApiHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              alertname: PudaApiHighErrorRate
+              severity: page
+              service: puda-api
+            exp_annotations:
+              summary: "PUDA API error rate > 1% for 10m"
+              description: "5xx error ratio exceeded SLO threshold."
+              runbook: "ops/runbooks/auth-outage.md"

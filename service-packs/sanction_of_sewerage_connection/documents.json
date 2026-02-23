@@ -1,0 +1,32 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_OCCUPATION_CERT",
+      "name": "Self attested copy of Occupation Certificate issued by the Estate Officer",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_WATER_RECEIPT",
+      "name": "Water Receipt Photocopy",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_UNDERTAKING",
+      "name": "Undertaking by the Applicant in the prescribed format",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PLUMBER_CERT",
+      "name": "Certificate from a plumber registered with the Authority in the prescribed form",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

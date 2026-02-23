@@ -1,0 +1,78 @@
+name: DAST Smoke
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "0 2 * * 2"
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Override scan target URL (defaults to STAGING_BASE_URL secret/variable)."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TARGET_URL: ${{ github.event.inputs.target_url || vars.STAGING_BASE_URL || secrets.STAGING_BASE_URL }}
+      ZAP_MAX_HIGH: ${{ vars.ZAP_MAX_HIGH || '0' }}
+      ZAP_MAX_MEDIUM: ${{ vars.ZAP_MAX_MEDIUM || '0' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate target URL
+        id: target
+        run: |
+          if [ -z "${TARGET_URL}" ]; then
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "[DAST_SKIPPED] STAGING_BASE_URL not configured; skipping manual scan."
+              echo "scan_enabled=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "[DAST_FAILED] STAGING_BASE_URL must be configured for push/scheduled DAST runs."
+            exit 1
+          fi
+          echo "Target: ${TARGET_URL}"
+          echo "scan_enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare DAST output directory
+        if: steps.target.outputs.scan_enabled == 'true'
+        run: mkdir -p outputs/dast
+
+      - name: Run OWASP ZAP baseline scan
+        if: steps.target.outputs.scan_enabled == 'true'
+        run: |
+          docker run --rm -t \
+            -v "$PWD/outputs/dast:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t "${TARGET_URL}" \
+            -m 5 \
+            -J zap-report.json \
+            -w zap-report.md \
+            -r zap-report.html \
+            -I
+
+      - name: Enforce DAST thresholds (medium/high)
+        if: steps.target.outputs.scan_enabled == 'true'
+        run: node scripts/check-zap-report.mjs outputs/dast/zap-report.json
+
+      - name: Upload DAST reports
+        if: always() && steps.target.outputs.scan_enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-zap-baseline-report
+          path: outputs/dast
+          if-no-files-found: warn

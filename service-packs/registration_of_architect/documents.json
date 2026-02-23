@@ -1,0 +1,39 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_COA_CERT",
+      "name": "Upload Valid Council of Architecture Certificate",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_ARCH_DEGREE",
+      "name": "Education Qualification Certificate B.Tech/B.E Architecture",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_ADDRESS_PROOF",
+      "name": "Address Proof (Upload Passport/Voter id/Driving Licence)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_AADHAAR",
+      "name": "Aadhar Card",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PAN",
+      "name": "Pan Card",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

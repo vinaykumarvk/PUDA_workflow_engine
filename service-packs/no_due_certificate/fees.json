@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "NDC_PROCESSING_FEE",
+      "amount": 250,
+      "description": "No Due Certificate processing fee"
+    }
+  ]
+}

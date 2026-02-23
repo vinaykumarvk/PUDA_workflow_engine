@@ -1,0 +1,191 @@
+{
+  "formId": "FORM_SEWERAGE_CONNECTION_SANCTION",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_PROPERTY",
+      "title": "Property Details",
+      "sections": [
+        {
+          "sectionId": "SEC_PROPERTY",
+          "title": "Property Information",
+          "fields": [
+            {
+              "key": "property.upn",
+              "label": "Unique Property Number (UPN / Bhu-Aadhar)",
+              "type": "string",
+              "required": true,
+              "ui": {
+                "widget": "upn-picker"
+              }
+            },
+            {
+              "key": "property.area_sqyd",
+              "label": "Area (Sq. Yards)",
+              "type": "number",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "area_sqyd"
+              }
+            },
+            {
+              "key": "property.authority_name",
+              "label": "Authority Name",
+              "type": "string",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "authority_id"
+              }
+            },
+            {
+              "key": "property.plot_no",
+              "label": "Plot Number",
+              "type": "string",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "property_number"
+              }
+            },
+            {
+              "key": "property.type",
+              "label": "Property Type",
+              "type": "enum",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "usage_type",
+                "options": [
+                  {
+                    "value": "RESIDENTIAL",
+                    "label": "Residential"
+                  },
+                  {
+                    "value": "COMMERCIAL",
+                    "label": "Commercial"
+                  },
+                  {
+                    "value": "INDUSTRIAL",
+                    "label": "Industrial"
+                  }
+                ]
+              }
+            },
+            {
+              "key": "property.scheme_name",
+              "label": "Scheme Name",
+              "type": "string",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "scheme_name"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_APPLICANT",
+      "title": "Applicant Details",
+      "sections": [
+        {
+          "sectionId": "SEC_APPLICANT",
+          "title": "Applicant Information",
+          "fields": [
+            {
+              "sharedSection": "applicant"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_BUILDING",
+      "title": "Building / Occupancy Details",
+      "sections": [
+        {
+          "sectionId": "SEC_BUILDING",
+          "title": "Building Details",
+          "fields": [
+            {
+              "key": "building.status",
+              "label": "Building Status",
+              "type": "string",
+              "required": false
+            },
+            {
+              "key": "building.plan_sanction_date",
+              "label": "Date of Sanction of Building Plan",
+              "type": "date",
+              "required": true
+            },
+            {
+              "key": "building.floors_constructed",
+              "label": "Number of Floors Constructed",
+              "type": "number",
+              "required": true
+            },
+            {
+              "key": "building.basement_constructed",
+              "label": "Is Basement Constructed",
+              "type": "boolean",
+              "required": false
+            },
+            {
+              "key": "building.number_of_seats",
+              "label": "Number of Seats",
+              "type": "number",
+              "required": false
+            },
+            {
+              "key": "building.hot_water_fitting_material",
+              "label": "Hot Water Fitting Material Details",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_PLUMBER",
+      "title": "Plumber / Installation Details",
+      "sections": [
+        {
+          "sectionId": "SEC_PLUMBER",
+          "title": "Plumber Details",
+          "fields": [
+            {
+              "key": "plumber.installation_bill_no",
+              "label": "Hot Water Fitting Installation Bill Number",
+              "type": "string",
+              "required": false
+            },
+            {
+              "key": "plumber.name",
+              "label": "Name of the Plumber",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "plumber.license_no",
+              "label": "License Number",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "plumber.address",
+              "label": "Address of the Plumber",
+              "type": "string",
+              "required": false
+            },
+            {
+              "key": "plumber.certificate_date",
+              "label": "Date of Issue of Certificate",
+              "type": "date",
+              "required": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

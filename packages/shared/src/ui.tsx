@@ -1,0 +1,409 @@
+import React, {
+  createContext,
+  type HTMLAttributes,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState
+} from "react";
+
+type ButtonVariant = "primary" | "secondary" | "ghost" | "success" | "warning" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+};
+
+type AlertVariant = "info" | "success" | "warning" | "error";
+
+type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
+  variant?: AlertVariant;
+};
+
+type FieldProps = {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  hint?: string;
+  error?: string;
+  children: ReactNode;
+};
+
+type ModalProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
+  open: boolean;
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  onClose: () => void;
+  closeLabel?: string;
+};
+
+type FieldContextValue = {
+  controlId: string;
+  hintId?: string;
+  errorId?: string;
+  hasError: boolean;
+};
+
+const FieldContext = createContext<FieldContextValue | null>(null);
+
+function cx(...parts: Array<string | false | null | undefined>): string {
+  return parts.filter(Boolean).join(" ");
+}
+
+function mergeDescribedBy(existing: string | undefined, extras: Array<string | undefined>): string | undefined {
+  const values = [
+    ...(existing ? existing.split(/\s+/).filter(Boolean) : []),
+    ...extras.filter((value): value is string => Boolean(value))
+  ];
+  if (values.length === 0) return undefined;
+  return Array.from(new Set(values)).join(" ");
+}
+
+export function Button({
+  variant = "primary",
+  size = "md",
+  fullWidth = false,
+  className,
+  type = "button",
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      type={type}
+      className={cx(
+        "ui-btn",
+        `ui-btn--${variant}`,
+        `ui-btn--${size}`,
+        fullWidth && "ui-btn--full",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  const fieldContext = useContext(FieldContext);
+  const { id, "aria-describedby": ariaDescribedByProp, "aria-invalid": ariaInvalidProp, ...rest } = props;
+  const ariaDescribedBy = mergeDescribedBy(ariaDescribedByProp, [
+    fieldContext?.hintId,
+    fieldContext?.errorId
+  ]);
+  const ariaInvalid = ariaInvalidProp ?? (fieldContext?.hasError ? true : undefined);
+
+  return (
+    <input
+      {...rest}
+      id={id ?? fieldContext?.controlId}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
+      className={cx("ui-input", className)}
+    />
+  );
+}
+
+export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const fieldContext = useContext(FieldContext);
+  const { id, "aria-describedby": ariaDescribedByProp, "aria-invalid": ariaInvalidProp, ...rest } = props;
+  const ariaDescribedBy = mergeDescribedBy(ariaDescribedByProp, [
+    fieldContext?.hintId,
+    fieldContext?.errorId
+  ]);
+  const ariaInvalid = ariaInvalidProp ?? (fieldContext?.hasError ? true : undefined);
+
+  return (
+    <select
+      {...rest}
+      id={id ?? fieldContext?.controlId}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
+      className={cx("ui-select", className)}
+    />
+  );
+}
+
+export function Textarea({
+  className,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const fieldContext = useContext(FieldContext);
+  const { id, "aria-describedby": ariaDescribedByProp, "aria-invalid": ariaInvalidProp, ...rest } = props;
+  const ariaDescribedBy = mergeDescribedBy(ariaDescribedByProp, [
+    fieldContext?.hintId,
+    fieldContext?.errorId
+  ]);
+  const ariaInvalid = ariaInvalidProp ?? (fieldContext?.hasError ? true : undefined);
+
+  return (
+    <textarea
+      {...rest}
+      id={id ?? fieldContext?.controlId}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
+      className={cx("ui-textarea", className)}
+    />
+  );
+}
+
+export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cx("ui-card", className)} {...props} />;
+}
+
+export function Alert({ variant = "info", className, role, ...props }: AlertProps) {
+  const resolvedRole = role ?? (variant === "error" ? "alert" : "status");
+  return (
+    <div
+      className={cx("ui-alert", `ui-alert--${variant}`, className)}
+      role={resolvedRole}
+      {...props}
+    />
+  );
+}
+
+export function Field({ label, htmlFor, required, hint, error, children }: FieldProps) {
+  const hintId = hint ? `${htmlFor}-hint` : undefined;
+  const errorId = error ? `${htmlFor}-error` : undefined;
+  const contextValue = useMemo<FieldContextValue>(
+    () => ({
+      controlId: htmlFor,
+      hintId,
+      errorId,
+      hasError: Boolean(error)
+    }),
+    [error, errorId, hintId, htmlFor]
+  );
+
+  return (
+    <div className="ui-field">
+      <label htmlFor={htmlFor} className="ui-field__label">
+        {label}
+        {required ? <span className="ui-field__required"> *</span> : null}
+      </label>
+      <FieldContext.Provider value={contextValue}>{children}</FieldContext.Provider>
+      {hint ? (
+        <small id={hintId} className="ui-field__hint">
+          {hint}
+        </small>
+      ) : null}
+      {error ? (
+        <p id={errorId} className="ui-field__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function Modal({
+  open,
+  title,
+  description,
+  actions,
+  onClose,
+  closeLabel = "Close dialog",
+  className,
+  children,
+  ...props
+}: ModalProps) {
+  const generatedId = useId();
+  const baseId = `ui-modal-${generatedId.replace(/[:]/g, "")}`;
+  const titleId = `${baseId}-title`;
+  const descriptionId = description ? `${baseId}-description` : undefined;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const timer = requestAnimationFrame(() => {
+      const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      first?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { onClose(); return; }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      cancelAnimationFrame(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="ui-modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className={cx("ui-modal", className)}
+        {...props}
+      >
+        <div className="ui-modal__header">
+          <h2 id={titleId} className="ui-modal__title">
+            {title}
+          </h2>
+          <Button type="button" variant="ghost" size="sm" className="ui-modal__close" onClick={onClose}>
+            <span aria-hidden="true">×</span>
+            <span className="sr-only">{closeLabel}</span>
+          </Button>
+        </div>
+        {description ? (
+          <p id={descriptionId} className="ui-modal__description">
+            {description}
+          </p>
+        ) : null}
+        {children ? <div className="ui-modal__body">{children}</div> : null}
+        {actions ? <div className="ui-modal__actions">{actions}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+type ToastVariant = "info" | "success" | "warning" | "error";
+
+export type ToastMessage = {
+  id: string;
+  variant: ToastVariant;
+  text: string;
+};
+
+type ToastContextValue = {
+  showToast: (variant: ToastVariant, text: string, durationMs?: number) => void;
+};
+
+const ToastContext = createContext<ToastContextValue>({ showToast: () => {} });
+
+export function useToast() {
+  return useContext(ToastContext);
+}
+
+export function ToastProvider({ children: kids }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<(ToastMessage & { expiresAt: number })[]>([]);
+  const counterRef = useRef(0);
+
+  const showToast = useCallback((variant: ToastVariant, text: string, durationMs = 4500) => {
+    const id = `toast-${++counterRef.current}`;
+    const expiresAt = Date.now() + durationMs;
+    setToasts((prev) => [...prev.slice(-4), { id, variant, text, expiresAt }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, durationMs);
+  }, []);
+
+  const dismiss = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const value = useMemo(() => ({ showToast }), [showToast]);
+
+  return (
+    <ToastContext.Provider value={value}>
+      {kids}
+      {toasts.length > 0 && (
+        <div className="ui-toast-container" aria-live="polite" role="status">
+          {toasts.map((toast) => (
+            <div key={toast.id} className={cx("ui-toast", `ui-toast--${toast.variant}`)}>
+              <span className="ui-toast__text">{toast.text}</span>
+              <button
+                type="button"
+                className="ui-toast__dismiss"
+                onClick={() => dismiss(toast.id)}
+                aria-label="Dismiss notification"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </ToastContext.Provider>
+  );
+}
+
+export function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
+  return (
+    <nav aria-label="Breadcrumb" className="ui-breadcrumb">
+      <ol>
+        {items.map((item, i) => (
+          <li key={i}>
+            {i < items.length - 1 && item.onClick ? (
+              <button type="button" className="ui-breadcrumb__link" onClick={item.onClick}>
+                {item.label}
+              </button>
+            ) : (
+              <span aria-current={i === items.length - 1 ? "page" : undefined}>{item.label}</span>
+            )}
+            {i < items.length - 1 && <span className="ui-breadcrumb__sep" aria-hidden="true">/</span>}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+export function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffSec = Math.max(0, Math.floor((now - then) / 1000));
+  if (diffSec < 60) return "Just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+export function ProgressBar({ current, total }: { current: number; total: number }) {
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  return (
+    <div className="ui-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Step ${current} of ${total}`}>
+      <div className="ui-progress__label">Step {current} of {total}</div>
+      <div className="ui-progress__track">
+        <div className="ui-progress__fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export function SkeletonBlock({ height = "1rem", width = "100%", className }: { height?: string; width?: string; className?: string }) {
+  return <div className={cx("ui-skeleton", className)} style={{ height, width }} aria-hidden="true" />;
+}

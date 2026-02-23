@@ -1,0 +1,34 @@
+{
+  "name": "puda-workflow-engine",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace apps/api run dev",
+    "dev:citizen": "npm --workspace apps/citizen run dev",
+    "dev:officer": "npm --workspace apps/officer run dev",
+    "build:shared": "npm --workspace packages/shared run build",
+    "build:api": "npm run build:shared && npm --workspace apps/api run build",
+    "build:citizen": "npm run build:shared && npm --workspace apps/citizen run build",
+    "build:officer": "npm run build:shared && npm --workspace apps/officer run build",
+    "build:all": "npm run build:shared && npm run build:api && npm run build:citizen && npm run build:officer",
+    "test:api": "npm --workspace apps/api run test",
+    "test:citizen:unit": "npm --workspace apps/citizen run test:unit",
+    "check:frontend-budgets": "node scripts/check-frontend-budgets.mjs",
+    "test:api:load": "npm --workspace apps/api run test:load",
+    "test:api:dast:local": "bash scripts/run-local-dast-smoke.sh",
+    "test:e2e:a11y": "playwright test --config=e2e/playwright.a11y.config.ts",
+    "test:e2e:resilience": "npm run build:citizen && playwright test --config=e2e/playwright.resilience.config.ts",
+    "check:observability": "node scripts/check-observability-artifacts.mjs",
+    "check:slo-alerts": "bash scripts/check-slo-alerts.sh",
+    "check:iac": "bash scripts/check-iac.sh",
+    "check:dast:report": "node scripts/check-zap-report.mjs",
+    "clean": "rm -rf apps/*/dist apps/*/.vite"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@playwright/test": "^1.58.1"
+  }
+}

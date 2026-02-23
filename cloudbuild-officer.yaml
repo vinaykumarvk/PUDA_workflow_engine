@@ -1,0 +1,38 @@
+steps:
+  # Build the Officer Portal Docker image with API URL baked in
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/puda-officer:$COMMIT_SHA"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/puda-officer:latest"
+      - "--build-arg"
+      - "VITE_API_BASE_URL=${_API_URL}"
+      - "-f"
+      - "Dockerfile.officer"
+      - "."
+
+  # Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "puda-officer"
+      - "--image"
+      - "gcr.io/$PROJECT_ID/puda-officer:$COMMIT_SHA"
+      - "--region"
+      - "europe-west1"
+      - "--platform"
+      - "managed"
+
+images:
+  - "gcr.io/$PROJECT_ID/puda-officer:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/puda-officer:latest"
+
+substitutions:
+  _API_URL: "https://puda-api-47249889063.europe-west1.run.app"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

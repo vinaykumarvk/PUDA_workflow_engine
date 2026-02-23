@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "ARCHITECT_REGISTRATION_FEE",
+      "amount": 1000,
+      "description": "Architect registration processing fee"
+    }
+  ]
+}

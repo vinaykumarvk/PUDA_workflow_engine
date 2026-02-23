@@ -1,0 +1,30 @@
+{
+  "sectionId": "SEC_APPLICANT_SHARED",
+  "title": "Applicant Details",
+  "fields": [
+    { "key": "applicant.salutation", "label": "Salutation", "type": "enum", "required": false, "ui": { "readOnly": true, "options": [
+      { "value": "MR", "label": "Mr." },
+      { "value": "MS", "label": "Ms." },
+      { "value": "MRS", "label": "Mrs." }
+    ] } },
+    { "key": "applicant.first_name", "label": "First Name", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.middle_name", "label": "Middle Name", "type": "string", "required": false, "ui": { "readOnly": true } },
+    { "key": "applicant.last_name", "label": "Last Name", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.full_name", "label": "Full Name", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.father_name", "label": "Father's/Husband's Name", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.gender", "label": "Gender", "type": "enum", "required": true, "ui": { "readOnly": true, "options": [
+      { "value": "MALE", "label": "Male" },
+      { "value": "FEMALE", "label": "Female" },
+      { "value": "OTHER", "label": "Other" }
+    ] } },
+    { "key": "applicant.marital_status", "label": "Marital Status", "type": "enum", "required": true, "ui": { "readOnly": true, "options": [
+      { "value": "SINGLE", "label": "Single" },
+      { "value": "MARRIED", "label": "Married" }
+    ] } },
+    { "key": "applicant.date_of_birth", "label": "Date of Birth", "type": "date", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.aadhaar", "label": "Aadhaar Number", "type": "aadhaar", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.pan", "label": "PAN", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.email", "label": "Email Address", "type": "email", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.mobile", "label": "Mobile Number", "type": "phone", "required": true, "ui": { "readOnly": true } }
+  ]
+}

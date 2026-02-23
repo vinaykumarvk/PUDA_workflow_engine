@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "WATER_CONNECTION_SANCTION_FEE",
+      "amount": 1500,
+      "description": "Water supply sanction fee"
+    }
+  ]
+}

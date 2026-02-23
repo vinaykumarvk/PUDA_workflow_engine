@@ -1,0 +1,959 @@
+import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "./AuthContext";
+import { Alert, Button, Card, Field, Input, Textarea, Breadcrumb, timeAgo } from "@puda/shared";
+import { getStatusBadgeClass, getStatusLabel, formatDateTime } from "@puda/shared/utils";
+import "./application-detail.css";
+import ThemeToggle from "./ThemeToggle";
+import { useTheme } from "./theme";
+
+interface ApplicationDetailProps {
+  application: {
+    arn: string;
+    service_key: string;
+    state_id: string;
+    data_jsonb: any;
+    created_at: string;
+    submitted_at?: string;
+    disposed_at?: string;
+    disposal_type?: string;
+  };
+  serviceConfig: any;
+  detail: {
+    documents?: any[];
+    queries?: any[];
+    tasks?: any[];
+    timeline?: any[];
+  };
+  feedback?: {
+    variant: "info" | "success" | "warning" | "error";
+    text: string;
+  } | null;
+  userId: string;
+  onQueryResponded?: () => void;
+  onBack: () => void;
+  onSubmit?: () => void;
+  onDocumentUpload?: (docTypeId: string, file: File) => void;
+  uploading?: boolean;
+  uploadProgress?: number;
+  isOffline?: boolean;
+  staleAt?: string | null;
+}
+
+type NdcDueLine = {
+  dueCode: string;
+  label: string;
+  dueKind: "INSTALLMENT" | "DELAYED_COMPLETION_FEE" | "ADDITIONAL_AREA";
+  dueDate: string;
+  baseAmount: number;
+  interestAmount: number;
+  totalDueAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  status: "PAID" | "PENDING" | "PARTIALLY_PAID";
+  paymentDate: string | null;
+  daysDelayed: number;
+};
+
+type NdcPaymentStatus = {
+  propertyUpn: string | null;
+  authorityId: string;
+  allotmentDate: string | null;
+  propertyValue: number;
+  annualInterestRatePct: number;
+  dcfRatePct: number;
+  dues: NdcDueLine[];
+  totals: {
+    baseAmount: number;
+    interestAmount: number;
+    totalDueAmount: number;
+    paidAmount: number;
+    balanceAmount: number;
+  };
+  allDuesPaid: boolean;
+  certificateEligible: boolean;
+  generatedAt: string;
+};
+
+export default function ApplicationDetail({
+  application,
+  serviceConfig,
+  detail,
+  feedback = null,
+  userId,
+  onQueryResponded,
+  onBack,
+  onSubmit,
+  onDocumentUpload,
+  uploading = false,
+  uploadProgress = 0,
+  isOffline = false,
+  staleAt = null
+}: ApplicationDetailProps) {
+  
+  const { t } = useTranslation();
+  const { authHeaders } = useAuth();
+  const { theme, resolvedTheme, setTheme } = useTheme("puda_citizen_theme");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownload = async (url: string, filename: string) => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || body?.error || `Download failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const formConfig = serviceConfig?.form;
+  const formData = application.data_jsonb || {};
+  const docTypes = serviceConfig?.documents?.documentTypes || [];
+  const queries = detail.queries || [];
+  const documents = detail.documents || [];
+  const timelineEvents = detail.timeline || [];
+  const visibleTimeline = timelineEvents.slice(0, 10);
+  const pendingQuery = queries.find((q: any) => q.status === "PENDING");
+  const unlockedDocTypes: string[] = pendingQuery?.unlocked_doc_type_ids || [];
+  const canUpload =
+    !isOffline &&
+    (application.state_id === "DRAFT" || (application.state_id === "QUERY_PENDING" && unlockedDocTypes.length > 0));
+  const allowedDocTypes =
+    application.state_id === "QUERY_PENDING"
+      ? docTypes.filter((dt: any) => unlockedDocTypes.includes(dt.docTypeId))
+      : docTypes;
+  const unlockedFields: string[] = pendingQuery?.unlocked_field_keys || [];
+  const applicantLockedFields = unlockedFields.filter((key) => key.startsWith("applicant."));
+  const editableUnlockedFields = unlockedFields.filter((key) => !key.startsWith("applicant."));
+  const [responseMessage, setResponseMessage] = useState("");
+  const [responseData, setResponseData] = useState<any>(formData);
+  const [responding, setResponding] = useState(false);
+  const [responseError, setResponseError] = useState<string | null>(null);
+  const [ndcPaymentStatus, setNdcPaymentStatus] = useState<NdcPaymentStatus | null>(null);
+  const [ndcPaymentStatusLoading, setNdcPaymentStatusLoading] = useState(false);
+  const [ndcPaymentStatusError, setNdcPaymentStatusError] = useState<string | null>(null);
+  const [showNdcPaymentPage, setShowNdcPaymentPage] = useState(false);
+  const [ndcPostingDueCode, setNdcPostingDueCode] = useState<string | null>(null);
+  const [ndcPostingError, setNdcPostingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setResponseData(formData);
+    setShowNdcPaymentPage(false);
+  }, [application.arn]);
+
+  useEffect(() => {
+    if (application.service_key !== "no_due_certificate") {
+      setNdcPaymentStatus(null);
+      setNdcPaymentStatusError(null);
+      setNdcPaymentStatusLoading(false);
+      return;
+    }
+    if (isOffline) {
+      setNdcPaymentStatusError("Offline mode is active. Payment status cannot be refreshed.");
+      setNdcPaymentStatusLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setNdcPaymentStatusLoading(true);
+    setNdcPaymentStatusError(null);
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/applications/${application.arn}/payment-status`,
+          { headers: authHeaders() }
+        );
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(body?.message || body?.error || `API error ${res.status}`);
+        }
+        if (!cancelled) {
+          setNdcPaymentStatus(body.paymentStatus || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setNdcPaymentStatus(null);
+          setNdcPaymentStatusError(err instanceof Error ? err.message : "Failed to load payment status");
+        }
+      } finally {
+        if (!cancelled) {
+          setNdcPaymentStatusLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [application.arn, application.service_key, isOffline, authHeaders]);
+
+  // Build field map from form config for proper labels
+  // NOTE: All hooks MUST be above any early returns to comply with Rules of Hooks
+  const fieldMap = useMemo(() => {
+    const map: Record<string, { label: string; type: string; options?: any[] }> = {};
+    if (formConfig?.pages) {
+      formConfig.pages.forEach((page: any) => {
+        page.sections?.forEach((section: any) => {
+          section.fields?.forEach((field: any) => {
+            map[field.key] = {
+              label: field.label,
+              type: field.type,
+              options: field.ui?.options
+            };
+          });
+        });
+      });
+    }
+    return map;
+  }, [formConfig]);
+
+  // Get display value for a field
+  const getDisplayValue = (key: string, value: any): string => {
+    if (value === null || value === undefined || value === "") return "—";
+    
+    const field = fieldMap[key];
+    if (field?.type === "enum" && field.options) {
+      const option = field.options.find((opt: any) => opt.value === value);
+      return option?.label || value;
+    }
+    if (field?.type === "boolean") {
+      return value ? "Yes" : "No";
+    }
+    if (field?.type === "date") {
+      return new Date(value).toLocaleDateString();
+    }
+    if (typeof value === "object") {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
+
+  // Flatten nested data for display
+  const flattenData = (obj: any, prefix = ""): Array<{ key: string; label: string; value: any }> => {
+    const result: Array<{ key: string; label: string; value: any }> = [];
+    
+    for (const [k, v] of Object.entries(obj)) {
+      const fullKey = prefix ? `${prefix}.${k}` : k;
+      const field = fieldMap[fullKey];
+      const label = field?.label || k.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+      
+      if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
+        result.push(...flattenData(v, fullKey));
+      } else {
+        result.push({ key: fullKey, label, value: v });
+      }
+    }
+    
+    return result;
+  };
+
+  const flatData = flattenData(formData);
+
+  // Group data by section/page if form config exists
+  const groupedData = useMemo(() => {
+    if (!formConfig?.pages) {
+      // Fallback: group by key prefix (capitalize first letter)
+      const groups: Record<string, Array<{ key: string; label: string; value: any }>> = {};
+      flatData.forEach(item => {
+        const prefix = item.key.split(".")[0];
+        if (!groups[prefix]) groups[prefix] = [];
+        groups[prefix].push(item);
+      });
+      return Object.entries(groups).map(([title, items]) => ({ 
+        title: title.charAt(0).toUpperCase() + title.slice(1).replace(/_/g, " "), 
+        items 
+      }));
+    }
+
+    const groups: Array<{ title: string; items: Array<{ key: string; label: string; value: any }> }> = [];
+    
+    formConfig.pages.forEach((page: any) => {
+      page.sections?.forEach((section: any) => {
+        const sectionItems: Array<{ key: string; label: string; value: any }> = [];
+        section.fields?.forEach((field: any) => {
+          const value = getNestedValue(formData, field.key);
+          if (value !== undefined && value !== null && value !== "") {
+            sectionItems.push({
+              key: field.key,
+              label: field.label,
+              value
+            });
+          }
+        });
+        if (sectionItems.length > 0) {
+          groups.push({ title: section.title || page.title, items: sectionItems });
+        }
+      });
+    });
+    
+    return groups;
+  }, [formConfig, formData, fieldMap]);
+
+  // Early return for loading state — placed after ALL hooks
+  if (!serviceConfig && application.service_key) {
+    return (
+      <>
+        <a href="#citizen-main-application-detail" className="skip-link">
+          Skip to main content
+        </a>
+        <main id="citizen-main-application-detail" className="application-detail" role="main">
+        <div className="detail-header">
+          <div className="topbar">
+            <div className="detail-title-section">
+              <Breadcrumb items={[
+                { label: "Dashboard", onClick: onBack },
+                { label: `Application ${application.arn}` }
+              ]} />
+              <h1>Application Details</h1>
+              <div className="detail-meta">
+                <div className="meta-item">
+                  <span className="meta-label">ARN:</span>
+                  <span className="meta-value">{application.arn}</span>
+                </div>
+              </div>
+            </div>
+            <ThemeToggle
+              theme={theme}
+              resolvedTheme={resolvedTheme}
+              onThemeChange={setTheme}
+              idSuffix="application-detail-loading"
+            />
+          </div>
+        </div>
+        <div className="detail-section">
+          {isOffline ? (
+            <Alert variant="warning">
+              Offline mode is active. Cached application details are not available on this device yet.
+            </Alert>
+          ) : (
+            <p>Loading application details...</p>
+          )}
+        </div>
+        </main>
+      </>
+    );
+  }
+
+  function getNestedValue(obj: any, path: string): any {
+    return path.split(".").reduce((current, key) => current?.[key], obj);
+  }
+
+  function setNestedValue(obj: any, path: string, value: any): any {
+    const keys = path.split(".");
+    const updated = { ...obj };
+    let current = updated;
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!current[keys[i]]) current[keys[i]] = {};
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = value;
+    return updated;
+  }
+
+  const buildUpdatedData = () => {
+    let updated: any = {};
+    editableUnlockedFields.forEach((key) => {
+      const value = getNestedValue(responseData, key);
+      updated = setNestedValue(updated, key, value);
+    });
+    return updated;
+  };
+
+  const handleQueryResponse = async () => {
+    if (!pendingQuery) return;
+    if (isOffline) {
+      setResponseError("You are offline. Query responses are disabled in read-only mode.");
+      return;
+    }
+    setResponding(true);
+    setResponseError(null);
+    try {
+      const updatedData = buildUpdatedData();
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/applications/${application.arn}/query-response`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            queryId: pendingQuery.query_id,
+            responseMessage,
+            updatedData,
+            userId
+          })
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to respond to query");
+      }
+      setResponseMessage("");
+      if (onQueryResponded) {
+        onQueryResponded();
+      }
+    } catch (err) {
+      setResponseError(err instanceof Error ? err.message : "Failed to respond to query");
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  // M3: Utilities imported from @puda/shared/utils
+  const formatDate = formatDateTime;
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2
+    }).format(amount || 0);
+  const outputDownloadUrl = `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/applications/${application.arn}/output/download`;
+
+  const handleNdcPaymentPost = async (dueCode: string) => {
+    if (isOffline) {
+      setNdcPostingError("You are offline. Payment posting is unavailable.");
+      return;
+    }
+    setNdcPostingDueCode(dueCode);
+    setNdcPostingError(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/applications/${application.arn}/pay-due`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ dueCode, userId }),
+        }
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `API error ${res.status}`);
+      }
+      setNdcPaymentStatus(body.paymentStatus || null);
+      setNdcPostingError(null);
+    } catch (err) {
+      setNdcPostingError(err instanceof Error ? err.message : "Failed to post payment");
+    } finally {
+      setNdcPostingDueCode(null);
+    }
+  };
+
+  return (
+    <>
+      <a href="#citizen-main-application-detail" className="skip-link">
+        Skip to main content
+      </a>
+      <main id="citizen-main-application-detail" className="application-detail" role="main">
+      {/* Header */}
+      <div className="detail-header">
+        <div className="topbar">
+          <div className="detail-title-section">
+            <Breadcrumb items={[
+              { label: t("back_to_dashboard"), onClick: onBack },
+              { label: `${t("application_details")} — ${application.arn}` }
+            ]} />
+            <h1>{t("application_details")}</h1>
+            <div className="detail-meta">
+              <div className="meta-item">
+                <span className="meta-label">ARN:</span>
+                <span className="meta-value">{application.arn}</span>
+              </div>
+              <div className="meta-item">
+                <span className="meta-label">Service:</span>
+                <span className="meta-value">{serviceConfig?.displayName || application.service_key}</span>
+              </div>
+            </div>
+          </div>
+          <ThemeToggle
+            theme={theme}
+            resolvedTheme={resolvedTheme}
+            onThemeChange={setTheme}
+            idSuffix="application-detail"
+          />
+        </div>
+      </div>
+      {feedback ? <Alert variant={feedback.variant} className="detail-feedback">{feedback.text}</Alert> : null}
+      {isOffline ? (
+        <Alert variant="warning" className="detail-feedback">
+          Offline mode is active. Changes are disabled.
+          {staleAt ? ` Showing cached data from ${new Date(staleAt).toLocaleString()}.` : ""}
+        </Alert>
+      ) : null}
+
+      {/* Status Card */}
+      <div className="detail-section status-card-section">
+        <div className="status-card">
+          <div className="status-header">
+            <span className="status-label">{t("current_status")}</span>
+            <span className={`status-badge-large ${getStatusBadgeClass(application.state_id)}`}>
+              {getStatusLabel(application.state_id)}
+            </span>
+          </div>
+          <div className="status-dates">
+            <div className="date-item">
+              <span className="date-label">{t("created")}:</span>
+              <span className="date-value">{formatDate(application.created_at)}</span>
+            </div>
+            {application.submitted_at && (
+              <div className="date-item">
+                <span className="date-label">{t("submitted")}:</span>
+                <span className="date-value">{formatDate(application.submitted_at)}</span>
+              </div>
+            )}
+            {application.disposed_at && (
+              <div className="date-item">
+                <span className="date-label">{t("disposed")}:</span>
+                <span className="date-value">{formatDate(application.disposed_at)}</span>
+              </div>
+            )}
+          </div>
+          {application.state_id === "DRAFT" && onSubmit && (
+            <Button onClick={onSubmit} className="submit-button-large" fullWidth disabled={isOffline}>
+              {t("submit_application")}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {application.service_key === "no_due_certificate" && (
+        <div className="detail-section" id="ndc-payment-ledger">
+          <h2 className="section-title">Payment Status</h2>
+          {ndcPaymentStatusLoading ? (
+            <div style={{ display: "grid", gap: "var(--space-2)" }}>
+              <div className="ui-skeleton" style={{ height: "2.6rem" }} />
+              <div className="ui-skeleton" style={{ height: "8rem" }} />
+            </div>
+          ) : null}
+          {ndcPaymentStatusError ? <Alert variant="warning">{ndcPaymentStatusError}</Alert> : null}
+          {ndcPaymentStatus ? (
+            <>
+              <div className="ndc-summary-grid">
+                <Card className="ndc-summary-card">
+                  <span className="ndc-summary-label">Total Due</span>
+                  <strong className="ndc-summary-value">
+                    {formatCurrency(ndcPaymentStatus.totals.totalDueAmount)}
+                  </strong>
+                </Card>
+                <Card className="ndc-summary-card">
+                  <span className="ndc-summary-label">Total Paid</span>
+                  <strong className="ndc-summary-value">
+                    {formatCurrency(ndcPaymentStatus.totals.paidAmount)}
+                  </strong>
+                </Card>
+                <Card className="ndc-summary-card">
+                  <span className="ndc-summary-label">Pending Balance</span>
+                  <strong className="ndc-summary-value">
+                    {formatCurrency(ndcPaymentStatus.totals.balanceAmount)}
+                  </strong>
+                </Card>
+              </div>
+              <p className="timeline-note">
+                Allotment Date: {ndcPaymentStatus.allotmentDate || "—"} | Property Value: {formatCurrency(ndcPaymentStatus.propertyValue)} | Interest Rate: {ndcPaymentStatus.annualInterestRatePct}% p.a. | DCF Rate: {ndcPaymentStatus.dcfRatePct}%
+              </p>
+
+              {ndcPaymentStatus.certificateEligible ? (
+                <Alert variant="success">
+                  All dues are cleared for property {ndcPaymentStatus.propertyUpn}. You can download the No Due Certificate directly.
+                </Alert>
+              ) : (
+                <Alert variant="warning">
+                  Pending dues are available. Please proceed to the Payment page to clear them before downloading certificate.
+                </Alert>
+              )}
+
+              <div className="ndc-payment-actions">
+                {ndcPaymentStatus.certificateEligible ? (
+                  <button
+                    className="download-cert-link-large"
+                    onClick={() => handleDownload(outputDownloadUrl, `NDC-${application.arn.replace(/\//g, "-")}.pdf`)}
+                    disabled={downloading}
+                  >
+                    {downloading ? "Downloading…" : "Download No Due Certificate"}
+                  </button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowNdcPaymentPage(true)}
+                    className="submit-button-large"
+                  >
+                    Go to Payment Page
+                  </Button>
+                )}
+              </div>
+
+              <div className="ndc-ledger-table-wrap">
+                <table className="ndc-ledger-table">
+                  <thead>
+                    <tr>
+                      <th>Due Type</th>
+                      <th>Due Date</th>
+                      <th>Payment Date</th>
+                      <th>Delay (Days)</th>
+                      <th>Base</th>
+                      <th>Interest</th>
+                      <th>Total Due</th>
+                      <th>Paid</th>
+                      <th>Balance</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ndcPaymentStatus.dues.map((due) => (
+                      <tr key={due.dueCode}>
+                        <td>{due.label}</td>
+                        <td>{due.dueDate}</td>
+                        <td>{due.paymentDate || "—"}</td>
+                        <td>{due.daysDelayed}</td>
+                        <td>{formatCurrency(due.baseAmount)}</td>
+                        <td>{formatCurrency(due.interestAmount)}</td>
+                        <td>{formatCurrency(due.totalDueAmount)}</td>
+                        <td>{formatCurrency(due.paidAmount)}</td>
+                        <td>{formatCurrency(due.balanceAmount)}</td>
+                        <td>{due.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {application.service_key === "no_due_certificate" && showNdcPaymentPage && ndcPaymentStatus ? (
+        <div className="detail-section" id="ndc-payment-page">
+          <h2 className="section-title">Payment Page</h2>
+          <p className="timeline-note">This page posts settlement entries against selected dues.</p>
+          {ndcPostingError ? <Alert variant="warning">{ndcPostingError}</Alert> : null}
+          <div className="read-card-list">
+            {ndcPaymentStatus.dues.filter((due) => due.balanceAmount > 0.01).length === 0 ? (
+              <Alert variant="success">All dues are settled. Return to Payment Status and download the certificate.</Alert>
+            ) : null}
+            {ndcPaymentStatus.dues
+              .filter((due) => due.balanceAmount > 0.01)
+              .map((due) => (
+                <Card key={`pending-${due.dueCode}`} className="read-only-card">
+                  <div className="read-card-header">
+                    <p className="read-card-title">{due.label}</p>
+                    <span className="status-badge badge-query">Pending</span>
+                  </div>
+                  <div className="read-card-grid">
+                    <div className="read-meta-row">
+                      <span className="read-meta-key">Due Date</span>
+                      <span className="read-meta-value">{due.dueDate}</span>
+                    </div>
+                    <div className="read-meta-row">
+                      <span className="read-meta-key">Payable Amount</span>
+                      <span className="read-meta-value">{formatCurrency(due.balanceAmount)}</span>
+                    </div>
+                  </div>
+                  <div className="query-response-actions" style={{ marginTop: "0.5rem" }}>
+                    <Button
+                      variant="primary"
+                      className="submit-button-large"
+                      onClick={() => void handleNdcPaymentPost(due.dueCode)}
+                      disabled={isOffline || Boolean(ndcPostingDueCode)}
+                    >
+                      {ndcPostingDueCode === due.dueCode ? "Posting..." : `Pay ${formatCurrency(due.balanceAmount)}`}
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+          </div>
+          <Button variant="ghost" onClick={() => setShowNdcPaymentPage(false)}>
+            Back to Payment Status
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Application Data */}
+      {groupedData.length > 0 && (
+        <div className="detail-section">
+          <h2 className="section-title">{t("application_info")}</h2>
+          <div className="data-groups">
+            {groupedData.map((group, idx) => (
+              <div key={idx} className="data-group">
+                <h3 className="group-title">{group.title}</h3>
+                <div className="data-fields">
+                  {group.items.map((item) => (
+                    <div key={item.key} className="data-field">
+                      <div className="field-label">{item.label}</div>
+                      <div className="field-value">{getDisplayValue(item.key, item.value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Queries */}
+      <div className="detail-section">
+        <h2 className="section-title">{t("queries")} ({queries.length})</h2>
+        {queries.length > 0 ? (
+          <div className="read-card-list">
+            {queries.map((query: any) => (
+              <Card key={query.query_id} className={`read-only-card query-read-card ${query.status === "PENDING" ? "query-pending" : ""}`}>
+                <div className="read-card-header">
+                  <p className="read-card-title">Query #{query.query_number}</p>
+                  <span className={`query-status ${query.status === "PENDING" ? "status-pending" : "status-responded"}`}>
+                    {query.status === "PENDING" ? "Pending Response" : "Responded"}
+                  </span>
+                </div>
+                <p className="read-card-body">{query.message}</p>
+                <div className="read-card-grid">
+                  <div className="read-meta-row">
+                    <span className="read-meta-key">Raised At</span>
+                    <span className="read-meta-value">
+                      {query.raised_at ? formatDate(query.raised_at) : "—"}
+                    </span>
+                  </div>
+                  <div className="read-meta-row">
+                    <span className="read-meta-key">Response Due</span>
+                    <span className="read-meta-value">
+                      {query.response_due_at ? new Date(query.response_due_at).toLocaleDateString() : "—"}
+                    </span>
+                  </div>
+                  <div className="read-meta-row">
+                    <span className="read-meta-key">Responded At</span>
+                    <span className="read-meta-value">
+                      {query.responded_at ? formatDate(query.responded_at) : "—"}
+                    </span>
+                  </div>
+                </div>
+                {query.responded_at && (
+                  <div className="query-response read-card-response">
+                    <div className="response-label">Your Response:</div>
+                    <div className="response-text">{query.response_remarks || "Response submitted"}</div>
+                    <div className="response-date">Responded on: {new Date(query.responded_at).toLocaleDateString()}</div>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Alert variant="info" className="detail-empty-alert">
+            No queries have been raised for this application.
+          </Alert>
+        )}
+      </div>
+
+      {pendingQuery && application.state_id === "QUERY_PENDING" && (
+        <div className="detail-section">
+          <h2 className="section-title">{t("respond_to_query")}</h2>
+          <Alert variant="info" className="query-pending-message">{pendingQuery.message}</Alert>
+          {editableUnlockedFields.length > 0 && (
+            <div className="query-response-form">
+              {editableUnlockedFields.map((fieldKey) => {
+                const field = fieldMap[fieldKey];
+                const value = getNestedValue(responseData, fieldKey);
+                const label = field?.label || fieldKey;
+                const type = field?.type || "string";
+                const fieldId = `query-field-${fieldKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+                return (
+                  <div key={fieldKey}>
+                    {type === "boolean" ? (
+                      <label className="checkbox-field" htmlFor={fieldId}>
+                        <input
+                          id={fieldId}
+                          type="checkbox"
+                          checked={Boolean(value)}
+                          disabled={isOffline || responding}
+                          onChange={(e) =>
+                            setResponseData((prev: any) => setNestedValue(prev, fieldKey, e.target.checked))
+                          }
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ) : (
+                      <Field label={label} htmlFor={fieldId}>
+                        <Input
+                          id={fieldId}
+                          type={type === "number" ? "number" : type === "date" ? "date" : "text"}
+                          value={value ?? ""}
+                          disabled={isOffline || responding}
+                          onChange={(e) => {
+                            const nextValue = type === "number" ? Number(e.target.value) : e.target.value;
+                            setResponseData((prev: any) => setNestedValue(prev, fieldKey, nextValue));
+                          }}
+                        />
+                      </Field>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {applicantLockedFields.length > 0 && (
+            <Alert variant="warning">
+              Applicant details are read-only. Please update your profile to change applicant information.
+            </Alert>
+          )}
+          <Field label={t("response_message")} htmlFor="query-response-message" required>
+            <Textarea
+              id="query-response-message"
+              value={responseMessage}
+              disabled={isOffline || responding}
+              onChange={(e) => setResponseMessage(e.target.value)}
+              rows={3}
+            />
+          </Field>
+          {responseError ? <Alert variant="error">{responseError}</Alert> : null}
+          <div className="query-response-actions">
+            <Button
+              className="submit-button-large"
+              onClick={handleQueryResponse}
+              disabled={isOffline || responding || !responseMessage.trim()}
+              fullWidth
+            >
+              {responding ? t("submitting") : t("submit_response")}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Documents */}
+      <div className="detail-section">
+        <h2 className="section-title">{t("documents")} ({documents.length})</h2>
+        {documents.length > 0 ? (
+          <div className="read-card-list">
+            {documents.map((doc: any) => (
+              <Card key={doc.doc_id} className="read-only-card document-read-card">
+                <div className="read-card-header">
+                  <p className="read-card-title">{doc.original_filename || doc.doc_id}</p>
+                  <a
+                    href={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/documents/${doc.doc_id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="doc-download"
+                  >
+                    Download
+                  </a>
+                </div>
+                <div className="read-card-grid">
+                  <div className="read-meta-row">
+                    <span className="read-meta-key">Document Type</span>
+                    <span className="read-meta-value">{doc.doc_type_id || "—"}</span>
+                  </div>
+                  <div className="read-meta-row">
+                    <span className="read-meta-key">Document ID</span>
+                    <span className="read-meta-value">{doc.doc_id}</span>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Alert variant="info" className="detail-empty-alert">
+            No documents uploaded yet.
+          </Alert>
+        )}
+        {canUpload && allowedDocTypes.length > 0 && (
+          <div className="document-upload-section">
+            <h3 className="upload-title">{t("upload_documents")}</h3>
+            {uploading && uploadProgress > 0 && (
+              <div className="upload-progress" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100} aria-label="Upload progress">
+                <div className="upload-progress__track">
+                  <div className="upload-progress__fill" style={{ width: `${uploadProgress}%` }} />
+                </div>
+                <span className="upload-progress__label">{uploadProgress}%</span>
+              </div>
+            )}
+            {allowedDocTypes.map((dt: any) => (
+              <div key={dt.docTypeId} className="upload-row">
+                <Field label={dt.name} htmlFor={`upload-${dt.docTypeId}`}>
+                  <Input
+                    id={`upload-${dt.docTypeId}`}
+                    type="file"
+                    accept={dt.allowedMimeTypes?.join(",") || ".pdf,.jpg,.png"}
+                    disabled={uploading || isOffline}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && onDocumentUpload) onDocumentUpload(dt.docTypeId, f);
+                    }}
+                    className="upload-input"
+                  />
+                </Field>
+              </div>
+            ))}
+          </div>
+        )}
+        {application.state_id === "QUERY_PENDING" && unlockedDocTypes.length === 0 && (
+          <Alert variant="warning">No documents are unlocked for upload in this query.</Alert>
+        )}
+      </div>
+
+      {/* Timeline */}
+      <div className="detail-section">
+        <h2 className="section-title">{t("timeline")} ({timelineEvents.length})</h2>
+        {timelineEvents.length > 0 ? (
+          <>
+            <p className="timeline-note">Showing the most recent {visibleTimeline.length} events.</p>
+            <div className="read-card-list">
+              {visibleTimeline.map((event: any, idx: number) => (
+                <Card key={idx} className="read-only-card timeline-read-card">
+                  <p className="read-card-title">{event.event_type || "Timeline Event"}</p>
+                  <div className="read-card-grid">
+                    <div className="read-meta-row">
+                      <span className="read-meta-key">Timestamp</span>
+                      <span className="read-meta-value" title={event.created_at ? formatDate(event.created_at) : ""}>
+                        {event.created_at ? timeAgo(event.created_at) : "—"}
+                      </span>
+                    </div>
+                    <div className="read-meta-row">
+                      <span className="read-meta-key">Actor Type</span>
+                      <span className="read-meta-value">{event.actor_type || "System"}</span>
+                    </div>
+                    <div className="read-meta-row">
+                      <span className="read-meta-key">Actor</span>
+                      <span className="read-meta-value">{event.actor_id || "System"}</span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        ) : (
+          <Alert variant="info" className="detail-empty-alert">
+            Timeline events are not available yet.
+          </Alert>
+        )}
+      </div>
+
+      {/* Output Download */}
+      {(application.disposal_type === "APPROVED" ||
+        application.disposal_type === "REJECTED" ||
+        (application.service_key === "no_due_certificate" && ndcPaymentStatus?.certificateEligible)) && (
+        <div className="detail-section">
+          {downloadError && <p className="error-message" style={{ marginBottom: "0.5rem" }}>{downloadError}</p>}
+          <button
+            className="download-cert-link-large"
+            onClick={() => handleDownload(
+              outputDownloadUrl,
+              `${application.disposal_type === "REJECTED" ? "Order" : "Certificate"}-${application.arn.replace(/\//g, "-")}.pdf`
+            )}
+            disabled={downloading}
+          >
+            {downloading ? "Downloading…" : (application.disposal_type === "REJECTED" ? t("download_order") : t("download_certificate"))}
+          </button>
+        </div>
+      )}
+      </main>
+    </>
+  );
+}

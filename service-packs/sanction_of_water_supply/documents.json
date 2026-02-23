@@ -1,0 +1,53 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_BUILDING_PLAN",
+      "name": "Photocopy of Building plan",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_GPA",
+      "name": "Attested copy of GPA (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PLUMBER_CERT",
+      "name": "Certificate from a plumber registered with the Authority",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_ARCH_ESTIMATE",
+      "name": "Estimate for construction work issued by Architect",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_UNDERTAKING",
+      "name": "Undertaking regarding illegal construction / illegal water connection at site",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_OWNER_PHOTOS",
+      "name": "Self attested photographs of all owners",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_OWNER_PHOTO_IDS",
+      "name": "Self attested Photo Id proofs of all owners",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+services:
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: puda-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: puda
+      POSTGRES_USER: puda
+      POSTGRES_PASSWORD: puda
+    ports:
+      - "5433:5432"   # 5433 on host to avoid conflict with local Postgres on 5432
+    volumes:
+      - puda_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U puda"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- API Server ---
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: puda-api
+    restart: unless-stopped
+    ports:
+      - "3001:8080"
+    environment:
+      PORT: "8080"
+      NODE_ENV: development
+      DATABASE_URL: postgres://puda:puda@postgres:5432/puda
+      DATABASE_SSL: "false"
+      JWT_SECRET: "${JWT_SECRET:-puda-local-dev-secret}"
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:5174,http://localhost:3002,http://localhost:3003"
+      STORAGE_BASE_DIR: /app/uploads
+      EMAIL_ENABLED: "false"
+    volumes:
+      - puda_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- Citizen Portal ---
+  citizen:
+    build:
+      context: .
+      dockerfile: Dockerfile.citizen
+      args:
+        VITE_API_BASE_URL: http://localhost:3001
+    container_name: puda-citizen
+    restart: unless-stopped
+    ports:
+      - "3002:8080"
+
+  # --- Officer Portal ---
+  officer:
+    build:
+      context: .
+      dockerfile: Dockerfile.officer
+      args:
+        VITE_API_BASE_URL: http://localhost:3001
+    container_name: puda-officer
+    restart: unless-stopped
+    ports:
+      - "3003:8080"
+
+volumes:
+  puda_pg_data:
+  puda_uploads:

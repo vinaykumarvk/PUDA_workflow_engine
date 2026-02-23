@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "SEWERAGE_CONNECTION_SANCTION_FEE",
+      "amount": 1500,
+      "description": "Sewerage connection sanction fee"
+    }
+  ]
+}

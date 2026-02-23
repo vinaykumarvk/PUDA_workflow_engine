@@ -1,0 +1,80 @@
+# ==============================================================================
+# PUDA Workflow Engine — API Server
+# Multi-stage Docker build for Google Cloud Run
+# ==============================================================================
+
+# --- Stage 1: Install dependencies ---
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Copy workspace-level package files first (cache layer)
+COPY package.json package-lock.json ./
+
+# Copy workspace package.json files (needed for npm workspaces)
+COPY apps/api/package.json apps/api/package.json
+COPY packages/shared/package.json packages/shared/package.json
+
+# Install ALL dependencies (including devDependencies for build step)
+RUN npm ci --workspace=apps/api --workspace=packages/shared --include-workspace-root
+
+# --- Stage 2: Build TypeScript ---
+FROM deps AS build
+
+WORKDIR /app
+
+# Copy source files needed for compilation
+COPY tsconfig.base.json ./
+COPY packages/shared/tsconfig.json packages/shared/
+COPY packages/shared/src/ packages/shared/src/
+COPY apps/api/tsconfig.json apps/api/
+COPY apps/api/src/ apps/api/src/
+
+# Build shared package first, then the API
+RUN npm run build:shared && npm --workspace apps/api run build
+
+# --- Stage 3: Production image ---
+FROM node:20-alpine AS production
+
+WORKDIR /app
+
+# Add non-root user for security
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Copy workspace-level package files
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/shared/package.json packages/shared/package.json
+
+# Install production dependencies only
+RUN npm ci --workspace=apps/api --workspace=packages/shared --include-workspace-root --omit=dev
+
+# Copy compiled API from build stage
+COPY --from=build /app/apps/api/dist/ apps/api/dist/
+
+# Copy compiled shared package (needed at runtime)
+COPY --from=build /app/packages/shared/dist/ packages/shared/dist/
+
+# Copy service-packs (JSON/YAML configs needed at runtime)
+COPY service-packs/ service-packs/
+
+# Copy migration scripts (needed for database setup)
+COPY apps/api/scripts/ apps/api/scripts/
+
+# Create uploads directory for local storage fallback
+RUN mkdir -p /app/uploads && chown appuser:appgroup /app/uploads
+
+# Switch to non-root user
+USER appuser
+
+# Cloud Run provides PORT env var; the API reads it
+ENV NODE_ENV=production
+EXPOSE 8080
+
+# Liveness: lightweight /health. Readiness: /ready verifies DB connectivity.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:'+(process.env.PORT||8080)+'/ready').then(r=>{if(!r.ok)throw r.status}).catch(()=>process.exit(1))"
+
+# Start the API server
+CMD ["node", "apps/api/dist/index.js"]
