@@ -34,6 +34,20 @@ interface ApplicationDetailProps {
   onBack: () => void;
   onSubmit?: () => void;
   onDocumentUpload?: (docTypeId: string, file: File) => void;
+  onReuseDocument?: (citizenDocId: string, docTypeId: string) => void;
+  citizenDocuments?: Array<{
+    citizen_doc_id: string;
+    doc_type_id: string;
+    citizen_version: number;
+    original_filename?: string;
+    mime_type?: string;
+    size_bytes?: number;
+    uploaded_at?: string;
+    linked_applications?: Array<{
+      arn: string;
+      verification_status: string;
+    }>;
+  }>;
   uploading?: boolean;
   uploadProgress?: number;
   isOffline?: boolean;
@@ -85,6 +99,8 @@ export default function ApplicationDetail({
   onBack,
   onSubmit,
   onDocumentUpload,
+  onReuseDocument,
+  citizenDocuments = [],
   uploading = false,
   uploadProgress = 0,
   isOffline = false,
@@ -832,19 +848,21 @@ export default function ApplicationDetail({
         <h2 className="section-title">{t("documents")} ({documents.length})</h2>
         {documents.length > 0 ? (
           <div className="read-card-list">
-            {documents.map((doc: any) => (
-              <Card key={doc.doc_id} className="read-only-card document-read-card">
+            {documents.map((doc: any) => {
+              const verStatus = doc.verification_status || "PENDING";
+              const badgeClass = verStatus === "VERIFIED" ? "status-verified" : verStatus === "REJECTED" ? "status-rejected" : verStatus === "QUERY" ? "status-query" : "status-pending";
+              return (
+              <Card key={doc.doc_id} className={`read-only-card document-read-card ${verStatus === "REJECTED" || verStatus === "QUERY" ? "doc-action-required" : ""}`}>
                 <div className="read-card-header">
                   <p className="read-card-title">{doc.original_filename || doc.doc_id}</p>
-                  <a
-                    href={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/documents/${doc.doc_id}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="doc-download"
-                  >
-                    Download
-                  </a>
+                  <span className={`doc-verification-badge ${badgeClass}`}>{verStatus === "VERIFIED" ? "Verified" : verStatus === "REJECTED" ? "Rejected" : verStatus === "QUERY" ? "Query" : "Pending"}</span>
                 </div>
+                {(verStatus === "REJECTED" || verStatus === "QUERY") && doc.verification_remarks && (
+                  <Alert variant={verStatus === "REJECTED" ? "error" : "warning"} className="doc-remarks-alert">
+                    {verStatus === "REJECTED" ? "Rejected" : "Query"} — {doc.verification_remarks}
+                    {verStatus === "REJECTED" && ". Please re-upload a corrected copy."}
+                  </Alert>
+                )}
                 <div className="read-card-grid">
                   <div className="read-meta-row">
                     <span className="read-meta-key">Document Type</span>
@@ -855,17 +873,40 @@ export default function ApplicationDetail({
                     <span className="read-meta-value">{doc.doc_id}</span>
                   </div>
                 </div>
+                <div className="doc-download-row">
+                  <a
+                    href={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/documents/${doc.doc_id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="doc-download"
+                  >
+                    Download
+                  </a>
+                </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <Alert variant="info" className="detail-empty-alert">
             No documents uploaded yet.
           </Alert>
         )}
+        {/* Re-upload alerts for queried/rejected documents */}
+        {documents.some((doc: any) => doc.verification_status === "QUERY" || doc.verification_status === "REJECTED") && (
+          <Alert variant="warning" className="doc-remarks-alert">
+            Action required: Some documents need your attention. Please review the remarks above and re-upload corrected copies below.
+          </Alert>
+        )}
         {canUpload && allowedDocTypes.length > 0 && (
           <div className="document-upload-section">
             <h3 className="upload-title">{t("upload_documents")}</h3>
+            {/* Optional docs UX hint */}
+            {allowedDocTypes.every((dt: any) => !dt.mandatory) && documents.length === 0 && (
+              <Alert variant="info" className="detail-empty-alert">
+                All document types for this service are optional. You may proceed without uploading.
+              </Alert>
+            )}
             {uploading && uploadProgress > 0 && (
               <div className="upload-progress" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100} aria-label="Upload progress">
                 <div className="upload-progress__track">
@@ -874,23 +915,71 @@ export default function ApplicationDetail({
                 <span className="upload-progress__label">{uploadProgress}%</span>
               </div>
             )}
-            {allowedDocTypes.map((dt: any) => (
-              <div key={dt.docTypeId} className="upload-row">
-                <Field label={dt.name} htmlFor={`upload-${dt.docTypeId}`}>
-                  <Input
-                    id={`upload-${dt.docTypeId}`}
-                    type="file"
-                    accept={dt.allowedMimeTypes?.join(",") || ".pdf,.jpg,.png"}
-                    disabled={uploading || isOffline}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f && onDocumentUpload) onDocumentUpload(dt.docTypeId, f);
-                    }}
-                    className="upload-input"
-                  />
-                </Field>
-              </div>
-            ))}
+            {allowedDocTypes.map((dt: any) => {
+              const existingLockerDoc = citizenDocuments.find(
+                (cd) => cd.doc_type_id === dt.docTypeId
+              );
+              const existingAppDoc = documents.find((d: any) => d.doc_type_id === dt.docTypeId);
+              const isRejectedOrQueried = existingAppDoc && (existingAppDoc.verification_status === "REJECTED" || existingAppDoc.verification_status === "QUERY");
+              return (
+                <div key={dt.docTypeId} className={`upload-row ${isRejectedOrQueried ? "doc-action-required" : ""}`}>
+                  {isRejectedOrQueried && (
+                    <Alert variant="error" className="doc-remarks-alert" style={{ marginBottom: "0.5rem" }}>
+                      {existingAppDoc.verification_status === "REJECTED" ? "Rejected" : "Query"}: {existingAppDoc.verification_remarks || "Officer has flagged this document."}
+                      {" "}Please re-upload a corrected copy.
+                    </Alert>
+                  )}
+                  {existingLockerDoc && onReuseDocument && !isRejectedOrQueried && (
+                    <div className="reuse-card">
+                      {existingLockerDoc.mime_type?.startsWith("image/") ? (
+                        <img
+                          src={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/citizens/me/documents/${existingLockerDoc.citizen_doc_id}/download`}
+                          alt={existingLockerDoc.original_filename || ""}
+                          className="reuse-card-thumb"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="reuse-card-icon">PDF</div>
+                      )}
+                      <div className="reuse-card-info">
+                        <div className="reuse-card-name">{existingLockerDoc.original_filename || existingLockerDoc.doc_type_id}</div>
+                        <div className="reuse-card-meta">
+                          v{existingLockerDoc.citizen_version}
+                          {existingLockerDoc.size_bytes ? ` · ${existingLockerDoc.size_bytes < 1048576 ? `${(existingLockerDoc.size_bytes / 1024).toFixed(1)} KB` : `${(existingLockerDoc.size_bytes / 1048576).toFixed(1)} MB`}` : ""}
+                          {existingLockerDoc.uploaded_at ? ` · ${new Date(existingLockerDoc.uploaded_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}` : ""}
+                        </div>
+                        {existingLockerDoc.linked_applications && existingLockerDoc.linked_applications.filter((a) => a.verification_status === "VERIFIED").length > 0 && (
+                          <div className="reuse-card-social">
+                            Verified in {existingLockerDoc.linked_applications.filter((a) => a.verification_status === "VERIFIED").length} other application(s)
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={uploading || isOffline}
+                        onClick={() => onReuseDocument(existingLockerDoc.citizen_doc_id, dt.docTypeId)}
+                      >
+                        Use This Document
+                      </Button>
+                    </div>
+                  )}
+                  <Field label={isRejectedOrQueried ? `${dt.name} — re-upload required:` : existingLockerDoc ? `${dt.name} — or upload a new one:` : dt.name} htmlFor={`upload-${dt.docTypeId}`}>
+                    <Input
+                      id={`upload-${dt.docTypeId}`}
+                      type="file"
+                      accept={dt.allowedMimeTypes?.join(",") || ".pdf,.jpg,.png"}
+                      disabled={uploading || isOffline}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f && onDocumentUpload) onDocumentUpload(dt.docTypeId, f);
+                      }}
+                      className="upload-input"
+                    />
+                  </Field>
+                </div>
+              );
+            })}
           </div>
         )}
         {application.state_id === "QUERY_PENDING" && unlockedDocTypes.length === 0 && (

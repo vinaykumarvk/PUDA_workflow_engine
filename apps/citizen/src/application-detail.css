@@ -495,3 +495,161 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Document verification badges */
+.doc-verification-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.status-verified {
+  background: var(--color-success-soft, #e6f7ee);
+  color: var(--color-success, #157347);
+}
+
+.status-rejected {
+  background: var(--color-danger-soft, #fee9e7);
+  color: var(--color-danger, #b42318);
+}
+
+.status-query {
+  background: var(--color-brand-soft, #e8f0ff);
+  color: var(--color-brand, #0b5fff);
+}
+
+.status-pending {
+  background: var(--color-warning-soft, #fff8e7);
+  color: var(--color-warning, #946200);
+}
+
+.doc-action-required {
+  border-left: 3px solid var(--color-danger, #b42318);
+}
+
+.doc-remarks-alert {
+  font-size: 0.85rem;
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.doc-download-row {
+  margin-top: var(--space-2);
+}
+
+/* Drop zone for application detail */
+.app-dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  font-size: 0.88rem;
+}
+
+.app-dropzone:hover,
+.app-dropzone--active {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft, #e8f0ff);
+}
+
+.app-upload-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  font-size: 0.85rem;
+}
+
+.app-upload-confirm-thumb {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.app-upload-confirm-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-upload-confirm-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  word-break: break-word;
+}
+
+.app-upload-confirm-meta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.app-upload-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Reuse card */
+.reuse-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  margin-bottom: var(--space-2);
+}
+
+.reuse-card-thumb {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.reuse-card-icon {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.reuse-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.reuse-card-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  word-break: break-word;
+}
+
+.reuse-card-meta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.reuse-card-social {
+  font-size: 0.75rem;
+  color: var(--color-success, #157347);
+}

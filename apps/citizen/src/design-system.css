@@ -913,6 +913,123 @@ textarea.error {
   color: var(--color-text);
 }
 
+/* Shared DropZone component */
+.ui-dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.ui-dropzone:hover,
+.ui-dropzone--active {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.ui-dropzone--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-dropzone__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto var(--space-2);
+  opacity: 0.5;
+}
+
+.ui-dropzone__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ui-dropzone__label {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.ui-dropzone__hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-text-subtle);
+  margin-top: var(--space-1);
+}
+
+/* Shared UploadConfirm component */
+.ui-upload-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.ui-upload-confirm__thumb {
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+}
+
+.ui-upload-confirm__icon {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.ui-upload-confirm__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-upload-confirm__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.ui-upload-confirm__meta {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.ui-upload-confirm__progress {
+  margin-top: var(--space-1);
+}
+
+.ui-upload-confirm__progress-track {
+  height: 0.3rem;
+  background: var(--color-border);
+  border-radius: 0.15rem;
+  overflow: hidden;
+}
+
+.ui-upload-confirm__progress-fill {
+  height: 100%;
+  background: var(--color-brand);
+  border-radius: 0.15rem;
+  transition: width 0.3s ease;
+}
+
+.ui-upload-confirm__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;

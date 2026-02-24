@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Alert, Button, Card, Field, Input, Modal, Textarea } from "@puda/shared";
 import { Task, Application, apiBaseUrl } from "./types";
 import ThemeToggle from "./ThemeToggle";
@@ -131,6 +131,19 @@ export default function TaskDetail({
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // Per-document verification state
+  const [docVerifications, setDocVerifications] = useState<Record<string, { status: string; remarks: string }>>({});
+  const [docVerifyLoading, setDocVerifyLoading] = useState<string | null>(null);
+  const [docVerifyFeedback, setDocVerifyFeedback] = useState<{ docId: string; variant: "success" | "error"; text: string } | null>(null);
+
+  // Document preview state
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewMimeType, setPreviewMimeType] = useState<string>("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
   useEffect(() => {
     setConfirmOpen(false);
     setFeedback(null);
@@ -152,6 +165,100 @@ export default function TaskDetail({
     setVerificationChecklist(nextChecklist);
     setVerificationRemarks("");
   }, [serviceConfig, application?.state_id]);
+
+  // Clean up blob URL when preview closes
+  useEffect(() => {
+    return () => {
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    };
+  }, [previewBlobUrl]);
+
+  const fetchDocBlob = useCallback(async (docId: string): Promise<{ url: string; mime: string }> => {
+    const res = await fetch(`${apiBaseUrl}/api/v1/documents/${docId}/download`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error("Failed to fetch document");
+    const mime = res.headers.get("content-type") || "application/octet-stream";
+    const blob = await res.blob();
+    return { url: URL.createObjectURL(blob), mime };
+  }, [authHeaders]);
+
+  const handleDownload = useCallback(async (doc: any) => {
+    try {
+      const { url, mime } = await fetchDocBlob(doc.doc_id);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.original_filename || "document";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setFeedback({ variant: "error", text: "Failed to download document." });
+    }
+  }, [fetchDocBlob]);
+
+  const handlePreview = useCallback(async (doc: any) => {
+    setPreviewDoc(doc);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewBlobUrl(null);
+    setFullscreen(false);
+    try {
+      const { url, mime } = await fetchDocBlob(doc.doc_id);
+      setPreviewBlobUrl(url);
+      setPreviewMimeType(mime);
+    } catch {
+      setPreviewError("Failed to load document preview.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [fetchDocBlob]);
+
+  const closePreview = useCallback(() => {
+    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    setPreviewDoc(null);
+    setPreviewBlobUrl(null);
+    setPreviewMimeType("");
+    setPreviewError(null);
+    setFullscreen(false);
+  }, [previewBlobUrl]);
+
+  const handleDocVerify = useCallback(async (docId: string, status: string) => {
+    const entry = docVerifications[docId] || { status: "", remarks: "" };
+    const remarks = entry.remarks;
+    if ((status === "REJECTED" || status === "QUERY") && !remarks.trim()) {
+      setDocVerifyFeedback({ docId, variant: "error", text: "Please provide a reason for rejection/query." });
+      return;
+    }
+    setDocVerifyLoading(docId);
+    setDocVerifyFeedback(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/documents/${docId}/verify`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ status, remarks: remarks || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Verification failed");
+      }
+      setDocVerifyFeedback({ docId, variant: "success", text: `Document marked as ${status}` });
+      // Update the local document's verification_status for immediate feedback
+      const doc = application.documents.find((d: any) => d.doc_id === docId);
+      if (doc) {
+        doc.verification_status = status;
+        doc.verification_remarks = remarks;
+      }
+    } catch (err) {
+      setDocVerifyFeedback({ docId, variant: "error", text: err instanceof Error ? err.message : "Verification failed" });
+    } finally {
+      setDocVerifyLoading(null);
+    }
+  }, [docVerifications, authHeaders, application.documents]);
+
+  const isPreviewImage = previewMimeType.startsWith("image/");
+  const isPreviewPdf = previewMimeType === "application/pdf";
 
   const handleAction = async (confirmed = false) => {
     if (!task || !action) return;
@@ -281,11 +388,15 @@ export default function TaskDetail({
           <h2>Documents ({application.documents.length})</h2>
           {application.documents.length > 0 ? (
             <div className="detail-card-list">
-              {application.documents.map((doc) => (
+              {application.documents.map((doc) => {
+                const verEntry = docVerifications[doc.doc_id] || { status: "", remarks: "" };
+                const verStatus = doc.verification_status || "PENDING";
+                const statusClass = verStatus === "VERIFIED" ? "badge-approved" : verStatus === "REJECTED" ? "badge-rejected" : verStatus === "QUERY" ? "badge-query" : "badge-pending";
+                return (
                 <Card key={doc.doc_id} className="detail-read-card">
                   <div className="read-card-header">
                     <p className="read-card-title">{doc.original_filename}</p>
-                    <span className="badge">{doc.verification_status || "Pending"}</span>
+                    <span className={`badge ${statusClass}`}>{verStatus}</span>
                   </div>
                   <div className="read-card-grid">
                     <div className="read-meta-row">
@@ -296,9 +407,74 @@ export default function TaskDetail({
                       <span className="read-meta-key">Document ID</span>
                       <span className="read-meta-value">{doc.doc_id}</span>
                     </div>
+                    {doc.verification_remarks && (
+                      <div className="read-meta-row">
+                        <span className="read-meta-key">Remarks</span>
+                        <span className="read-meta-value">{doc.verification_remarks}</span>
+                      </div>
+                    )}
                   </div>
+                  <div className="doc-actions">
+                    <Button variant="ghost" className="doc-actions__btn" onClick={() => void handlePreview(doc)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      Preview
+                    </Button>
+                    <Button variant="ghost" className="doc-actions__btn" onClick={() => void handleDownload(doc)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      Download
+                    </Button>
+                  </div>
+                  {/* Per-document verification controls */}
+                  {!fromSearch && !["APPROVED", "REJECTED", "CLOSED"].includes(application.state_id) && (
+                    <div className="doc-verify-controls">
+                      <div className="doc-verify-actions">
+                        <Button
+                          size="sm"
+                          variant="success"
+                          disabled={isOffline || docVerifyLoading === doc.doc_id}
+                          onClick={() => void handleDocVerify(doc.doc_id, "VERIFIED")}
+                        >
+                          Verify
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          disabled={isOffline || docVerifyLoading === doc.doc_id}
+                          onClick={() => void handleDocVerify(doc.doc_id, "REJECTED")}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="warning"
+                          disabled={isOffline || docVerifyLoading === doc.doc_id}
+                          onClick={() => void handleDocVerify(doc.doc_id, "QUERY")}
+                        >
+                          Query
+                        </Button>
+                      </div>
+                      <input
+                        type="text"
+                        className="ui-input doc-verify-remarks"
+                        placeholder="Reason (required for reject/query)..."
+                        value={verEntry.remarks}
+                        disabled={isOffline || docVerifyLoading === doc.doc_id}
+                        onChange={(e) => setDocVerifications((prev) => ({
+                          ...prev,
+                          [doc.doc_id]: { ...prev[doc.doc_id], remarks: e.target.value },
+                        }))}
+                      />
+                      {docVerifyLoading === doc.doc_id && <span className="doc-verify-loading">Saving...</span>}
+                      {docVerifyFeedback?.docId === doc.doc_id && (
+                        <Alert variant={docVerifyFeedback.variant === "success" ? "success" : "error"} className="doc-verify-alert">
+                          {docVerifyFeedback.text}
+                        </Alert>
+                      )}
+                    </div>
+                  )}
                 </Card>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Alert variant="info" className="empty-read-alert">
@@ -500,6 +676,84 @@ export default function TaskDetail({
           </>
         }
       />
+
+      {/* Document Preview Modal */}
+      <Modal
+        open={!!previewDoc && !fullscreen}
+        onClose={closePreview}
+        title={previewDoc?.original_filename || "Document Preview"}
+        className="doc-preview-modal"
+        actions={
+          <>
+            <Button type="button" variant="ghost" onClick={closePreview}>Close</Button>
+            {previewBlobUrl && (
+              <>
+                <Button type="button" variant="ghost" onClick={() => setFullscreen(true)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                  Fullscreen
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => void handleDownload(previewDoc)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download
+                </Button>
+              </>
+            )}
+          </>
+        }
+      >
+        <div className="doc-preview-content">
+          {previewLoading && <p className="doc-preview-loading">Loading preview...</p>}
+          {previewError && <Alert variant="error">{previewError}</Alert>}
+          {previewBlobUrl && isPreviewImage && (
+            <img src={previewBlobUrl} alt={previewDoc?.original_filename || "Document"} className="doc-preview-img" />
+          )}
+          {previewBlobUrl && isPreviewPdf && (
+            <iframe src={previewBlobUrl} title={previewDoc?.original_filename || "Document"} className="doc-preview-iframe" />
+          )}
+          {previewBlobUrl && !isPreviewImage && !isPreviewPdf && (
+            <div className="doc-preview-unsupported">
+              <p>Preview is not available for this file type.</p>
+              <Button variant="secondary" onClick={() => void handleDownload(previewDoc)}>Download to view</Button>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Fullscreen Preview Overlay */}
+      {fullscreen && previewDoc && (
+        <div className="doc-preview-fullscreen" role="dialog" aria-label="Fullscreen document preview">
+          <div className="doc-preview-fullscreen__toolbar">
+            <span className="doc-preview-fullscreen__filename">{previewDoc.original_filename}</span>
+            <div className="doc-preview-fullscreen__actions">
+              <Button variant="ghost" onClick={() => void handleDownload(previewDoc)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+              </Button>
+              <Button variant="ghost" onClick={() => setFullscreen(false)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                Exit Fullscreen
+              </Button>
+              <Button variant="ghost" onClick={closePreview}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Close
+              </Button>
+            </div>
+          </div>
+          <div className="doc-preview-fullscreen__body">
+            {previewBlobUrl && isPreviewImage && (
+              <img src={previewBlobUrl} alt={previewDoc.original_filename || "Document"} className="doc-preview-img" />
+            )}
+            {previewBlobUrl && isPreviewPdf && (
+              <iframe src={previewBlobUrl} title={previewDoc.original_filename || "Document"} className="doc-preview-iframe" />
+            )}
+            {previewBlobUrl && !isPreviewImage && !isPreviewPdf && (
+              <div className="doc-preview-unsupported">
+                <p>Preview is not available for this file type.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

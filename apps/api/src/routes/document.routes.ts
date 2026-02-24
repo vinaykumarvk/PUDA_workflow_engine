@@ -28,6 +28,52 @@ const docIdParamsSchema = {
   },
 };
 
+const appDocIdParamsSchema = {
+  params: {
+    type: "object",
+    required: ["appDocId"],
+    additionalProperties: false,
+    properties: {
+      appDocId: { type: "string", minLength: 1 },
+    },
+  },
+};
+
+const verifyDocBodySchema = {
+  body: {
+    type: "object",
+    required: ["status"],
+    additionalProperties: false,
+    properties: {
+      status: { type: "string", enum: ["VERIFIED", "REJECTED", "QUERY", "PENDING"] },
+      remarks: { type: "string" },
+    },
+  },
+};
+
+const batchVerifyBodySchema = {
+  body: {
+    type: "object",
+    required: ["verifications"],
+    additionalProperties: false,
+    properties: {
+      verifications: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["appDocId", "status"],
+          additionalProperties: false,
+          properties: {
+            appDocId: { type: "string", minLength: 1 },
+            status: { type: "string", enum: ["VERIFIED", "REJECTED", "QUERY", "PENDING"] },
+            remarks: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+};
+
 export async function registerDocumentRoutes(app: FastifyInstance) {
   app.post(
     "/api/v1/documents/upload",
@@ -126,5 +172,30 @@ export async function registerDocumentRoutes(app: FastifyInstance) {
     if (!fileBuffer) return send404(reply, "FILE_NOT_FOUND");
     reply.type(doc?.mime_type || "application/octet-stream");
     return fileBuffer;
+  });
+
+  // Per-document verification (officer action)
+  app.patch("/api/v1/documents/:appDocId/verify", { schema: { ...appDocIdParamsSchema, ...verifyDocBodySchema } }, async (request, reply) => {
+    const userId = request.authUser?.userId || getAuthUserId(request, "userId");
+    if (!userId) return send400(reply, "USER_ID_REQUIRED");
+
+    const params = request.params as { appDocId: string };
+    const body = request.body as { status: string; remarks?: string };
+
+    const appDoc = await documents.getApplicationDocumentById(params.appDocId);
+    if (!appDoc) return send404(reply, "APP_DOC_NOT_FOUND");
+
+    await documents.updateDocumentVerification(params.appDocId, body.status, userId, body.remarks);
+    return { success: true, appDocId: params.appDocId, status: body.status };
+  });
+
+  // Batch per-document verification
+  app.post("/api/v1/documents/verify-batch", { schema: batchVerifyBodySchema }, async (request, reply) => {
+    const userId = request.authUser?.userId || getAuthUserId(request, "userId");
+    if (!userId) return send400(reply, "USER_ID_REQUIRED");
+
+    const body = request.body as { verifications: Array<{ appDocId: string; status: string; remarks?: string }> };
+    await documents.batchUpdateDocumentVerifications(body.verifications, userId);
+    return { success: true, count: body.verifications.length };
   });
 }

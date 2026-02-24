@@ -539,6 +539,99 @@
   }
 }
 
+/* Document Locker stats card */
+.doc-locker-section {
+  margin-top: 0;
+}
+
+.doc-locker-card {
+  padding: var(--space-4);
+}
+
+.doc-locker-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.doc-locker-card-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--color-brand);
+  flex-shrink: 0;
+}
+
+.doc-locker-card-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.doc-locker-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.doc-locker-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.doc-locker-stat {
+  text-align: center;
+  padding: var(--space-2) var(--space-1);
+}
+
+.doc-locker-stat + .doc-locker-stat {
+  border-left: 1px solid var(--color-border);
+}
+
+.doc-locker-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  display: block;
+}
+
+.doc-locker-stat-value--verified {
+  color: var(--color-success);
+}
+
+.doc-locker-stat-value--action {
+  color: var(--color-danger);
+}
+
+.doc-locker-stat--action {
+  background: var(--color-danger-soft);
+}
+
+.doc-locker-stat-label {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.doc-locker-empty-text {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.doc-locker-expiry-banner {
+  font-size: 0.85rem;
+  padding: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.doc-locker-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 @media (max-width: 30rem) {
   .attention-footer {
     align-items: flex-start;

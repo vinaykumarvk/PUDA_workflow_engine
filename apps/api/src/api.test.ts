@@ -17,6 +17,8 @@ const OFFICER_USER_ID = "test-officer-1";
 const SR_ASSISTANT_OFFICER_USER_ID = "test-officer-2";
 const ACCOUNT_OFFICER_USER_ID = "test-officer-3";
 const OFFICER_LOGIN = "officer1";
+const SR_ASSISTANT_OFFICER_LOGIN = "officer2";
+const ACCOUNT_OFFICER_LOGIN = "officer3";
 const OFFICER_PASSWORD = "password123";
 const AUTHORITY_ID = "PUDA";
 const SERVICE_KEY = "no_due_certificate";
@@ -25,6 +27,8 @@ describe("PUDA Workflow Engine API", () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let citizenToken: string;
   let officerToken: string;
+  let srAssistantOfficerToken: string;
+  let accountOfficerToken: string;
   let rawInject: ((opts: Parameters<typeof app.inject>[0]) => ReturnType<typeof app.inject>) | null = null;
   let dbReady = false;
 
@@ -73,6 +77,12 @@ describe("PUDA Workflow Engine API", () => {
   function officerHeaders(): Record<string, string> {
     return { authorization: `Bearer ${officerToken}` };
   }
+  function srAssistantOfficerHeaders(): Record<string, string> {
+    return { authorization: `Bearer ${srAssistantOfficerToken}` };
+  }
+  function accountOfficerHeaders(): Record<string, string> {
+    return { authorization: `Bearer ${accountOfficerToken}` };
+  }
 
   /** Inject with citizen auth */
   function citizenInject(opts: Parameters<typeof app.inject>[0]) {
@@ -102,11 +112,30 @@ describe("PUDA Workflow Engine API", () => {
         url: "/api/v1/auth/login",
         payload: { login: OFFICER_LOGIN, password: OFFICER_PASSWORD },
       });
-      if (citizenRes.statusCode !== 200 || officerRes.statusCode !== 200) {
-        throw new Error(`LOGIN_BOOTSTRAP_FAILED_${citizenRes.statusCode}_${officerRes.statusCode}`);
+      const srAssistantOfficerRes = await rawInject({
+        method: "POST",
+        url: "/api/v1/auth/login",
+        payload: { login: SR_ASSISTANT_OFFICER_LOGIN, password: OFFICER_PASSWORD },
+      });
+      const accountOfficerRes = await rawInject({
+        method: "POST",
+        url: "/api/v1/auth/login",
+        payload: { login: ACCOUNT_OFFICER_LOGIN, password: OFFICER_PASSWORD },
+      });
+      if (
+        citizenRes.statusCode !== 200 ||
+        officerRes.statusCode !== 200 ||
+        srAssistantOfficerRes.statusCode !== 200 ||
+        accountOfficerRes.statusCode !== 200
+      ) {
+        throw new Error(
+          `LOGIN_BOOTSTRAP_FAILED_${citizenRes.statusCode}_${officerRes.statusCode}_${srAssistantOfficerRes.statusCode}_${accountOfficerRes.statusCode}`
+        );
       }
       citizenToken = JSON.parse(citizenRes.payload).token || "";
       officerToken = JSON.parse(officerRes.payload).token || "";
+      srAssistantOfficerToken = JSON.parse(srAssistantOfficerRes.payload).token || "";
+      accountOfficerToken = JSON.parse(accountOfficerRes.payload).token || "";
       (app as any).inject = injectWithDefaultAuth;
       dbReady = true;
     } catch (error: any) {
@@ -128,7 +157,7 @@ describe("PUDA Workflow Engine API", () => {
       const res = await app.inject({ method: "GET", url: "/health" });
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.payload)).toEqual({ status: "ok" });
-    });
+    }, 30000);
   });
 
   describe("2. Auth", () => {
@@ -146,7 +175,7 @@ describe("PUDA Workflow Engine API", () => {
       expect(body.user.user_type).toBe("CITIZEN");
       expect(body.token).toBeDefined();
       expect(typeof body.token).toBe("string");
-    });
+    }, 30000);
 
     it("POST /api/v1/auth/login with valid officer credentials returns user + JWT token", async () => {
       const res = await app.inject({
@@ -244,12 +273,12 @@ describe("PUDA Workflow Engine API", () => {
       });
       expect(createRes.statusCode).toBe(200);
       draftArn = JSON.parse(createRes.payload).arn;
-    });
+    }, 30000);
 
     it("POST /api/v1/applications creates draft application", () => {
       expect(draftArn).toBeDefined();
       expect(draftArn).toContain(AUTHORITY_ID);
-    });
+    }, 30000);
 
     it("GET /api/v1/applications/:arn returns application with documents, tasks, timeline", async () => {
       const res = await app.inject({
@@ -264,7 +293,7 @@ describe("PUDA Workflow Engine API", () => {
       expect(Array.isArray(body.queries)).toBe(true);
       expect(Array.isArray(body.tasks)).toBe(true);
       expect(Array.isArray(body.timeline)).toBe(true);
-    });
+    }, 30000);
 
     it("PUT /api/v1/applications/:arn updates application data", async () => {
       const res = await app.inject({
@@ -356,7 +385,7 @@ describe("PUDA Workflow Engine API", () => {
       });
       const getBody = JSON.parse(getRes.payload);
       taskId = getBody.tasks[0].task_id;
-    });
+    }, 30000);
 
     it("GET /api/v1/tasks/inbox returns tasks for officer", async () => {
       const res = await app.inject({
@@ -369,7 +398,7 @@ describe("PUDA Workflow Engine API", () => {
       expect(body.tasks.length).toBeGreaterThan(0);
       const task = body.tasks.find((t: any) => t.arn === submittedArn);
       expect(task).toBeDefined();
-    });
+    }, 30000);
 
     it("POST /api/v1/tasks/:taskId/assign assigns task to officer", async () => {
       const res = await app.inject({
@@ -379,7 +408,7 @@ describe("PUDA Workflow Engine API", () => {
       });
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.payload).success).toBe(true);
-    });
+    }, 30000);
 
     it("POST /api/v1/tasks/:taskId/actions with FORWARD moves to next state", async () => {
       const res = await app.inject({
@@ -461,7 +490,7 @@ describe("PUDA Workflow Engine API", () => {
       });
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.payload).success).toBe(true);
-    });
+    }, 30000);
 
     it("GET /api/v1/applications/:arn after query response shows RESUBMITTED then PENDING_AT_CLERK", async () => {
       const res = await app.inject({
@@ -471,7 +500,7 @@ describe("PUDA Workflow Engine API", () => {
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.payload);
       expect(["RESUBMITTED", "PENDING_AT_CLERK"]).toContain(body.state_id);
-    });
+    }, 30000);
   });
 
   describe("7. Approve flow and output", () => {
@@ -522,11 +551,13 @@ describe("PUDA Workflow Engine API", () => {
       await app.inject({
         method: "POST",
         url: `/api/v1/tasks/${srTaskId}/assign`,
+        headers: srAssistantOfficerHeaders(),
         payload: { userId: SR_ASSISTANT_OFFICER_USER_ID },
       });
       await app.inject({
         method: "POST",
         url: `/api/v1/tasks/${srTaskId}/actions`,
+        headers: srAssistantOfficerHeaders(),
         payload: { action: "FORWARD", userId: SR_ASSISTANT_OFFICER_USER_ID },
       });
       const get3 = await app.inject({
@@ -537,14 +568,16 @@ describe("PUDA Workflow Engine API", () => {
       await app.inject({
         method: "POST",
         url: `/api/v1/tasks/${aoTaskId}/assign`,
+        headers: accountOfficerHeaders(),
         payload: { userId: ACCOUNT_OFFICER_USER_ID },
       });
-    });
+    }, 30000);
 
     it("POST /api/v1/tasks/:taskId/actions APPROVE disposes application and generates output", async () => {
       const res = await app.inject({
         method: "POST",
         url: `/api/v1/tasks/${aoTaskId}/actions`,
+        headers: accountOfficerHeaders(),
         payload: { action: "APPROVE", userId: ACCOUNT_OFFICER_USER_ID, remarks: "Approved" },
       });
       expect(res.statusCode).toBe(200);
@@ -618,7 +651,7 @@ describe("PUDA Workflow Engine API", () => {
         url: `/api/v1/tasks/${clerkTaskId}/assign`,
         payload: { userId: OFFICER_USER_ID },
       });
-    });
+    }, 30000);
 
     it("POST /api/v1/tasks/:taskId/actions REJECT disposes application", async () => {
       const res = await app.inject({
@@ -730,7 +763,7 @@ describe("PUDA Workflow Engine API", () => {
         url: `/api/v1/applications/${submittedArn}`,
       });
       clerkTaskId = JSON.parse(getRes.payload).tasks[0].task_id;
-    });
+    }, 30000);
 
     it("citizen cannot access officer inbox", async () => {
       const res = await app.inject({

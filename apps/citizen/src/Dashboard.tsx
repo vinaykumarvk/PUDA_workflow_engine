@@ -52,9 +52,20 @@ interface Notification {
   created_at: string;
 }
 
+interface DocLockerSummary {
+  total: number;
+  verified: number;
+  pending: number;
+  rejected: number;
+  query: number;
+  actionRequired: number;
+  expiringSoon: number;
+}
+
 interface DashboardProps {
   onNavigateToCatalog: () => void;
   onNavigateToApplication: (arn: string) => void;
+  onNavigateToLocker?: (filter?: string) => void;
   onFilterApplications?: (filter: { status?: string; type?: string }) => void;
   isOffline: boolean;
 }
@@ -172,6 +183,7 @@ function isDashboardCachePayload(value: unknown): value is DashboardCachePayload
 export default function Dashboard({
   onNavigateToCatalog,
   onNavigateToApplication,
+  onNavigateToLocker,
   onFilterApplications,
   isOffline
 }: DashboardProps) {
@@ -182,6 +194,7 @@ export default function Dashboard({
   const [applications, setApplications] = useState<Application[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [docLockerSummary, setDocLockerSummary] = useState<DocLockerSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,12 +249,13 @@ export default function Dashboard({
 
       const hdrs = authHeaders();
 
-      // Load stats, applications, pending actions, and notifications in parallel
-      const [statsRes, appsRes, actionsRes, notifsRes] = await Promise.all([
+      // Load stats, applications, pending actions, notifications, and doc locker summary in parallel
+      const [statsRes, appsRes, actionsRes, notifsRes, docsRes] = await Promise.all([
         fetch(`${apiBaseUrl}/api/v1/applications/stats?userId=${user.user_id}`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/applications?userId=${user.user_id}&limit=10`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/applications/pending-actions?userId=${user.user_id}`, { headers: hdrs }),
-        fetch(`${apiBaseUrl}/api/v1/notifications?userId=${user.user_id}&limit=5&unreadOnly=true`, { headers: hdrs })
+        fetch(`${apiBaseUrl}/api/v1/notifications?userId=${user.user_id}&limit=5&unreadOnly=true`, { headers: hdrs }),
+        fetch(`${apiBaseUrl}/api/v1/citizens/me/documents`, { headers: hdrs }),
       ]);
 
       let nextStats: Stats | null = null;
@@ -271,6 +285,13 @@ export default function Dashboard({
         const notifsData = await notifsRes.json();
         nextNotifications = notifsData.notifications || [];
         setNotifications(nextNotifications);
+      }
+
+      if (docsRes.ok) {
+        const docsData = await docsRes.json();
+        if (docsData.summary) {
+          setDocLockerSummary(docsData.summary);
+        }
       }
 
       if (statsRes.ok && appsRes.ok && actionsRes.ok && notifsRes.ok) {
@@ -473,6 +494,58 @@ export default function Dashboard({
           <span className="new-service-arrow">→</span>
         </Button>
       </div>
+
+      {/* Document Locker stats card */}
+      {onNavigateToLocker && (
+        <div className="section doc-locker-section">
+          <Card className="doc-locker-card">
+            <div className="doc-locker-card-header">
+              <span className="doc-locker-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M7 3h7l5 5v13H7z" />
+                  <path d="M14 3v6h5" />
+                </svg>
+              </span>
+              <h3 className="doc-locker-card-title">{t("document_locker", "My Document Locker")}</h3>
+            </div>
+            {docLockerSummary && docLockerSummary.total > 0 ? (
+              <div className="doc-locker-stats-grid">
+                <div className="doc-locker-stat">
+                  <span className="doc-locker-stat-value">{docLockerSummary.total}</span>
+                  <span className="doc-locker-stat-label">Total</span>
+                </div>
+                <div className="doc-locker-stat">
+                  <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.verified}</span>
+                  <span className="doc-locker-stat-label">Verified</span>
+                </div>
+                <div className={`doc-locker-stat ${docLockerSummary.actionRequired > 0 ? "doc-locker-stat--action" : ""}`}>
+                  <span className={`doc-locker-stat-value ${docLockerSummary.actionRequired > 0 ? "doc-locker-stat-value--action" : ""}`}>
+                    {docLockerSummary.actionRequired}
+                  </span>
+                  <span className="doc-locker-stat-label">Action Required</span>
+                </div>
+              </div>
+            ) : (
+              <p className="doc-locker-empty-text">{t("document_locker_desc", "View and manage all your uploaded documents")}</p>
+            )}
+            {docLockerSummary && docLockerSummary.expiringSoon > 0 && (
+              <Alert variant="warning" className="doc-locker-expiry-banner">
+                {docLockerSummary.expiringSoon} document{docLockerSummary.expiringSoon > 1 ? "s" : ""} expiring soon
+              </Alert>
+            )}
+            <div className="doc-locker-card-actions">
+              <Button onClick={() => onNavigateToLocker()} variant="secondary" size="sm">
+                Open Document Locker
+              </Button>
+              {docLockerSummary && docLockerSummary.actionRequired > 0 && (
+                <Button onClick={() => onNavigateToLocker("action_required")} variant="danger" size="sm">
+                  View Action Required ({docLockerSummary.actionRequired})
+                </Button>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Requires Attention - TOP PRIORITY */}
       {hasPendingActions && (

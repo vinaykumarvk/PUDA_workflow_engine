@@ -23,6 +23,7 @@ import ThemeToggle from "./ThemeToggle";
 
 const Dashboard = lazy(() => import("./Dashboard"));
 const ApplicationDetail = lazy(() => import("./ApplicationDetail"));
+const DocumentLocker = lazy(() => import("./DocumentLocker"));
 import { useTheme } from "./theme";
 import { readCached, writeCached } from "./cache";
 import { flushCacheTelemetryWithRetry, incrementCacheTelemetry } from "./cacheTelemetry";
@@ -53,7 +54,7 @@ type Application = {
 };
 
 type ResumeSnapshot = {
-  view: "catalog" | "create" | "track" | "applications";
+  view: "catalog" | "create" | "track" | "applications" | "locker";
   showDashboard: boolean;
   selectedService: ServiceSummary | null;
   currentApplication: Application | null;
@@ -179,7 +180,7 @@ function isServiceConfigPayload(value: unknown): value is Record<string, unknown
 function isResumeSnapshotPayload(value: unknown): value is ResumeSnapshot {
   return (
     isRecord(value) &&
-    (value.view === "catalog" || value.view === "create" || value.view === "track" || value.view === "applications") &&
+    (value.view === "catalog" || value.view === "create" || value.view === "track" || value.view === "applications" || value.view === "locker") &&
     typeof value.showDashboard === "boolean" &&
     "formData" in value &&
     typeof value.updatedAt === "string" &&
@@ -228,7 +229,8 @@ export default function App() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"catalog" | "create" | "track" | "applications">("catalog");
+  const [view, setView] = useState<"catalog" | "create" | "track" | "applications" | "locker">("catalog");
+  const [lockerFilter, setLockerFilter] = useState<string | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<ServiceSummary | null>(null);
   const [serviceConfig, setServiceConfig] = useState<any>(null);
   const [currentApplication, setCurrentApplication] = useState<Application | null>(null);
@@ -241,6 +243,7 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const [citizenProperties, setCitizenProperties] = useState<CitizenProperty[]>([]);
+  const [citizenDocuments, setCitizenDocuments] = useState<any[]>([]);
 
   const [profileApplicant, setProfileApplicant] = useState<any>({});
   const [profileComplete, setProfileComplete] = useState(true);
@@ -373,6 +376,19 @@ export default function App() {
       }
     } catch {
       // non-fatal — form still works without auto-fill
+    }
+  }, [user, authHeaders]);
+
+  const loadCitizenDocuments = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/v1/citizens/me/documents`, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setCitizenDocuments(data.documents || []);
+      }
+    } catch {
+      // non-fatal
     }
   }, [user, authHeaders]);
 
@@ -545,8 +561,9 @@ export default function App() {
       loadUserApplications();
       loadProfile();
       loadCitizenProperties();
+      loadCitizenDocuments();
     }
-  }, [user, loadServices, loadUserApplications, loadProfile, loadCitizenProperties]);
+  }, [user, loadServices, loadUserApplications, loadProfile, loadCitizenProperties, loadCitizenDocuments]);
 
   useEffect(() => {
     if (user && view === "track" && currentApplication?.arn && !applicationDetail) {
@@ -969,6 +986,13 @@ export default function App() {
                   setView("applications");
                 }
               }}
+              onNavigateToLocker={(filter?: string) => {
+                setError(null);
+                setFeedback(null);
+                setLockerFilter(filter);
+                setShowDashboard(false);
+                setView("locker");
+              }}
               isOffline={isOffline}
             />
           </Suspense>
@@ -1229,6 +1253,38 @@ export default function App() {
     } finally {
       setUploading(false);
       setUploadProgress(0);
+    }
+  };
+
+  const handleReuseDocument = async (citizenDocId: string, docTypeId: string) => {
+    if (!currentApplication || !user) return;
+    if (isOffline) {
+      showToast("warning", "You are offline. Document reuse is unavailable.");
+      return;
+    }
+    try {
+      setError(null);
+      const res = await fetch(`${apiBaseUrl}/api/v1/citizens/me/documents/reuse`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          citizenDocId,
+          arn: currentApplication.arn,
+          docTypeId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to reuse document");
+      }
+      await loadApplicationDetail(currentApplication.arn);
+      showToast("success", `Document reused from your Document Locker for ${docTypeId}.`);
+      setFeedback({ variant: "success", text: `Document from your locker linked to this application.` });
+      markSync();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to reuse document";
+      setError(msg);
+      showToast("error", msg);
     }
   };
 
@@ -1708,12 +1764,59 @@ export default function App() {
         }}
         onSubmit={currentApplication.state_id === "DRAFT" ? submitApplication : undefined}
         onDocumentUpload={handleDocumentUpload}
+        onReuseDocument={handleReuseDocument}
+        citizenDocuments={citizenDocuments}
         uploading={uploading}
         uploadProgress={uploadProgress}
         isOffline={isOffline}
         staleAt={lastSyncAt}
       />
       </Suspense>
+    );
+  }
+
+  // Document Locker View
+  if (view === "locker") {
+    return (
+      <div className="page">
+        <a href="#citizen-main-locker" className="skip-link">
+          Skip to main content
+        </a>
+        <header className="page__header">
+          <div className="topbar">
+            <div>
+              <Button
+                onClick={() => {
+                  setShowDashboard(true);
+                  setView("catalog");
+                }}
+                className="back-button"
+                variant="ghost"
+              >
+                ← Back to Dashboard
+              </Button>
+              <p className="eyebrow">PUDA Citizen Portal</p>
+              <h1>My Document Locker</h1>
+              <p className="subtitle">View and manage all your uploaded documents</p>
+            </div>
+            {renderTopbarActions("locker")}
+          </div>
+        </header>
+        <main id="citizen-main-locker" className="panel" role="main">
+          {renderResilienceBanner()}
+          <Suspense fallback={<div style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /></div>}>
+            <DocumentLocker
+              onBack={() => {
+                setShowDashboard(true);
+                setView("catalog");
+                setLockerFilter(undefined);
+              }}
+              isOffline={isOffline}
+              initialFilter={lockerFilter}
+            />
+          </Suspense>
+        </main>
+      </div>
     );
   }
 

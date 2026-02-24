@@ -451,3 +451,159 @@ export function ProgressBar({ current, total }: { current: number; total: number
 export function SkeletonBlock({ height = "1rem", width = "100%", className }: { height?: string; width?: string; className?: string }) {
   return <div className={cx("ui-skeleton", className)} style={{ height, width }} aria-hidden="true" />;
 }
+
+type DropZoneProps = {
+  accept?: string;
+  disabled?: boolean;
+  className?: string;
+  onFileSelected: (file: File) => void;
+  label?: string;
+};
+
+export function DropZone({
+  accept = ".pdf,.jpg,.jpeg,.png",
+  disabled = false,
+  className,
+  onFileSelected,
+  label = "Drop file here or click to browse",
+}: DropZoneProps) {
+  const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled) setDragActive(true);
+  }, [disabled]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (disabled) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) onFileSelected(file);
+  }, [disabled, onFileSelected]);
+
+  const handleClick = useCallback(() => {
+    if (!disabled) inputRef.current?.click();
+  }, [disabled]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onFileSelected(file);
+    // Reset so the same file can be selected again
+    e.target.value = "";
+  }, [onFileSelected]);
+
+  return (
+    <div
+      className={cx(
+        "ui-dropzone",
+        dragActive && "ui-dropzone--active",
+        disabled && "ui-dropzone--disabled",
+        className
+      )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onClick={handleClick}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+      aria-label={label}
+    >
+      <div className="ui-dropzone__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+      </div>
+      <span className="ui-dropzone__label">{label}</span>
+      <span className="ui-dropzone__hint">PDF, JPEG, or PNG</span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        onChange={handleInputChange}
+        style={{ display: "none" }}
+        disabled={disabled}
+        tabIndex={-1}
+      />
+    </div>
+  );
+}
+
+type UploadConfirmProps = {
+  file: File;
+  onConfirm: () => void;
+  onCancel: () => void;
+  uploading?: boolean;
+  progress?: number;
+};
+
+export function UploadConfirm({ file, onConfirm, onCancel, uploading = false, progress = 0 }: UploadConfirmProps) {
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setThumbUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setThumbUrl(null);
+  }, [file]);
+
+  const sizeStr = file.size < 1024
+    ? `${file.size} B`
+    : file.size < 1048576
+    ? `${(file.size / 1024).toFixed(1)} KB`
+    : `${(file.size / 1048576).toFixed(1)} MB`;
+
+  return (
+    <div className="ui-upload-confirm">
+      {thumbUrl ? (
+        <img src={thumbUrl} alt={file.name} className="ui-upload-confirm__thumb" />
+      ) : (
+        <div className="ui-upload-confirm__icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M7 3h7l5 5v13H7z" />
+            <path d="M14 3v6h5" />
+          </svg>
+        </div>
+      )}
+      <div className="ui-upload-confirm__info">
+        <div className="ui-upload-confirm__name">{file.name}</div>
+        <div className="ui-upload-confirm__meta">{sizeStr} · {file.type || "Unknown type"}</div>
+        {uploading && progress > 0 && (
+          <div className="ui-upload-confirm__progress">
+            <div className="ui-upload-confirm__progress-track">
+              <div className="ui-upload-confirm__progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="ui-upload-confirm__actions">
+        <Button size="sm" variant="primary" onClick={onConfirm} disabled={uploading}>
+          {uploading ? "Uploading..." : "Confirm Upload"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={uploading}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}

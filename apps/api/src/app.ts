@@ -24,6 +24,7 @@ import { registerDecisionRoutes } from "./routes/decision.routes";
 import { registerCommunicationRoutes } from "./routes/communication.routes";
 import { registerProfileRoutes } from "./routes/profile.routes";
 import { registerTelemetryRoutes } from "./routes/telemetry.routes";
+import { registerCitizenDocumentRoutes } from "./routes/citizen-document.routes";
 import { startSLAChecker } from "./sla-checker";
 import { startClientTelemetryRetentionJob } from "./telemetry-retention";
 import { registerTransport } from "./notifications";
@@ -92,6 +93,7 @@ function inferApiTag(url: string): string {
   if (url.startsWith("/api/v1/tasks/")) return "tasks";
   if (url.startsWith("/api/v1/applications/")) return "applications";
   if (url.startsWith("/api/v1/documents/")) return "documents";
+  if (url.startsWith("/api/v1/citizens/me/documents")) return "documents";
   if (url.startsWith("/api/v1/admin/")) return "admin";
   if (url.startsWith("/api/v1/properties/")) return "properties";
   if (url.startsWith("/api/v1/inspections/")) return "inspections";
@@ -238,6 +240,7 @@ const GET_ROUTES_REQUIRING_STRICT_QUERY_SCHEMA = new Set([
   "/api/v1/admin/designations",
   "/api/v1/auth/me/postings",
   "/api/v1/profile/me",
+  "/api/v1/citizens/me/documents",
 ]);
 
 async function runServicePackPreflight(): Promise<void> {
@@ -594,6 +597,7 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
   await registerDecisionRoutes(app);
   await registerCommunicationRoutes(app);
   await registerProfileRoutes(app);
+  await registerCitizenDocumentRoutes(app);
   await registerTelemetryRoutes(app);
 
   app.get("/api/v1/openapi.json", async (_request, reply) => {
