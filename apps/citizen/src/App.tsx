@@ -1065,13 +1065,13 @@ export default function App() {
     return <Login />;
   }
 
-  const handleSidebarNav = useCallback((target: ViewId, dashboard: boolean) => {
-    if (view === target && showDashboard === dashboard) return;
-    navigateTo(target, dashboard);
-  }, [view, showDashboard, navigateTo]);
-
   const renderNavContent = (context: "sidebar" | "drawer") => {
-    const handleNav = context === "drawer" ? handleDrawerNav : handleSidebarNav;
+    const handleNav = context === "drawer"
+      ? handleDrawerNav
+      : (target: ViewId, dashboard: boolean) => {
+          if (view === target && showDashboard === dashboard) return;
+          navigateTo(target, dashboard);
+        };
     const idSuffix = context === "drawer" ? "drawer" : "sidebar";
     return (
       <>
