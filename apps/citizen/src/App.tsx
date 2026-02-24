@@ -1065,7 +1065,74 @@ export default function App() {
     return <Login />;
   }
 
-  // App Shell: common app bar + drawer wrapping all views
+  const handleSidebarNav = useCallback((target: ViewId, dashboard: boolean) => {
+    if (view === target && showDashboard === dashboard) return;
+    navigateTo(target, dashboard);
+  }, [view, showDashboard, navigateTo]);
+
+  const renderNavContent = (context: "sidebar" | "drawer") => {
+    const handleNav = context === "drawer" ? handleDrawerNav : handleSidebarNav;
+    const idSuffix = context === "drawer" ? "drawer" : "sidebar";
+    return (
+      <>
+        <div className="sidebar__header">
+          <div className="sidebar__portal-name">PUDA Citizen Portal</div>
+          <div className="sidebar__user-name">{user.name}</div>
+        </div>
+        <ul className="sidebar__nav">
+          <li>
+            <button type="button" className={`sidebar__item ${showDashboard && view === "catalog" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("catalog", true)}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </span>
+              Dashboard
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${!showDashboard && view === "catalog" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("catalog", false)}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              </span>
+              Services
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${view === "applications" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("applications", false)}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </span>
+              My Applications
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${view === "locker" ? "sidebar__item--active" : ""}`} onClick={() => { setLockerFilter(undefined); handleNav("locker", false); }}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              Document Locker
+            </button>
+          </li>
+        </ul>
+        <div className="sidebar__divider" />
+        <div className="sidebar__footer">
+          <ThemeToggle
+            theme={theme}
+            resolvedTheme={resolvedTheme}
+            onThemeChange={setTheme}
+            idSuffix={idSuffix}
+          />
+          <button type="button" className="sidebar__item" onClick={() => { if (context === "drawer") setDrawerOpen(false); handleLogout(); }}>
+            <span className="sidebar__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </span>
+            Logout
+          </button>
+        </div>
+      </>
+    );
+  };
+
+  // App Shell: app bar + persistent sidebar (desktop) + drawer (mobile)
   const appShell = (mainContent: React.ReactNode) => (
     <>
       <header className="app-bar">
@@ -1079,62 +1146,22 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Desktop: persistent sidebar (hidden on mobile via CSS) */}
+      <aside className="sidebar">
+        {renderNavContent("sidebar")}
+      </aside>
+
+      {/* Mobile: overlay drawer (portal renders outside #root) */}
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <div className="drawer__header">
-          <div className="drawer__portal-name">PUDA Citizen Portal</div>
-          <div className="drawer__user-name">{user.name}</div>
-        </div>
-        <ul className="drawer__nav">
-          <li>
-            <button type="button" className={`drawer__item ${showDashboard && view === "catalog" ? "drawer__item--active" : ""}`} onClick={() => handleDrawerNav("catalog", true)}>
-              <span className="drawer__item-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              </span>
-              Dashboard
-            </button>
-          </li>
-          <li>
-            <button type="button" className={`drawer__item ${!showDashboard && view === "catalog" ? "drawer__item--active" : ""}`} onClick={() => handleDrawerNav("catalog", false)}>
-              <span className="drawer__item-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-              </span>
-              Services
-            </button>
-          </li>
-          <li>
-            <button type="button" className={`drawer__item ${view === "applications" ? "drawer__item--active" : ""}`} onClick={() => handleDrawerNav("applications", false)}>
-              <span className="drawer__item-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              </span>
-              My Applications
-            </button>
-          </li>
-          <li>
-            <button type="button" className={`drawer__item ${view === "locker" ? "drawer__item--active" : ""}`} onClick={() => { setLockerFilter(undefined); handleDrawerNav("locker", false); }}>
-              <span className="drawer__item-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </span>
-              Document Locker
-            </button>
-          </li>
-        </ul>
-        <div className="drawer__divider" />
-        <div className="drawer__footer">
-          <ThemeToggle
-            theme={theme}
-            resolvedTheme={resolvedTheme}
-            onThemeChange={setTheme}
-            idSuffix="drawer"
-          />
-          <button type="button" className="drawer__item" onClick={() => { setDrawerOpen(false); handleLogout(); }}>
-            <span className="drawer__item-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </span>
-            Logout
-          </button>
-        </div>
+        {renderNavContent("drawer")}
       </Drawer>
-      {mainContent}
+
+      <div className="app-layout">
+        <div className="app-layout__main">
+          {mainContent}
+        </div>
+      </div>
     </>
   );
 

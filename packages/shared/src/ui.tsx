@@ -10,6 +10,7 @@ import React, {
   useRef,
   useState
 } from "react";
+import { createPortal } from "react-dom";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "success" | "warning" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -603,13 +604,14 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <>
       <div className="drawer-backdrop" onClick={onClose} aria-hidden="true" />
       <nav ref={drawerRef} className={`drawer ${open ? "drawer--open" : ""}`} aria-label="Navigation menu" role="dialog" aria-modal="true">
         {children}
       </nav>
-    </>
+    </>,
+    document.body
   );
 }
 
