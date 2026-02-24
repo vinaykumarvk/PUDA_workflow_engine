@@ -247,17 +247,22 @@ const resources = {
   hi: { translation: hi },
 };
 
+const savedLang = localStorage.getItem("puda_lang") || "en";
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: localStorage.getItem("puda_lang") || "en",
+    lng: savedLang,
     fallbackLng: "en",
     interpolation: { escapeValue: false },
   });
 
+document.documentElement.lang = savedLang;
+
 export function changeLanguage(code: string) {
   localStorage.setItem("puda_lang", code);
+  document.documentElement.lang = code;
   return i18n.changeLanguage(code);
 }
 

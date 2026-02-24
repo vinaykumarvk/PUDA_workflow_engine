@@ -125,7 +125,12 @@
   cursor: pointer;
 }
 
-.new-service-btn:hover {
+.new-service-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.new-service-btn:hover:not(:disabled) {
   border-color: var(--color-brand);
 }
 
@@ -245,13 +250,17 @@
 
 .attention-badge {
   border-radius: 999px;
-  padding: 0.2rem 0.65rem;
-  font-size: 0.7rem;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 700;
   color: #fff;
   background: var(--color-danger);
+  min-height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .attention-document .attention-badge {
@@ -363,7 +372,7 @@
   margin-top: var(--space-2);
   font-family: var(--font-mono);
   color: var(--color-text-subtle);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .app-card-footer {
@@ -487,7 +496,7 @@
   text-align: center;
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-lg);
-  padding: var(--space-7) var(--space-4);
+  padding: var(--space-6) var(--space-4);
   background: color-mix(in srgb, var(--color-bg-elevated), transparent 15%);
 }
 
@@ -584,7 +593,7 @@
 
 .doc-locker-stat {
   text-align: center;
-  padding: var(--space-2) var(--space-1);
+  padding: var(--space-2) var(--space-2);
 }
 
 .doc-locker-stat + .doc-locker-stat {
@@ -610,7 +619,7 @@
 }
 
 .doc-locker-stat-label {
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
 }
 
@@ -633,6 +642,14 @@
 }
 
 @media (max-width: 30rem) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .empty-state {
+    padding: var(--space-4) var(--space-3);
+  }
+
   .attention-footer {
     align-items: flex-start;
     flex-direction: column;

@@ -555,6 +555,64 @@ type UploadConfirmProps = {
   progress?: number;
 };
 
+export function Drawer({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
+  const drawerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = "hidden";
+
+    // Set inert on main content so screen readers / Tab ignore it
+    const root = document.getElementById("root");
+    if (root) root.setAttribute("inert", "");
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      // Focus trap
+      if (e.key === "Tab" && drawerRef.current) {
+        const focusable = drawerRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    // Auto-focus first focusable element
+    requestAnimationFrame(() => {
+      const first = drawerRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      first?.focus();
+    });
+
+    return () => {
+      document.body.style.overflow = "";
+      if (root) root.removeAttribute("inert");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} aria-hidden="true" />
+      <nav ref={drawerRef} className={`drawer ${open ? "drawer--open" : ""}`} aria-label="Navigation menu" role="dialog" aria-modal="true">
+        {children}
+      </nav>
+    </>
+  );
+}
+
 export function UploadConfirm({ file, onConfirm, onCancel, uploading = false, progress = 0 }: UploadConfirmProps) {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
 

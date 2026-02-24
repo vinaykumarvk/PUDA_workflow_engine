@@ -4,8 +4,6 @@ import { useAuth } from "./AuthContext";
 import { Alert, Button, Card, Field, Input, Textarea, Breadcrumb, timeAgo } from "@puda/shared";
 import { getStatusBadgeClass, getStatusLabel, formatDateTime } from "@puda/shared/utils";
 import "./application-detail.css";
-import ThemeToggle from "./ThemeToggle";
-import { useTheme } from "./theme";
 
 interface ApplicationDetailProps {
   application: {
@@ -109,7 +107,6 @@ export default function ApplicationDetail({
   
   const { t } = useTranslation();
   const { authHeaders } = useAuth();
-  const { theme, resolvedTheme, setTheme } = useTheme("puda_citizen_theme");
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -330,26 +327,18 @@ export default function ApplicationDetail({
         </a>
         <main id="citizen-main-application-detail" className="application-detail" role="main">
         <div className="detail-header">
-          <div className="topbar">
-            <div className="detail-title-section">
-              <Breadcrumb items={[
-                { label: "Dashboard", onClick: onBack },
-                { label: `Application ${application.arn}` }
-              ]} />
-              <h1>Application Details</h1>
-              <div className="detail-meta">
-                <div className="meta-item">
-                  <span className="meta-label">ARN:</span>
-                  <span className="meta-value">{application.arn}</span>
-                </div>
+          <div className="detail-title-section">
+            <Breadcrumb items={[
+              { label: "Back", onClick: onBack },
+              { label: `Application ${application.arn}` }
+            ]} />
+            <h1>Application Details</h1>
+            <div className="detail-meta">
+              <div className="meta-item">
+                <span className="meta-label">ARN:</span>
+                <span className="meta-value">{application.arn}</span>
               </div>
             </div>
-            <ThemeToggle
-              theme={theme}
-              resolvedTheme={resolvedTheme}
-              onThemeChange={setTheme}
-              idSuffix="application-detail-loading"
-            />
           </div>
         </div>
         <div className="detail-section">
@@ -476,30 +465,22 @@ export default function ApplicationDetail({
       <main id="citizen-main-application-detail" className="application-detail" role="main">
       {/* Header */}
       <div className="detail-header">
-        <div className="topbar">
-          <div className="detail-title-section">
-            <Breadcrumb items={[
-              { label: t("back_to_dashboard"), onClick: onBack },
-              { label: `${t("application_details")} — ${application.arn}` }
-            ]} />
-            <h1>{t("application_details")}</h1>
-            <div className="detail-meta">
-              <div className="meta-item">
-                <span className="meta-label">ARN:</span>
-                <span className="meta-value">{application.arn}</span>
-              </div>
-              <div className="meta-item">
-                <span className="meta-label">Service:</span>
-                <span className="meta-value">{serviceConfig?.displayName || application.service_key}</span>
-              </div>
+        <div className="detail-title-section">
+          <Breadcrumb items={[
+            { label: t("back"), onClick: onBack },
+            { label: `${t("application_details")} — ${application.arn}` }
+          ]} />
+          <h1>{t("application_details")}</h1>
+          <div className="detail-meta">
+            <div className="meta-item">
+              <span className="meta-label">ARN:</span>
+              <span className="meta-value">{application.arn}</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Service:</span>
+              <span className="meta-value">{serviceConfig?.displayName || application.service_key}</span>
             </div>
           </div>
-          <ThemeToggle
-            theme={theme}
-            resolvedTheme={resolvedTheme}
-            onThemeChange={setTheme}
-            idSuffix="application-detail"
-          />
         </div>
       </div>
       {feedback ? <Alert variant={feedback.variant} className="detail-feedback">{feedback.text}</Alert> : null}
@@ -630,16 +611,16 @@ export default function ApplicationDetail({
                   <tbody>
                     {ndcPaymentStatus.dues.map((due) => (
                       <tr key={due.dueCode}>
-                        <td>{due.label}</td>
-                        <td>{due.dueDate}</td>
-                        <td>{due.paymentDate || "—"}</td>
-                        <td>{due.daysDelayed}</td>
-                        <td>{formatCurrency(due.baseAmount)}</td>
-                        <td>{formatCurrency(due.interestAmount)}</td>
-                        <td>{formatCurrency(due.totalDueAmount)}</td>
-                        <td>{formatCurrency(due.paidAmount)}</td>
-                        <td>{formatCurrency(due.balanceAmount)}</td>
-                        <td>{due.status}</td>
+                        <td data-label="Due Type">{due.label}</td>
+                        <td data-label="Due Date">{due.dueDate}</td>
+                        <td data-label="Payment Date">{due.paymentDate || "—"}</td>
+                        <td data-label="Delay (Days)">{due.daysDelayed}</td>
+                        <td data-label="Base">{formatCurrency(due.baseAmount)}</td>
+                        <td data-label="Interest">{formatCurrency(due.interestAmount)}</td>
+                        <td data-label="Total Due">{formatCurrency(due.totalDueAmount)}</td>
+                        <td data-label="Paid">{formatCurrency(due.paidAmount)}</td>
+                        <td data-label="Balance">{formatCurrency(due.balanceAmount)}</td>
+                        <td data-label="Status">{due.status}</td>
                       </tr>
                     ))}
                   </tbody>

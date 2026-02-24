@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
-import { Alert, Button, Card, Field, Input, Modal, DropZone, UploadConfirm } from "@puda/shared";
+import { Alert, Button, Card, Field, Input, Modal, DropZone, UploadConfirm, SkeletonBlock } from "@puda/shared";
 import "./document-locker.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -158,6 +158,13 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+
+  // Lock body scroll when fullscreen preview is open
+  useEffect(() => {
+    if (!fullscreen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [fullscreen]);
 
   // Cleanup blob URL
   useEffect(() => {
@@ -350,7 +357,11 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
     <div className="document-locker">
       {error && <Alert variant="error">{error}</Alert>}
 
-      {loading && <p>Loading your documents...</p>}
+      {loading && (
+        <div style={{ display: "grid", gap: "var(--space-3)" }}>
+          {[1, 2, 3].map((i) => <SkeletonBlock key={i} height="5rem" />)}
+        </div>
+      )}
 
       {!loading && documents.length === 0 && !error && (
         <div className="locker-empty">
@@ -375,6 +386,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
             type="text"
             className="ui-input locker-search"
             placeholder="Search by filename or document type..."
+            aria-label="Search documents"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -627,7 +639,32 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
 
       {/* Fullscreen preview */}
       {fullscreen && previewDoc && (
-        <div className="locker-fullscreen" role="dialog" aria-label="Fullscreen document preview">
+        <div
+          className="locker-fullscreen"
+          role="dialog"
+          aria-label="Fullscreen document preview"
+          aria-modal="true"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { setFullscreen(false); return; }
+            // Focus trap
+            if (e.key === "Tab") {
+              const container = e.currentTarget;
+              const focusable = container.querySelectorAll<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+              );
+              if (focusable.length === 0) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+              } else {
+                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+              }
+            }
+          }}
+          tabIndex={-1}
+          ref={(el) => { el?.focus(); }}
+        >
           <div className="locker-fullscreen__toolbar">
             <span className="locker-fullscreen__filename">
               {(previewDoc as any)?.original_filename || "Document"}

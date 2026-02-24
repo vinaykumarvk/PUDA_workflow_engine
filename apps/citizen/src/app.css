@@ -23,6 +23,10 @@
   gap: var(--space-4);
 }
 
+.service-card-group {
+  list-style: none;
+}
+
 .service-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -35,6 +39,27 @@
   gap: var(--space-4);
 }
 
+.duplicate-inline-alert {
+  margin-top: var(--space-3);
+}
+
+.duplicate-app-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  background: var(--color-surface);
+}
+
+.duplicate-app-link:hover {
+  background: var(--color-surface-muted);
+}
+
 .service-card h2 {
   font-size: 1.1rem;
 }
@@ -44,6 +69,7 @@
   color: var(--color-text-subtle);
   font-size: 0.8rem;
   margin-top: var(--space-2);
+  display: none;
 }
 
 .service-desc {
@@ -76,6 +102,16 @@
 .form-renderer {
   display: grid;
   gap: var(--space-5);
+}
+
+.form-validation-summary {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-danger-soft, #fee9e7);
+  color: var(--color-danger, #b42318);
+  border: 1px solid color-mix(in srgb, var(--color-danger), var(--color-border) 50%);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .form-progress {
@@ -248,6 +284,22 @@
   background: color-mix(in srgb, var(--color-brand-soft), var(--color-surface) 70%);
 }
 
+.app-search-bar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.app-search-bar input {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-search-bar select {
+  width: auto;
+  min-width: 10rem;
+}
+
 .application-cards {
   display: grid;
   gap: var(--space-3);
@@ -311,7 +363,7 @@
   margin-top: var(--space-2);
   font-family: var(--font-mono);
   color: var(--color-text-subtle);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .app-card-footer {
@@ -338,7 +390,7 @@
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-bg-elevated), transparent 15%);
-  padding: var(--space-7) var(--space-4);
+  padding: var(--space-6) var(--space-4);
 }
 
 .empty-icon {
@@ -468,6 +520,14 @@
   .form-actions {
     flex-direction: column;
     align-items: stretch;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-3) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom));
+    margin: 0 calc(-1 * var(--space-4));
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
   }
 
   .form-actions__left,
@@ -477,9 +537,98 @@
 
   .form-action-btn {
     width: 100%;
+    min-width: auto;
+  }
+
+  .app-card-action {
+    font-size: 0.9rem;
+  }
+
+  .empty-state {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .form-actions-top {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 9;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-2) var(--space-4);
+    margin: 0 calc(-1 * var(--space-4));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .form-actions-top .save-draft-btn {
+    width: 100%;
   }
 
   .ndc-payment-summary {
     grid-template-columns: 1fr;
+  }
+
+  .app-search-bar {
+    flex-direction: column;
+  }
+
+  .app-search-bar select {
+    width: 100%;
+  }
+
+  .application-card {
+    padding: var(--space-4) var(--space-4);
+  }
+
+  /* NDC payment table → card layout on mobile */
+  .ndc-payment-table-wrap {
+    overflow-x: visible;
+    border: none;
+  }
+
+  .ndc-payment-table {
+    min-width: auto;
+  }
+
+  .ndc-payment-table thead {
+    display: none;
+  }
+
+  .ndc-payment-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .ndc-payment-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    background: var(--color-surface);
+  }
+
+  .ndc-payment-table tbody tr td {
+    border-bottom: none;
+    padding: 0.25rem 0;
+    white-space: normal;
+    font-size: 0.84rem;
+  }
+
+  .ndc-payment-table tbody tr td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.15rem;
+  }
+
+  /* Action column spans full width */
+  .ndc-payment-table tbody tr td:last-child {
+    grid-column: 1 / -1;
   }
 }

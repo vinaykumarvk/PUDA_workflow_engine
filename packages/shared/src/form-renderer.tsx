@@ -211,6 +211,8 @@ export function FormRenderer({
 
   const isFieldEditable = (field: FieldDef): boolean => {
     if (field.key?.startsWith("applicant.")) return false;
+    if (field.key?.startsWith("address.permanent.")) return false;
+    if (field.key?.startsWith("address.communication.")) return false;
     if (field.readOnly || field.ui?.readOnly) return false;
     if (readOnly) {
       return unlockedFields.includes(field.key);
@@ -434,6 +436,7 @@ export function FormRenderer({
                 onChange={(e) => updateField(field.key, e.target.checked)}
                 onBlur={blurHandler}
                 disabled={!editable}
+                {...ariaProps}
               />
               {field.label}
               {field.required && <span className="required">*</span>}
@@ -503,6 +506,12 @@ export function FormRenderer({
           </button>
         ))}
       </div>
+
+      {Object.keys(errors).filter((k) => errors[k]).length > 0 && (
+        <div role="alert" aria-live="assertive" className="form-validation-summary">
+          Please fix {Object.keys(errors).filter((k) => errors[k]).length} error{Object.keys(errors).filter((k) => errors[k]).length > 1 ? "s" : ""} before continuing.
+        </div>
+      )}
 
       <div className="form-page">
         <h2>{currentPageConfig.title}</h2>

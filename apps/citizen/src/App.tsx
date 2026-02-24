@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import "./app.css";
 import {
   Alert,
@@ -6,6 +6,7 @@ import {
   Card,
   Modal,
   Breadcrumb,
+  Drawer,
   Field,
   Input,
   Select,
@@ -33,6 +34,7 @@ type ServiceSummary = {
   displayName: string;
   category: string;
   description?: string;
+  submissionValidation?: { propertyRequired?: boolean };
 };
 
 type FeedbackMessage = {
@@ -229,7 +231,10 @@ export default function App() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"catalog" | "create" | "track" | "applications" | "locker">("catalog");
+  type ViewId = "catalog" | "create" | "track" | "applications" | "locker";
+  type ViewSnapshot = { view: ViewId; showDashboard: boolean };
+  const [view, setView] = useState<ViewId>("catalog");
+  const navStackRef = useRef<ViewSnapshot[]>([]);
   const [lockerFilter, setLockerFilter] = useState<string | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<ServiceSummary | null>(null);
   const [serviceConfig, setServiceConfig] = useState<any>(null);
@@ -246,6 +251,7 @@ export default function App() {
   const [citizenDocuments, setCitizenDocuments] = useState<any[]>([]);
 
   const [profileApplicant, setProfileApplicant] = useState<any>({});
+  const [profileAddresses, setProfileAddresses] = useState<any>({});
   const [profileComplete, setProfileComplete] = useState(true);
   const [profileMissingFields, setProfileMissingFields] = useState<string[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -265,7 +271,49 @@ export default function App() {
   const [usingStaleData, setUsingStaleData] = useState(false);
   const [draftConflictArn, setDraftConflictArn] = useState<string | null>(null);
   const [resolvingDraftConflict, setResolvingDraftConflict] = useState(false);
+  const [appSearchQuery, setAppSearchQuery] = useState("");
+  const [appStatusFilter, setAppStatusFilter] = useState("");
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    serviceKey: string;
+    applications: Array<{ arn: string; state_id: string; created_at: string }>;
+    pendingService?: ServiceSummary;
+  } | null>(null);
+  const [duplicateBanner, setDuplicateBanner] = useState<{
+    applications: Array<{ arn: string; state_id: string; created_at: string }>;
+  } | null>(null);
   const resumeHydratedRef = useRef<string | null>(null);
+
+  /** Confirm before navigating away from a dirty form. */
+  const confirmNavigation = useCallback((): boolean => {
+    if (!formDirty) return true;
+    return window.confirm("You have unsaved changes. Are you sure you want to leave?");
+  }, [formDirty]);
+
+  /** Push current view onto nav stack and navigate to a new view. */
+  const navigateTo = useCallback((nextView: ViewId, nextDashboard: boolean) => {
+    if (!confirmNavigation()) return;
+    setFormDirty(false);
+    navStackRef.current.push({ view, showDashboard });
+    setView(nextView);
+    setShowDashboard(nextDashboard);
+  }, [view, showDashboard, confirmNavigation]);
+
+  /** Pop the nav stack and return to the previous view. Falls back to dashboard. */
+  const navigateBack = useCallback(() => {
+    if (!confirmNavigation()) return;
+    setFormDirty(false);
+    const prev = navStackRef.current.pop();
+    if (prev) {
+      setView(prev.view);
+      setShowDashboard(prev.showDashboard);
+    } else {
+      setView("catalog");
+      setShowDashboard(true);
+    }
+  }, [confirmNavigation]);
 
   const markSync = useCallback(
     (timestamp?: string) => {
@@ -316,13 +364,14 @@ export default function App() {
     setProfileLoading(true);
     try {
       if (isOffline) {
-        const cached = readCached<{ applicant?: Record<string, unknown>; completeness?: { isComplete?: boolean; missingFields?: string[] } }>(key, {
+        const cached = readCached<{ applicant?: Record<string, unknown>; addresses?: Record<string, unknown>; completeness?: { isComplete?: boolean; missingFields?: string[] } }>(key, {
           schema: CACHE_SCHEMAS.profile,
           maxAgeMs: CACHE_TTL_MS.profile,
           validate: isProfilePayload
         });
         if (cached) {
           setProfileApplicant(cached.data.applicant || {});
+          setProfileAddresses(cached.data.addresses || {});
           setProfileComplete(Boolean(cached.data.completeness?.isComplete));
           setProfileMissingFields(cached.data.completeness?.missingFields || []);
           markStaleData(cached.fetchedAt, "offline", "profile");
@@ -342,18 +391,20 @@ export default function App() {
       }
       const data = await res.json();
       setProfileApplicant(data.applicant || {});
+      setProfileAddresses(data.addresses || {});
       setProfileComplete(Boolean(data.completeness?.isComplete));
       setProfileMissingFields(data.completeness?.missingFields || []);
       writeCached(key, data, { schema: CACHE_SCHEMAS.profile });
       markSync();
     } catch {
-      const cached = readCached<{ applicant?: Record<string, unknown>; completeness?: { isComplete?: boolean; missingFields?: string[] } }>(key, {
+      const cached = readCached<{ applicant?: Record<string, unknown>; addresses?: Record<string, unknown>; completeness?: { isComplete?: boolean; missingFields?: string[] } }>(key, {
         schema: CACHE_SCHEMAS.profile,
         maxAgeMs: CACHE_TTL_MS.profile,
         validate: isProfilePayload
       });
       if (cached) {
         setProfileApplicant(cached.data.applicant || {});
+        setProfileAddresses(cached.data.addresses || {});
         setProfileComplete(Boolean(cached.data.completeness?.isComplete));
         setProfileMissingFields(cached.data.completeness?.missingFields || []);
         markStaleData(cached.fetchedAt, "error", "profile");
@@ -589,10 +640,21 @@ export default function App() {
       setFormData((prev: any) => {
         const existingApplicant = prev?.applicant || {};
         const mergedApplicant = { ...existingApplicant, ...profileApplicant };
-        return { ...prev, applicant: mergedApplicant };
+
+        // Merge profile addresses into form address section
+        const existingAddress = prev?.address || {};
+        const mergedAddress = { ...existingAddress };
+        if (profileAddresses?.permanent) {
+          mergedAddress.permanent = { ...(existingAddress.permanent || {}), ...profileAddresses.permanent };
+        }
+        if (profileAddresses?.communication) {
+          mergedAddress.communication = { ...(existingAddress.communication || {}), ...profileAddresses.communication };
+        }
+
+        return { ...prev, applicant: mergedApplicant, address: mergedAddress };
       });
     }
-  }, [user, view, profileApplicant]);
+  }, [user, view, profileApplicant, profileAddresses]);
 
   useEffect(() => {
     if (view !== "create" || selectedService?.serviceKey !== "no_due_certificate") {
@@ -666,6 +728,43 @@ export default function App() {
     isOffline,
     authHeaders
   ]);
+
+  // Duplicate check when UPN is selected for property-linked services
+  useEffect(() => {
+    if (view !== "create" || !selectedService || isOffline) {
+      setDuplicateBanner(null);
+      return;
+    }
+    const propertyRequired = selectedService.submissionValidation?.propertyRequired !== false;
+    if (!propertyRequired) return; // person-linked checked at Apply Now
+    const upn = formData?.property?.upn as string | undefined;
+    if (!upn) {
+      setDuplicateBanner(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/v1/applications/check-duplicate`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ serviceKey: selectedService.serviceKey, propertyUpn: upn }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.hasDuplicate && data.existingApplications?.length > 0) {
+            setDuplicateBanner({ applications: data.existingApplications });
+          } else if (!cancelled) {
+            setDuplicateBanner(null);
+          }
+        }
+      } catch {
+        // non-blocking
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [view, selectedService, formData?.property?.upn, isOffline, authHeaders]);
 
   useEffect(() => {
     if (!user || isOffline) return;
@@ -900,6 +999,22 @@ export default function App() {
     }
   }, [user, isOffline, authHeaders, profileDraft, markSync]);
 
+  const pageTitle = useMemo(() => {
+    if (showDashboard && view === "catalog") return "Dashboard";
+    if (view === "catalog") return "Services";
+    if (view === "create") return selectedService?.displayName || "New Application";
+    if (view === "track") return "Application Details";
+    if (view === "applications") return "My Applications";
+    if (view === "locker") return "Document Locker";
+    return "PUDA";
+  }, [view, showDashboard, selectedService]);
+
+  const handleDrawerNav = useCallback((target: ViewId, dashboard: boolean) => {
+    setDrawerOpen(false);
+    if (view === target && showDashboard === dashboard) return;
+    navigateTo(target, dashboard);
+  }, [view, showDashboard, navigateTo]);
+
   const renderTopbarActions = (idSuffix: string) => (
     <div className="topbar-actions">
       <ThemeToggle
@@ -950,31 +1065,95 @@ export default function App() {
     return <Login />;
   }
 
+  // App Shell: common app bar + drawer wrapping all views
+  const appShell = (mainContent: React.ReactNode) => (
+    <>
+      <header className="app-bar">
+        <div className="app-bar__inner">
+          <button className="app-bar__hamburger" onClick={() => setDrawerOpen(true)} aria-label="Open menu" type="button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <span className="app-bar__title">{pageTitle}</span>
+          <button className="app-bar__avatar" onClick={() => setDrawerOpen(true)} aria-label="Open menu" type="button">
+            {user.name.charAt(0).toUpperCase()}
+          </button>
+        </div>
+      </header>
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        <div className="drawer__header">
+          <div className="drawer__portal-name">PUDA Citizen Portal</div>
+          <div className="drawer__user-name">{user.name}</div>
+        </div>
+        <ul className="drawer__nav">
+          <li>
+            <button type="button" className={`drawer__item ${showDashboard && view === "catalog" ? "drawer__item--active" : ""}`} onClick={() => handleDrawerNav("catalog", true)}>
+              <span className="drawer__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </span>
+              Dashboard
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`drawer__item ${!showDashboard && view === "catalog" ? "drawer__item--active" : ""}`} onClick={() => handleDrawerNav("catalog", false)}>
+              <span className="drawer__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              </span>
+              Services
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`drawer__item ${view === "applications" ? "drawer__item--active" : ""}`} onClick={() => handleDrawerNav("applications", false)}>
+              <span className="drawer__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </span>
+              My Applications
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`drawer__item ${view === "locker" ? "drawer__item--active" : ""}`} onClick={() => { setLockerFilter(undefined); handleDrawerNav("locker", false); }}>
+              <span className="drawer__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              Document Locker
+            </button>
+          </li>
+        </ul>
+        <div className="drawer__divider" />
+        <div className="drawer__footer">
+          <ThemeToggle
+            theme={theme}
+            resolvedTheme={resolvedTheme}
+            onThemeChange={setTheme}
+            idSuffix="drawer"
+          />
+          <button type="button" className="drawer__item" onClick={() => { setDrawerOpen(false); handleLogout(); }}>
+            <span className="drawer__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </span>
+            Logout
+          </button>
+        </div>
+      </Drawer>
+      {mainContent}
+    </>
+  );
+
   // Show dashboard by default after login
   if (showDashboard && view === "catalog") {
-    return (
+    return appShell(
       <div className="page">
         <a href="#citizen-main-dashboard" className="skip-link">
           Skip to main content
         </a>
-        <header className="page__header">
-          <div className="topbar">
-              <div>
-                <p className="eyebrow">PUDA Citizen Portal</p>
-                <h1>Dashboard</h1>
-                <p className="subtitle">Welcome, {user.name}</p>
-              </div>
-              {renderTopbarActions("dashboard")}
-          </div>
-        </header>
         <main id="citizen-main-dashboard" role="main">
+          <h1>Dashboard</h1>
+          <p className="subtitle">Welcome, {user.name}</p>
           <Suspense fallback={<div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /></div>}>
             <Dashboard
               onNavigateToCatalog={() => {
                 setError(null);
                 setFeedback(null);
-                setShowDashboard(false);
-                setView("catalog");
+                navigateTo("catalog", false);
               }}
               onNavigateToApplication={async (arn) => {
                 setError(null);
@@ -982,16 +1161,14 @@ export default function App() {
                 if (arn) {
                   await openApplication(arn);
                 } else {
-                  setShowDashboard(false);
-                  setView("applications");
+                  navigateTo("applications", false);
                 }
               }}
               onNavigateToLocker={(filter?: string) => {
                 setError(null);
                 setFeedback(null);
                 setLockerFilter(filter);
-                setShowDashboard(false);
-                setView("locker");
+                navigateTo("locker", false);
               }}
               isOffline={isOffline}
             />
@@ -1048,7 +1225,7 @@ export default function App() {
         variant: "success",
         text: "Application draft created. You can continue adding details and documents before submission."
       });
-      setView("track");
+      navigateTo("track", false);
       markSync();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -1195,17 +1372,48 @@ export default function App() {
       setFeedback({ variant: "warning", text: "You are offline. Starting a new application is disabled in read-only mode." });
       return;
     }
+
+    // Duplicate check for person-linked services (propertyRequired === false)
+    const propertyRequired = service.submissionValidation?.propertyRequired !== false;
+    if (!propertyRequired) {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/v1/applications/check-duplicate`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ serviceKey: service.serviceKey }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasDuplicate && data.existingApplications?.length > 0) {
+            setDuplicateWarning({
+              serviceKey: service.serviceKey,
+              applications: data.existingApplications,
+              pendingService: service,
+            });
+            return;
+          }
+        }
+      } catch {
+        // Non-blocking: proceed even if check fails
+      }
+    }
+
+    proceedToCreate(service);
+  };
+
+  const proceedToCreate = (service: ServiceSummary) => {
     setSelectedService(service);
     setServiceConfig(null);
     setError(null);
     setFeedback(null);
+    setDuplicateBanner(null);
+    setDuplicateWarning(null);
     setConfigLoading(true);
-    try {
-      await loadServiceConfig(service.serviceKey);
-      setView("create");
-    } finally {
+    loadServiceConfig(service.serviceKey).then(() => {
+      navigateTo("create", false);
+    }).finally(() => {
       setConfigLoading(false);
-    }
+    });
   };
 
   const handleDocumentUpload = async (docTypeId: string, file: File) => {
@@ -1312,8 +1520,7 @@ export default function App() {
           setApplicationDetail(appData);
           writeCached(cacheKey, appData, { schema: CACHE_SCHEMAS.applicationDetail });
           await loadServiceConfig(appData.service_key);
-          setView("track");
-          setShowDashboard(false);
+          navigateTo("track", false);
           markSync();
           return;
         }
@@ -1338,8 +1545,7 @@ export default function App() {
         });
         setApplicationDetail(appData);
         await loadServiceConfig(appData.service_key);
-        setView("track");
-        setShowDashboard(false);
+        navigateTo("track", false);
         markStaleData(cached.fetchedAt, isOffline ? "offline" : "error", "application_open");
         return;
       }
@@ -1413,17 +1619,17 @@ export default function App() {
                 <tbody>
                   {ndcPaymentStatus.dues.map((due) => (
                     <tr key={due.dueCode}>
-                      <td>{due.label}</td>
-                      <td>{due.dueDate}</td>
-                      <td>{due.paymentDate || "—"}</td>
-                      <td>{due.daysDelayed}</td>
-                      <td>{formatCurrency(due.baseAmount)}</td>
-                      <td>{formatCurrency(due.interestAmount)}</td>
-                      <td>{formatCurrency(due.totalDueAmount)}</td>
-                      <td>{formatCurrency(due.paidAmount)}</td>
-                      <td>{formatCurrency(due.balanceAmount)}</td>
-                      <td>{due.status}</td>
-                      <td>
+                      <td data-label="Due Type">{due.label}</td>
+                      <td data-label="Due Date">{due.dueDate}</td>
+                      <td data-label="Payment Date">{due.paymentDate || "—"}</td>
+                      <td data-label="Delay (Days)">{due.daysDelayed}</td>
+                      <td data-label="Base">{formatCurrency(due.baseAmount)}</td>
+                      <td data-label="Interest">{formatCurrency(due.interestAmount)}</td>
+                      <td data-label="Total">{formatCurrency(due.totalDueAmount)}</td>
+                      <td data-label="Paid">{formatCurrency(due.paidAmount)}</td>
+                      <td data-label="Balance">{formatCurrency(due.balanceAmount)}</td>
+                      <td data-label="Status">{due.status}</td>
+                      <td data-label="Action">
                         {due.balanceAmount > 0.01 ? (
                           <Button
                             type="button"
@@ -1449,23 +1655,16 @@ export default function App() {
     ) : null;
 
   if (view === "create" && selectedService) {
-    return (
+    return appShell(
       <div className="page">
         <a href="#citizen-main-create" className="skip-link">
           Skip to main content
         </a>
-        <header className="page__header">
-          <Breadcrumb items={[
-            { label: "Services", onClick: () => { setView("catalog"); setError(null); } },
-            { label: selectedService.displayName }
-          ]} />
-          <div className="topbar">
-            <div>
-              <h1>{selectedService.displayName}</h1>
-            </div>
-            {renderTopbarActions("create")}
-          </div>
-        </header>
+        <Breadcrumb items={[
+          { label: "Services", onClick: () => { navigateBack(); setError(null); } },
+          { label: selectedService.displayName }
+        ]} />
+        <h1>{selectedService.displayName}</h1>
 
         <main id="citizen-main-create" className="panel" role="main">
           {renderResilienceBanner()}
@@ -1479,6 +1678,27 @@ export default function App() {
           )}
           {profileLoading && <SkeletonBlock height="2rem" width="40%" />}
           {error ? <Alert variant="error">{error}</Alert> : null}
+          {duplicateBanner && duplicateBanner.applications.length > 0 && (
+            <Alert variant="warning" className="view-feedback">
+              You already have {duplicateBanner.applications.length} in-progress application(s) for this service
+              {formData?.property?.upn ? ` and property ${formData.property.upn}` : ""}:
+              {duplicateBanner.applications.map((app) => (
+                <span key={app.arn} style={{ display: "block", marginTop: "0.25rem" }}>
+                  <strong>{app.arn}</strong> — {getStatusLabel(app.state_id)} ({formatDate(app.created_at)})
+                  {" "}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="ui-btn-ghost"
+                    style={{ fontSize: "0.85em", padding: "0 0.25rem" }}
+                    onClick={() => void openApplication(app.arn)}
+                  >
+                    View
+                  </Button>
+                </span>
+              ))}
+            </Alert>
+          )}
           {!profileLoading && !profileComplete && (
             <Alert variant="warning">
               Profile incomplete. Missing fields: {profileMissingFields.join(", ") || "Unknown fields"}. Please update your profile.
@@ -1486,17 +1706,6 @@ export default function App() {
           )}
           {!configLoading && serviceConfig?.form && (
             <>
-              <div className="form-actions-top">
-                <Button
-                  onClick={saveDraft}
-                  className="save-draft-btn"
-                  type="button"
-                  variant="secondary"
-                  disabled={isOffline || !profileComplete || profileLoading}
-                >
-                  Save Draft
-                </Button>
-              </div>
               <ErrorBoundary fallback={<Alert variant="error">Form could not be loaded. Check console for details.</Alert>}>
                 <FormRenderer
                   config={serviceConfig.form as FormConfig}
@@ -1565,6 +1774,17 @@ export default function App() {
                   })())}
                 />
               </ErrorBoundary>
+              <div className="form-actions-top">
+                <Button
+                  onClick={saveDraft}
+                  className="save-draft-btn"
+                  type="button"
+                  variant="secondary"
+                  disabled={isOffline || !profileComplete || profileLoading}
+                >
+                  Save Draft
+                </Button>
+              </div>
             </>
           )}
           {!configLoading && serviceConfig && !serviceConfig.form && !error && (
@@ -1743,7 +1963,7 @@ export default function App() {
   }
 
   if (view === "track" && currentApplication) {
-    return (
+    return appShell(
       <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
       <ApplicationDetail
         application={currentApplication}
@@ -1757,10 +1977,9 @@ export default function App() {
           }
         }}
         onBack={() => {
-          setView("catalog");
-          setShowDashboard(true);
           setCurrentApplication(null);
           setApplicationDetail(null);
+          navigateBack();
         }}
         onSubmit={currentApplication.state_id === "DRAFT" ? submitApplication : undefined}
         onDocumentUpload={handleDocumentUpload}
@@ -1777,39 +1996,20 @@ export default function App() {
 
   // Document Locker View
   if (view === "locker") {
-    return (
+    return appShell(
       <div className="page">
         <a href="#citizen-main-locker" className="skip-link">
           Skip to main content
         </a>
-        <header className="page__header">
-          <div className="topbar">
-            <div>
-              <Button
-                onClick={() => {
-                  setShowDashboard(true);
-                  setView("catalog");
-                }}
-                className="back-button"
-                variant="ghost"
-              >
-                ← Back to Dashboard
-              </Button>
-              <p className="eyebrow">PUDA Citizen Portal</p>
-              <h1>My Document Locker</h1>
-              <p className="subtitle">View and manage all your uploaded documents</p>
-            </div>
-            {renderTopbarActions("locker")}
-          </div>
-        </header>
+        <h1>My Document Locker</h1>
+        <p className="subtitle">View and manage all your uploaded documents</p>
         <main id="citizen-main-locker" className="panel" role="main">
           {renderResilienceBanner()}
           <Suspense fallback={<div style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /></div>}>
             <DocumentLocker
               onBack={() => {
-                setShowDashboard(true);
-                setView("catalog");
                 setLockerFilter(undefined);
+                navigateBack();
               }}
               isOffline={isOffline}
               initialFilter={lockerFilter}
@@ -1822,31 +2022,13 @@ export default function App() {
 
   // All Applications View — uses shared utils (M3)
   if (view === "applications") {
-    return (
+    return appShell(
       <div className="page">
         <a href="#citizen-main-applications" className="skip-link">
           Skip to main content
         </a>
-        <header className="page__header">
-          <div className="topbar">
-            <div>
-              <Button
-                onClick={() => {
-                  setShowDashboard(true);
-                  setView("catalog");
-                }}
-                className="back-button"
-                variant="ghost"
-              >
-                ← Back to Dashboard
-              </Button>
-              <p className="eyebrow">PUDA Citizen Portal</p>
-              <h1>All Applications</h1>
-              <p className="subtitle">View and manage your applications</p>
-            </div>
-            {renderTopbarActions("applications")}
-          </div>
-        </header>
+        <h1>All Applications</h1>
+        <p className="subtitle">View and manage your applications</p>
 
         <main id="citizen-main-applications" className="panel" role="main">
           {renderResilienceBanner()}
@@ -1868,10 +2050,7 @@ export default function App() {
               <h3>No Applications</h3>
               <p>You haven't submitted any applications yet.</p>
               <Button
-                onClick={() => {
-                  setShowDashboard(false);
-                  setView("catalog");
-                }}
+                onClick={() => navigateTo("catalog", false)}
                 fullWidth
                 className="empty-state-action"
                 disabled={isOffline}
@@ -1880,64 +2059,108 @@ export default function App() {
               </Button>
             </div>
           )}
-          {!loading && !error && applications.length > 0 && (
-            <div className="application-cards">
-              {applications.map((app) => (
-                <Card key={app.arn} className="application-card-wrap">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="application-card"
-                    onClick={() => openApplication(app.arn)}
+          {!loading && !error && applications.length > 0 && (() => {
+            const HIGH_LEVEL_STATUS: Record<string, string> = {
+              DRAFT: "Draft",
+              SUBMITTED: "Submitted",
+              RESUBMITTED: "Submitted",
+              PENDING_AT_CLERK: "In Progress",
+              PENDING_AT_SR_ASSISTANT: "In Progress",
+              PENDING_AT_SR_ASSISTANT_ACCOUNTS: "In Progress",
+              PENDING_AT_ACCOUNT_OFFICER: "In Progress",
+              PENDING_AT_JUNIOR_ENGINEER: "In Progress",
+              PENDING_AT_SDE: "In Progress",
+              PENDING_AT_SDO: "In Progress",
+              PENDING_AT_SDO_PH: "In Progress",
+              PENDING_AT_DRAFTSMAN: "In Progress",
+              IN_PROGRESS: "In Progress",
+              QUERY_PENDING: "Query Pending",
+              APPROVED: "Approved",
+              REJECTED: "Rejected",
+              CLOSED: "Closed",
+            };
+            const getHighLevelStatus = (stateId: string) => HIGH_LEVEL_STATUS[stateId] || "In Progress";
+            const q = appSearchQuery.trim().toLowerCase();
+            const filteredApps = applications.filter((app) => {
+              if (appStatusFilter && getHighLevelStatus(app.state_id) !== appStatusFilter) return false;
+              if (!q) return true;
+              const serviceName = getServiceDisplayName(app.service_key).toLowerCase();
+              const arn = app.arn.toLowerCase();
+              const status = getHighLevelStatus(app.state_id).toLowerCase();
+              return serviceName.includes(q) || arn.includes(q) || status.includes(q);
+            });
+            const statusOptions = Array.from(new Set(applications.map((a) => getHighLevelStatus(a.state_id)))).sort();
+            return (
+              <>
+                <div className="app-search-bar">
+                  <Input
+                    placeholder="Search by ARN, service name, or status..."
+                    value={appSearchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppSearchQuery(e.target.value)}
+                    aria-label="Search applications"
+                  />
+                  <Select
+                    value={appStatusFilter}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAppStatusFilter(e.target.value)}
+                    aria-label="Filter by status"
                   >
-                    <div className="app-card-header">
-                      <div className="app-service-name">{getServiceDisplayName(app.service_key)}</div>
-                      <span className={`status-badge ${getStatusBadgeClass(app.state_id)}`}>
-                        {getStatusLabel(app.state_id)}
-                      </span>
-                    </div>
-                    <div className="app-card-arn">{app.arn}</div>
-                    <div className="app-card-footer">
-                      <span className="app-card-date" title={app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}>
-                        {timeAgo(app.submitted_at || app.created_at)}
-                      </span>
-                      <span className="app-card-action">View Details →</span>
-                    </div>
-                  </Button>
-                </Card>
-              ))}
-            </div>
-          )}
+                    <option value="">All Statuses</option>
+                    {statusOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </Select>
+                </div>
+                {filteredApps.length === 0 ? (
+                  <div className="empty-state">
+                    <h3>No Matching Applications</h3>
+                    <p>Try adjusting your search or filter criteria.</p>
+                    <Button variant="ghost" onClick={() => { setAppSearchQuery(""); setAppStatusFilter(""); }}>
+                      Clear Filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="application-cards">
+                    {filteredApps.map((app) => (
+                      <Card key={app.arn} className="application-card-wrap">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="application-card"
+                          onClick={() => openApplication(app.arn)}
+                        >
+                          <div className="app-card-header">
+                            <div className="app-service-name">{getServiceDisplayName(app.service_key)}</div>
+                            <span className={`status-badge ${getStatusBadgeClass(app.state_id)}`}>
+                              {getHighLevelStatus(app.state_id)}
+                            </span>
+                          </div>
+                          <div className="app-card-arn">{app.arn}</div>
+                          <div className="app-card-footer">
+                            <span className="app-card-date" title={app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}>
+                              {timeAgo(app.submitted_at || app.created_at)}
+                            </span>
+                            <span className="app-card-action">View Details →</span>
+                          </div>
+                        </Button>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </main>
       </div>
     );
   }
 
-  return (
+  return appShell(
     <div className="page">
       <a href="#citizen-main-catalog" className="skip-link">
         Skip to main content
       </a>
-      <header className="page__header">
-        <div className="topbar">
-          <div>
-            <Button
-              onClick={() => {
-                setShowDashboard(true);
-                setView("catalog");
-              }}
-              className="back-button"
-              variant="ghost"
-            >
-              ← Back to Dashboard
-            </Button>
-            <p className="eyebrow">PUDA Citizen Portal</p>
-            <h1>Service Catalog</h1>
-            <p className="subtitle">Select a service to apply</p>
-          </div>
-          {renderTopbarActions("catalog")}
-        </div>
-      </header>
+      <h1>Service Catalog</h1>
+      <p className="subtitle">Select a service to apply</p>
 
       <main id="citizen-main-catalog" className="panel" role="main">
         {renderResilienceBanner()}
@@ -1948,20 +2171,72 @@ export default function App() {
           </div>
         )}
         {error ? <Alert variant="error">{error}</Alert> : null}
-        {!loading && !error && services.length === 0 && <p>No services found.</p>}
+        {!loading && !error && services.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+            <h3>No services found</h3>
+            <p>There are no services available at the moment.</p>
+          </div>
+        )}
         <ul className="service-list">
           {services.map((service) => (
-            <li key={service.serviceKey} className="service-card">
-              <div>
-                <h2>{service.displayName}</h2>
-                <p className="service-key">{service.serviceKey}</p>
-                <p className="service-desc">{service.description || "No description provided."}</p>
+            <li key={service.serviceKey} className="service-card-group">
+              <div className="service-card">
+                <div>
+                  <h2>{service.displayName}</h2>
+                  <p className="service-key">{service.serviceKey}</p>
+                  <p className="service-desc">{service.description || "No description provided."}</p>
+                </div>
+                <div className="service-actions">
+                  <Button onClick={() => handleStartApplication(service)} className="action-button" disabled={isOffline}>
+                    Apply Now
+                  </Button>
+                </div>
               </div>
-              <div className="service-actions">
-                <Button onClick={() => handleStartApplication(service)} className="action-button" disabled={isOffline}>
-                  Apply Now
-                </Button>
-              </div>
+              {duplicateWarning && duplicateWarning.serviceKey === service.serviceKey && (
+                <Alert variant="warning" className="duplicate-inline-alert">
+                  <p style={{ marginBottom: "0.5rem" }}>
+                    <strong>You already have {duplicateWarning.applications.length} in-progress application(s) for this service.</strong>
+                    {" "}You can view an existing one or continue to create a new application.
+                  </p>
+                  {duplicateWarning.applications.map((app) => (
+                    <Button
+                      key={app.arn}
+                      type="button"
+                      variant="ghost"
+                      className="duplicate-app-link"
+                      onClick={() => void openApplication(app.arn)}
+                    >
+                      <span><strong>{app.arn}</strong></span>
+                      <span className={`status-badge ${getStatusBadgeClass(app.state_id)}`}>
+                        {getStatusLabel(app.state_id)}
+                      </span>
+                      <span style={{ color: "var(--color-text-subtle)", fontSize: "0.85em" }}>
+                        {formatDate(app.created_at)}
+                      </span>
+                      <span className="app-card-action">View →</span>
+                    </Button>
+                  ))}
+                  <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "0.75rem" }}>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => {
+                        if (duplicateWarning.pendingService) {
+                          proceedToCreate(duplicateWarning.pendingService);
+                        }
+                      }}
+                    >
+                      Continue Anyway
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => setDuplicateWarning(null)}>
+                      Dismiss
+                    </Button>
+                  </div>
+                </Alert>
+              )}
             </li>
           ))}
         </ul>

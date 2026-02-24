@@ -120,14 +120,22 @@
 
 @media (max-width: 30rem) {
   .login-page {
-    padding: var(--space-4);
+    padding: var(--space-3);
   }
 
   .login-container {
-    padding: var(--space-5);
+    padding: var(--space-4);
+  }
+
+  .login-header {
+    margin-bottom: var(--space-4);
   }
 
   .login-tabs {
     grid-template-columns: 1fr;
+  }
+
+  .login-footer {
+    margin-top: var(--space-4);
   }
 }

@@ -35,6 +35,7 @@ export default function Login() {
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
   const passwordTabId = "citizen-login-tab-password";
   const aadharTabId = "citizen-login-tab-aadhar";
   const passwordPanelId = "citizen-login-panel-password";
@@ -193,12 +194,15 @@ export default function Login() {
         throw new Error(data.message || "Failed to reset password");
       }
 
-      alert("Password reset successfully! Please login with your new password.");
-      setShowForgotPassword(false);
-      setMethod("password");
-      setResetToken("");
-      setNewPassword("");
-      setConfirmPassword("");
+      setResetSuccess(true);
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setMethod("password");
+        setResetToken("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setResetSuccess(false);
+      }, 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset password");
     } finally {
@@ -208,7 +212,8 @@ export default function Login() {
 
   if (showForgotPassword) {
     return (
-      <div className="login-page">
+      <div className="login-page" role="main" aria-label="Reset Password">
+        <a href="#forgot-form" className="skip-link">Skip to reset form</a>
         <div className="login-container">
           <div className="login-header">
             <h1>PUDA Citizen Portal</h1>
@@ -236,7 +241,7 @@ export default function Login() {
           </div>
 
           {!forgotPasswordSent ? (
-            <form onSubmit={handleForgotPassword} className="login-form">
+            <form id="forgot-form" onSubmit={handleForgotPassword} className="login-form">
               {error ? <Alert variant="error">{error}</Alert> : null}
 
               <Field label="User ID / Login" htmlFor="forgot-login" required>
@@ -267,7 +272,10 @@ export default function Login() {
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleResetPassword} className="login-form">
+            <form id="forgot-form" onSubmit={handleResetPassword} className="login-form">
+              {resetSuccess && (
+                <Alert variant="success">Password reset successfully! Redirecting to login...</Alert>
+              )}
               <Alert variant="info">
                 Password reset link has been sent. Check the console for the reset token (dev mode).
               </Alert>
@@ -286,9 +294,8 @@ export default function Login() {
               </Field>
 
               <Field label="New Password" htmlFor="new-password" required>
-                <Input
+                <PasswordInput
                   id="new-password"
-                  type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -298,9 +305,8 @@ export default function Login() {
               </Field>
 
               <Field label="Confirm Password" htmlFor="confirm-password" required>
-                <Input
+                <PasswordInput
                   id="confirm-password"
-                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
