@@ -28,7 +28,7 @@ type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
 };
 
 type FieldProps = {
-  label: string;
+  label: ReactNode;
   htmlFor: string;
   required?: boolean;
   hint?: string;

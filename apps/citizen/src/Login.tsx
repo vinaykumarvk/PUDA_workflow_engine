@@ -5,6 +5,9 @@ import { Alert, Button, Field, Input, PasswordInput } from "@puda/shared";
 import "./login.css";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "./theme";
+import { Bilingual } from "./Bilingual";
+import { SECONDARY_LANGUAGES } from "./i18n";
+import { useSecondaryLanguage } from "./SecondaryLanguageContext";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -12,7 +15,8 @@ type LoginMethod = "password" | "aadhar";
 
 export default function Login() {
   const { login } = useAuth();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const secondaryLang = useSecondaryLanguage();
   const { theme, resolvedTheme, setTheme } = useTheme("puda_citizen_theme");
   const [method, setMethod] = useState<LoginMethod>("password");
   const [loading, setLoading] = useState(false);
@@ -65,16 +69,16 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || "Invalid credentials");
+        throw new Error(data.error || t("login.invalid_credentials"));
       }
 
       if (data.user.user_type !== "CITIZEN") {
-        throw new Error("Access denied. Citizen login only.");
+        throw new Error(t("login.access_denied"));
       }
 
       login(data.user, data.token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : t("login.login_failed"));
     } finally {
       setLoading(false);
     }
@@ -95,13 +99,13 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to send OTP");
+        throw new Error(data.message || t("login.failed_send_otp"));
       }
 
       setOtpSent(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send OTP");
+      setError(err instanceof Error ? err.message : t("login.failed_send_otp"));
     } finally {
       setSendingOtp(false);
     }
@@ -122,16 +126,16 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || "Invalid OTP");
+        throw new Error(data.error || t("login.invalid_otp"));
       }
 
       if (data.user.user_type !== "CITIZEN") {
-        throw new Error("Access denied. Citizen login only.");
+        throw new Error(t("login.access_denied"));
       }
 
       login(data.user, data.token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid OTP");
+      setError(err instanceof Error ? err.message : t("login.invalid_otp"));
     } finally {
       setLoading(false);
     }
@@ -152,14 +156,13 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to send reset link");
+        throw new Error(data.message || t("login.failed_reset"));
       }
 
       setForgotPasswordSent(true);
-      // In dev mode, extract token from console log or show message
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send reset link");
+      setError(err instanceof Error ? err.message : t("login.failed_reset"));
     } finally {
       setLoading(false);
     }
@@ -170,12 +173,12 @@ export default function Login() {
     setError(null);
 
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(t("login.passwords_mismatch"));
       return;
     }
 
     if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(t("login.password_too_short"));
       return;
     }
 
@@ -191,7 +194,7 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to reset password");
+        throw new Error(data.message || t("login.failed_reset"));
       }
 
       setResetSuccess(true);
@@ -204,20 +207,24 @@ export default function Login() {
         setResetSuccess(false);
       }, 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset password");
+      setError(err instanceof Error ? err.message : t("login.failed_reset"));
     } finally {
       setLoading(false);
     }
   };
 
+  const secondaryLangLabel = SECONDARY_LANGUAGES.find(
+    (l) => l.code !== secondaryLang
+  )?.label ?? SECONDARY_LANGUAGES[0].label;
+
   if (showForgotPassword) {
     return (
-      <div className="login-page" role="main" aria-label="Reset Password">
-        <a href="#forgot-form" className="skip-link">Skip to reset form</a>
+      <div className="login-page" role="main" aria-label={t("login.reset_password")}>
+        <a href="#forgot-form" className="skip-link">{t("common.skip_to_main")}</a>
         <div className="login-container">
           <div className="login-header">
-            <h1>PUDA Citizen Portal</h1>
-            <p className="subtitle">Reset Password</p>
+            <h1><Bilingual tKey="nav.portal_name" /></h1>
+            <p className="subtitle"><Bilingual tKey="login.reset_password" /></p>
             <div className="login-header-controls">
               <ThemeToggle
                 theme={theme}
@@ -225,18 +232,6 @@ export default function Login() {
                 onThemeChange={setTheme}
                 idSuffix="forgot-password"
               />
-              <button
-                type="button"
-                className="lang-toggle"
-                onClick={() => {
-                  const next = i18n.language === "en" ? "pa" : "en";
-                  i18n.changeLanguage(next);
-                  localStorage.setItem("puda_lang", next);
-                }}
-                aria-label="Switch language"
-              >
-                {i18n.language === "en" ? "ਪੰਜਾਬੀ" : "English"}
-              </button>
             </div>
           </div>
 
@@ -244,19 +239,19 @@ export default function Login() {
             <form id="forgot-form" onSubmit={handleForgotPassword} className="login-form">
               {error ? <Alert variant="error">{error}</Alert> : null}
 
-              <Field label="User ID / Login" htmlFor="forgot-login" required>
+              <Field label={<Bilingual tKey="login.user_id" />} htmlFor="forgot-login" required>
                 <Input
                   id="forgot-login"
                   type="text"
                   value={forgotLoginId}
                   onChange={(e) => setForgotLoginId(e.target.value)}
                   required
-                  placeholder="Enter your login ID"
+                  placeholder={t("login.enter_login_id")}
                 />
               </Field>
 
               <Button type="submit" fullWidth disabled={loading}>
-                {loading ? "Sending..." : "Send Reset Link"}
+                {loading ? t("login.sending") : t("login.send_reset_link")}
               </Button>
 
               <Button
@@ -268,55 +263,55 @@ export default function Login() {
                   setError(null);
                 }}
               >
-                Back to Login
+                {t("login.back_to_login")}
               </Button>
             </form>
           ) : (
             <form id="forgot-form" onSubmit={handleResetPassword} className="login-form">
               {resetSuccess && (
-                <Alert variant="success">Password reset successfully! Redirecting to login...</Alert>
+                <Alert variant="success">{t("login.reset_success")}</Alert>
               )}
               <Alert variant="info">
-                Password reset link has been sent. Check the console for the reset token (dev mode).
+                {t("login.reset_link_sent")}
               </Alert>
-              
+
               {error ? <Alert variant="error">{error}</Alert> : null}
 
-              <Field label="Reset Token" htmlFor="reset-token" required>
+              <Field label={<Bilingual tKey="login.reset_token" />} htmlFor="reset-token" required>
                 <Input
                   id="reset-token"
                   type="text"
                   value={resetToken}
                   onChange={(e) => setResetToken(e.target.value)}
                   required
-                  placeholder="Paste reset token from console"
+                  placeholder={t("login.reset_token_hint")}
                 />
               </Field>
 
-              <Field label="New Password" htmlFor="new-password" required>
+              <Field label={<Bilingual tKey="login.new_password" />} htmlFor="new-password" required>
                 <PasswordInput
                   id="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   minLength={6}
-                  placeholder="Enter new password"
+                  placeholder={t("login.enter_new_password")}
                 />
               </Field>
 
-              <Field label="Confirm Password" htmlFor="confirm-password" required>
+              <Field label={<Bilingual tKey="login.confirm_password" />} htmlFor="confirm-password" required>
                 <PasswordInput
                   id="confirm-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   minLength={6}
-                  placeholder="Confirm new password"
+                  placeholder={t("login.confirm_new_password")}
                 />
               </Field>
 
               <Button type="submit" fullWidth disabled={loading}>
-                {loading ? "Resetting..." : "Reset Password"}
+                {loading ? t("login.resetting") : t("login.reset_password")}
               </Button>
 
               <Button
@@ -329,7 +324,7 @@ export default function Login() {
                   setError(null);
                 }}
               >
-                Back to Login
+                {t("login.back_to_login")}
               </Button>
             </form>
           )}
@@ -339,12 +334,12 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page" role="main" aria-label="Login">
-      <a href="#login-form" className="skip-link">Skip to login form</a>
+    <div className="login-page" role="main" aria-label={t("login.title")}>
+      <a href="#login-form" className="skip-link">{t("common.skip_to_main")}</a>
       <div className="login-container">
         <div className="login-header">
-          <h1>{t("app_title")}</h1>
-          <p className="subtitle">{t("login")}</p>
+          <h1><Bilingual tKey="nav.portal_name" /></h1>
+          <p className="subtitle"><Bilingual tKey="login.title" /></p>
           <div className="login-header-controls">
             <ThemeToggle
               theme={theme}
@@ -352,18 +347,6 @@ export default function Login() {
               onThemeChange={setTheme}
               idSuffix="login"
             />
-            <button
-              type="button"
-              className="lang-toggle"
-              onClick={() => {
-                const next = i18n.language === "en" ? "pa" : "en";
-                i18n.changeLanguage(next);
-                localStorage.setItem("puda_lang", next);
-              }}
-              aria-label="Switch language"
-            >
-              {i18n.language === "en" ? "ਪੰਜਾਬੀ" : "English"}
-            </button>
           </div>
         </div>
 
@@ -382,7 +365,7 @@ export default function Login() {
             }}
             onKeyDown={(event) => handleTabKeyDown(event, "aadhar")}
           >
-            User ID & Password
+            {t("login.tab_password")}
           </button>
           <button
             id={aadharTabId}
@@ -398,7 +381,7 @@ export default function Login() {
             }}
             onKeyDown={(event) => handleTabKeyDown(event, "password")}
           >
-            Aadhar OTP
+            {t("login.tab_aadhar")}
           </button>
         </div>
 
@@ -407,31 +390,31 @@ export default function Login() {
             <form id="login-form" onSubmit={handlePasswordLogin} className="login-form">
             {error ? <Alert variant="error">{error}</Alert> : null}
 
-            <Field label="User ID / Login" htmlFor="login-id" required>
+            <Field label={<Bilingual tKey="login.user_id" />} htmlFor="login-id" required>
               <Input
                 id="login-id"
                 type="text"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 required
-                placeholder="Enter your login ID"
+                placeholder={t("login.enter_login_id")}
                 autoComplete="username"
               />
             </Field>
 
-            <Field label="Password" htmlFor="password" required>
+            <Field label={<Bilingual tKey="login.password" />} htmlFor="password" required>
               <PasswordInput
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Enter your password"
+                placeholder={t("login.enter_password")}
                 autoComplete="current-password"
               />
             </Field>
 
             <Button type="submit" fullWidth disabled={loading}>
-              {loading ? "Logging in..." : "Login"}
+              {loading ? t("login.logging_in") : t("login.title")}
             </Button>
 
             <Button
@@ -440,7 +423,7 @@ export default function Login() {
               fullWidth
               onClick={() => setShowForgotPassword(true)}
             >
-              Forgot Password?
+              {t("login.forgot_password")}
             </Button>
             </form>
           </div>
@@ -456,10 +439,10 @@ export default function Login() {
             {!otpSent ? (
               <>
                 <Field
-                  label="Aadhar Number"
+                  label={<Bilingual tKey="login.aadhar_number" />}
                   htmlFor="aadhar"
                   required
-                  hint="Enter 12-digit Aadhar number"
+                  hint={t("login.aadhar_hint")}
                 >
                   <Input
                     id="aadhar"
@@ -470,7 +453,7 @@ export default function Login() {
                       if (val.length <= 12) setAadhar(val);
                     }}
                     required
-                    placeholder="Enter 12-digit Aadhar number"
+                    placeholder={t("login.aadhar_hint")}
                     maxLength={12}
                     pattern="\d{12}"
                     inputMode="numeric"
@@ -482,16 +465,16 @@ export default function Login() {
                   fullWidth
                   disabled={sendingOtp || aadhar.length !== 12}
                 >
-                  {sendingOtp ? "Sending OTP..." : "Send OTP"}
+                  {sendingOtp ? t("login.sending_otp") : t("login.send_otp")}
                 </Button>
               </>
             ) : (
               <>
                 <Alert variant="info" aria-live="polite">
-                  OTP sent! Check console for OTP (dev mode). Any OTP will be accepted.
+                  {t("login.otp_sent_dev")}
                 </Alert>
 
-                <Field label="Enter OTP" htmlFor="otp" required>
+                <Field label={<Bilingual tKey="login.enter_otp" />} htmlFor="otp" required>
                   <Input
                     id="otp"
                     type="text"
@@ -501,7 +484,7 @@ export default function Login() {
                       if (val.length <= 6) setOtp(val);
                     }}
                     required
-                    placeholder="Enter 6-digit OTP"
+                    placeholder={t("login.enter_otp_placeholder")}
                     maxLength={6}
                     pattern="\d{6}"
                     inputMode="numeric"
@@ -514,7 +497,7 @@ export default function Login() {
                   fullWidth
                   disabled={loading || otp.length !== 6}
                 >
-                  {loading ? "Verifying..." : "Verify OTP"}
+                  {loading ? t("login.verifying") : t("login.verify_otp")}
                 </Button>
 
                 <Button
@@ -527,7 +510,7 @@ export default function Login() {
                     setError(null);
                   }}
                 >
-                  Resend OTP
+                  {t("login.resend_otp")}
                 </Button>
               </>
             )}
@@ -536,7 +519,7 @@ export default function Login() {
         )}
 
         <div className="login-footer">
-          <p>Test Credentials: citizen1 / password123</p>
+          <p>{t("login.test_credentials")}</p>
         </div>
       </div>
     </div>

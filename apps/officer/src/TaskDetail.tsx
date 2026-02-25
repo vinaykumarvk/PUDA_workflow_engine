@@ -24,9 +24,10 @@ const FIELD_LABELS: Record<string, string> = {
   installation_bill_no: "Installation Bill No.", name: "Name",
   license_no: "License No.", address: "Address", certificate_date: "Certificate Date",
   certificate_number: "Certificate Number", valid_from: "Valid From", valid_till: "Valid Till",
-  line1: "Address Line 1", state: "State", district: "District", pincode: "Pincode",
+  line1: "Address Line 1", line2: "Address Line 2", city: "City",
+  state: "State", district: "District", pincode: "Pincode",
   same_as_permanent: "Same as Permanent", payment_details_updated: "Payment Details Updated",
-  authority_id: "Authority ID",
+  authority_id: "Authority ID", permanent: "Permanent Address", communication: "Communication Address",
 };
 
 function humanizeKey(key: string): string {

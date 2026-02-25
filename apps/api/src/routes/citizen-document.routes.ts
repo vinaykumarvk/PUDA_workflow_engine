@@ -65,31 +65,31 @@ export async function registerCitizenDocumentRoutes(app: FastifyInstance) {
       const userId = getAuthUserId(request, "userId");
       if (!userId) return send400(reply, "USER_ID_REQUIRED");
       const docs = await documents.getCitizenDocuments(userId);
-      // Compute summary stats
-      let verified = 0;
-      let pending = 0;
-      let rejected = 0;
-      let queryCount = 0;
-      let actionRequired = 0;
+      // Compute summary stats based on document lifecycle status
+      let uploaded = 0;
+      let issued = 0;
+      let valid = 0;
+      let expired = 0;
+      let mismatch = 0;
+      let cancelled = 0;
       let expiringSoon = 0;
       const now = new Date();
       for (const doc of docs) {
-        const apps = doc.linked_applications || [];
-        for (const app of apps) {
-          const vs = app.verification_status || "PENDING";
-          if (vs === "VERIFIED") verified++;
-          else if (vs === "REJECTED") { rejected++; actionRequired++; }
-          else if (vs === "QUERY") { queryCount++; actionRequired++; }
-          else pending++;
-        }
-        if (doc.valid_until) {
+        if (doc.origin === "issued") issued++;
+        else uploaded++;
+        const cs = doc.computed_status;
+        if (cs === "VALID") valid++;
+        else if (cs === "EXPIRED") expired++;
+        else if (cs === "MISMATCH") mismatch++;
+        else if (cs === "CANCELLED") cancelled++;
+        if (doc.valid_until && doc.computed_status === "VALID") {
           const daysLeft = Math.ceil((new Date(doc.valid_until).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           if (daysLeft <= 90) expiringSoon++;
         }
       }
       return {
         documents: docs,
-        summary: { total: docs.length, verified, pending, rejected, query: queryCount, actionRequired, expiringSoon },
+        summary: { total: docs.length, uploaded, issued, valid, expired, mismatch, cancelled, expiringSoon },
       };
     }
   );
@@ -199,11 +199,61 @@ export async function registerCitizenDocumentRoutes(app: FastifyInstance) {
       if (!doc) return send404(reply, "CITIZEN_DOC_NOT_FOUND");
       if (doc.user_id !== userId) return send403(reply, "FORBIDDEN", "You do not own this document");
 
+      // Download gating: CANCELLED and EXPIRED documents are not downloadable
+      if (doc.computed_status === "CANCELLED" || doc.computed_status === "EXPIRED") {
+        return send403(reply, "DOCUMENT_NOT_DOWNLOADABLE", "This document cannot be downloaded because it is " + doc.computed_status.toLowerCase());
+      }
+
       const fileBuffer = await documents.getCitizenDocumentFile(params.citizenDocId);
       if (!fileBuffer) return send404(reply, "FILE_NOT_FOUND");
 
       reply.type(doc.mime_type || "application/octet-stream");
       return fileBuffer;
+    }
+  );
+
+  // Update document status (VALID / MISMATCH / CANCELLED)
+  app.patch(
+    "/api/v1/citizens/me/documents/:citizenDocId/status",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["citizenDocId"],
+          additionalProperties: false,
+          properties: {
+            citizenDocId: { type: "string", minLength: 1 },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["status"],
+          additionalProperties: false,
+          properties: {
+            status: { type: "string", enum: ["VALID", "MISMATCH", "CANCELLED"] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.authUser?.userId || getAuthUserId(request, "userId");
+      if (!userId) return send400(reply, "USER_ID_REQUIRED");
+
+      const params = request.params as { citizenDocId: string };
+      const body = request.body as { status: string };
+
+      try {
+        await documents.updateCitizenDocumentStatus(params.citizenDocId, body.status, userId);
+        return { success: true };
+      } catch (error: any) {
+        if (error.message === "CITIZEN_DOC_NOT_FOUND") {
+          return send404(reply, "CITIZEN_DOC_NOT_FOUND");
+        }
+        if (error.message === "INVALID_STATUS") {
+          return send400(reply, "INVALID_STATUS", "Status must be one of: VALID, MISMATCH, CANCELLED");
+        }
+        return send400(reply, error.message);
+      }
     }
   );
 }

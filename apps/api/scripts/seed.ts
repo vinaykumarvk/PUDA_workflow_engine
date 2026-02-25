@@ -203,6 +203,30 @@ async function seedUsers() {
     { id: "test-citizen-5", login: "citizen5", name: "Vikram Mehta", email: "vikram@test.puda.gov.in", aadhar: "567890123456", mobile: "9876543214", salutation: "MR", gender: "MALE", marital_status: "SINGLE", dob: "1992-09-30", pan: "EFGHI5678K", father_name: "Naveen Mehta" },
   ];
 
+  // Address data per citizen
+  const citizenAddresses: Record<string, any> = {
+    "test-citizen-1": {
+      permanent: { line1: "H.No. 2301, Sector 20", line2: "", city: "Mohali", state: "Punjab", district: "SAS Nagar", pincode: "160020" },
+      communication: { same_as_permanent: true, line1: null, line2: null, city: null, state: null, district: null, pincode: null },
+    },
+    "test-citizen-2": {
+      permanent: { line1: "H.No. 1147, Sarabha Nagar", line2: "", city: "Ludhiana", state: "Punjab", district: "Ludhiana", pincode: "141001" },
+      communication: { same_as_permanent: false, line1: "Office No. 45, Mall Road", line2: "Near Clock Tower", city: "Ludhiana", state: "Punjab", district: "Ludhiana", pincode: "141008" },
+    },
+    "test-citizen-3": {
+      permanent: { line1: "H.No. 3278, Block C, Ranjit Avenue", line2: "", city: "Amritsar", state: "Punjab", district: "Amritsar", pincode: "143001" },
+      communication: { same_as_permanent: true, line1: null, line2: null, city: null, state: null, district: null, pincode: null },
+    },
+    "test-citizen-4": {
+      permanent: { line1: "H.No. 2156, Model Town Extension", line2: "", city: "Jalandhar", state: "Punjab", district: "Jalandhar", pincode: "144003" },
+      communication: { same_as_permanent: false, line1: "Shop No. 12, GT Road", line2: "Near Bus Stand", city: "Jalandhar", state: "Punjab", district: "Jalandhar", pincode: "144001" },
+    },
+    "test-citizen-5": {
+      permanent: { line1: "Flat No. 1089, Sector 4, Leela Bhawan", line2: "", city: "Patiala", state: "Punjab", district: "Patiala", pincode: "147001" },
+      communication: { same_as_permanent: true, line1: null, line2: null, city: null, state: null, district: null, pincode: null },
+    },
+  };
+
   for (const citizen of citizens) {
     const nameParts = citizen.name.split(" ").filter(Boolean);
     const firstName = nameParts[0] || citizen.name;
@@ -223,7 +247,8 @@ async function seedUsers() {
         pan: citizen.pan,
         email: citizen.email,
         mobile: citizen.mobile
-      }
+      },
+      addresses: citizenAddresses[citizen.id] || {},
     };
     await query(
       `INSERT INTO "user" (user_id, login, password_hash, name, email, phone, user_type, profile_jsonb)
@@ -431,9 +456,9 @@ function generateFormData(serviceKey: string, citizenName: string, index: number
             district: "Mohali",
             pincode: `140${100 + index}`
           },
-          official: {
+          communication: {
             same_as_permanent: index % 2 === 0,
-            line1: index % 2 === 0 ? null : `Official Address ${index}`,
+            line1: index % 2 === 0 ? null : `Communication Address ${index}`,
             state: index % 2 === 0 ? null : "Punjab",
             district: index % 2 === 0 ? null : "Mohali",
             pincode: index % 2 === 0 ? null : `140${200 + index}`
@@ -494,6 +519,7 @@ async function seedCitizenApplications() {
     `DELETE FROM notification
      WHERE user_id LIKE 'test-citizen%' OR arn IN ${testCitizenArnSubquery}`
   );
+  await query(`DELETE FROM application_document WHERE arn IN ${testCitizenArnSubquery}`);
   await query(`DELETE FROM document WHERE arn IN ${testCitizenArnSubquery}`);
   await query(`DELETE FROM query WHERE arn IN ${testCitizenArnSubquery}`);
   await query(
@@ -502,6 +528,10 @@ async function seedCitizenApplications() {
   );
   await query(`DELETE FROM task WHERE arn IN ${testCitizenArnSubquery}`);
   await query(`DELETE FROM application_property WHERE arn IN ${testCitizenArnSubquery}`);
+  // Also clean up citizen_property links so seedProperties can delete property rows
+  await query(`DELETE FROM citizen_property WHERE user_id LIKE 'test-citizen%'`);
+  // Delete properties owned only by test citizens (use the ULPIN format seeded below)
+  await query(`DELETE FROM property WHERE unique_property_number LIKE 'PB-%' AND NOT EXISTS (SELECT 1 FROM application_property ap WHERE ap.property_id = property.property_id)`);
   await query("DELETE FROM application WHERE applicant_user_id LIKE 'test-citizen%'");
   console.log("Existing test citizen data cleaned up.");
   
@@ -781,9 +811,10 @@ async function seedCitizenApplications() {
 async function seedProperties() {
   const { v4: uuidv4 } = await import("uuid");
 
-  // Clean up existing test citizen property links
+  // Clean up existing test citizen property links (already done in seedCitizenApplications, but safe to repeat)
   await query(`DELETE FROM citizen_property WHERE user_id LIKE 'test-citizen%'`);
-  await query(`DELETE FROM property WHERE unique_property_number LIKE 'PB-%'`);
+  // Only delete properties not referenced by any application_property
+  await query(`DELETE FROM property WHERE unique_property_number LIKE 'PB-%' AND NOT EXISTS (SELECT 1 FROM application_property ap WHERE ap.property_id = property.property_id)`);
 
   type PropertySeed = {
     propertyId: string;
@@ -1272,6 +1303,83 @@ async function seedFeatureFlags() {
   console.log(`Feature flags seeded: ${defaults.length} default flag(s).`);
 }
 
+async function seedComplaints() {
+  const { v4: uuidv4 } = await import("uuid");
+  const year = new Date().getFullYear();
+
+  // Clean up existing test complaint data
+  await query(`DELETE FROM complaint_evidence WHERE complaint_id IN (SELECT complaint_id FROM complaint WHERE user_id LIKE 'test-citizen%')`);
+  await query(`DELETE FROM complaint WHERE user_id LIKE 'test-citizen%'`);
+
+  const complaints = [
+    {
+      complaintId: uuidv4(),
+      userId: "test-citizen-1",
+      violationType: "UNAUTHORIZED_CONSTRUCTION",
+      locationAddress: "Plot No. 234, Phase 7, Mohali",
+      locationLocality: "Phase 7",
+      locationCity: "Mohali",
+      locationDistrict: "SAS Nagar",
+      locationPincode: "160062",
+      subject: "Multi-storey building without approval",
+      description: "A 4-storey residential building is being constructed at Plot No. 234, Phase 7, Mohali without any visible building plan approval board. Construction appears to be ongoing for about 3 weeks. No boundary wall or safety nets installed. This poses a risk to adjacent properties.",
+      status: "SUBMITTED",
+      daysAgo: 3,
+    },
+    {
+      complaintId: uuidv4(),
+      userId: "test-citizen-1",
+      violationType: "ENCROACHMENT",
+      locationAddress: "Green Belt Area near Sector 68, Mohali",
+      locationLocality: "Sector 68",
+      locationCity: "Mohali",
+      locationDistrict: "SAS Nagar",
+      locationPincode: "160068",
+      subject: "Commercial encroachment on green belt",
+      description: "Several temporary shops and food stalls have encroached on the designated green belt area near Sector 68. The encroachment has been growing over the past month with concrete structures now being built. This is destroying the green area meant for public use.",
+      status: "UNDER_REVIEW",
+      daysAgo: 10,
+    },
+  ];
+
+  for (let i = 0; i < complaints.length; i++) {
+    const c = complaints[i];
+    const createdDate = new Date();
+    createdDate.setDate(createdDate.getDate() - c.daysAgo);
+    const seq = String(i + 1).padStart(6, "0");
+    const complaintNumber = `PUDA/CMP/${year}/${seq}`;
+
+    await query(
+      `INSERT INTO complaint (
+        complaint_id, complaint_number, user_id, violation_type,
+        location_address, location_locality, location_city, location_district, location_pincode,
+        subject, description, status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
+      ON CONFLICT (complaint_id) DO NOTHING`,
+      [
+        c.complaintId,
+        complaintNumber,
+        c.userId,
+        c.violationType,
+        c.locationAddress,
+        c.locationLocality,
+        c.locationCity,
+        c.locationDistrict,
+        c.locationPincode,
+        c.subject,
+        c.description,
+        c.status,
+        createdDate.toISOString(),
+      ]
+    );
+  }
+
+  // Reset sequence to avoid conflicts with seeded data
+  await query(`SELECT setval('complaint_number_seq', 100, false)`);
+
+  console.log(`Complaints seeded: ${complaints.length} test complaints for citizen-1.`);
+}
+
 async function main() {
   console.log("Seeding...");
   await seedAuthorities();
@@ -1284,6 +1392,7 @@ async function main() {
   await seedFeatureFlags();
   await seedProperties();       // Must run before seedCitizenApplications so applications can reference real UPNs
   await seedCitizenApplications();
+  await seedComplaints();
   console.log("Seed complete.");
   process.exit(0);
 }

@@ -5,14 +5,20 @@
     {
       "pageId": "PAGE_PROPERTY",
       "title": "Property Details",
+      "title_hi": "संपत्ति विवरण",
+      "title_pa": "ਜਾਇਦਾਦ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_PROPERTY",
           "title": "Property Information",
+          "title_hi": "संपत्ति जानकारी",
+          "title_pa": "ਜਾਇਦਾਦ ਜਾਣਕਾਰੀ",
           "fields": [
             {
               "key": "property.upn",
               "label": "Unique Property Number (UPN / Bhu-Aadhar)",
+              "label_hi": "विशिष्ट संपत्ति संख्या (यूपीएन / भू-आधार)",
+              "label_pa": "ਵਿਲੱਖਣ ਜਾਇਦਾਦ ਨੰਬਰ (ਯੂਪੀਐਨ / ਭੂ-ਆਧਾਰ)",
               "type": "string",
               "required": true,
               "ui": {
@@ -22,6 +28,8 @@
             {
               "key": "property.area_sqyd",
               "label": "Area (Sq. Yards)",
+              "label_hi": "क्षेत्रफल (वर्ग गज)",
+              "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)",
               "type": "number",
               "required": false,
               "ui": {
@@ -31,6 +39,8 @@
             {
               "key": "property.authority_name",
               "label": "Authority Name",
+              "label_hi": "प्राधिकरण का नाम",
+              "label_pa": "ਅਥਾਰਟੀ ਦਾ ਨਾਮ",
               "type": "string",
               "required": false,
               "ui": {
@@ -40,6 +50,8 @@
             {
               "key": "property.plot_no",
               "label": "Plot Number",
+              "label_hi": "प्लॉट नंबर",
+              "label_pa": "ਪਲਾਟ ਨੰਬਰ",
               "type": "string",
               "required": false,
               "ui": {
@@ -49,6 +61,8 @@
             {
               "key": "property.type",
               "label": "Property Type",
+              "label_hi": "संपत्ति का प्रकार",
+              "label_pa": "ਜਾਇਦਾਦ ਦੀ ਕਿਸਮ",
               "type": "enum",
               "required": false,
               "ui": {
@@ -72,6 +86,8 @@
             {
               "key": "property.scheme_name",
               "label": "Scheme Name",
+              "label_hi": "योजना का नाम",
+              "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ",
               "type": "string",
               "required": false,
               "ui": {
@@ -85,10 +101,14 @@
     {
       "pageId": "PAGE_APPLICANT",
       "title": "Applicant Details",
+      "title_hi": "आवेदक विवरण",
+      "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_APPLICANT",
           "title": "Applicant Information",
+          "title_hi": "आवेदक जानकारी",
+          "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਜਾਣਕਾਰੀ",
           "fields": [
             {
               "sharedSection": "applicant"
@@ -100,68 +120,92 @@
     {
       "pageId": "PAGE_BUILDING",
       "title": "Building / Construction Details",
+      "title_hi": "भवन / निर्माण विवरण",
+      "title_pa": "ਇਮਾਰਤ / ਉਸਾਰੀ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_BUILDING",
           "title": "Construction Details",
+          "title_hi": "निर्माण विवरण",
+          "title_pa": "ਉਸਾਰੀ ਵੇਰਵੇ",
           "fields": [
             {
               "key": "building.plan_sanction_date",
               "label": "Date of Sanction of Building Plan",
+              "label_hi": "भवन योजना मंजूरी की तिथि",
+              "label_pa": "ਇਮਾਰਤ ਯੋਜਨਾ ਮਨਜ਼ੂਰੀ ਦੀ ਮਿਤੀ",
               "type": "date",
               "required": true
             },
             {
               "key": "building.floors_constructed",
               "label": "Number of Floors Constructed",
+              "label_hi": "निर्मित मंजिलों की संख्या",
+              "label_pa": "ਉਸਾਰੀਆਂ ਮੰਜ਼ਿਲਾਂ ਦੀ ਗਿਣਤੀ",
               "type": "number",
               "required": true
             },
             {
               "key": "building.basement_constructed",
               "label": "Is Basement Constructed",
+              "label_hi": "क्या तहखाना बनाया गया है",
+              "label_pa": "ਕੀ ਬੇਸਮੈਂਟ ਬਣਾਈ ਗਈ ਹੈ",
               "type": "boolean",
               "required": true
             },
             {
               "key": "building.basement_area_sqft",
               "label": "Proposed Covered Area for Basement (sq ft)",
+              "label_hi": "तहखाने का प्रस्तावित ढका क्षेत्र (वर्ग फुट)",
+              "label_pa": "ਬੇਸਮੈਂਟ ਲਈ ਪ੍ਰਸਤਾਵਿਤ ਢੱਕਿਆ ਖੇਤਰ (ਵਰਗ ਫੁੱਟ)",
               "type": "number",
               "required": false
             },
             {
               "key": "building.ground_floor_area_sqft",
               "label": "Proposed Covered Area for Ground Floor (sq ft)",
+              "label_hi": "भूतल का प्रस्तावित ढका क्षेत्र (वर्ग फुट)",
+              "label_pa": "ਗਰਾਊਂਡ ਫਲੋਰ ਲਈ ਪ੍ਰਸਤਾਵਿਤ ਢੱਕਿਆ ਖੇਤਰ (ਵਰਗ ਫੁੱਟ)",
               "type": "number",
               "required": true
             },
             {
               "key": "building.first_floor_area_sqft",
               "label": "Proposed Covered Area for First Floor (sq ft)",
+              "label_hi": "पहली मंजिल का प्रस्तावित ढका क्षेत्र (वर्ग फुट)",
+              "label_pa": "ਪਹਿਲੀ ਮੰਜ਼ਿਲ ਲਈ ਪ੍ਰਸਤਾਵਿਤ ਢੱਕਿਆ ਖੇਤਰ (ਵਰਗ ਫੁੱਟ)",
               "type": "number",
               "required": false
             },
             {
               "key": "building.second_floor_area_sqft",
               "label": "Proposed Covered Area for Second Floor (sq ft)",
+              "label_hi": "दूसरी मंजिल का प्रस्तावित ढका क्षेत्र (वर्ग फुट)",
+              "label_pa": "ਦੂਜੀ ਮੰਜ਼ਿਲ ਲਈ ਪ੍ਰਸਤਾਵਿਤ ਢੱਕਿਆ ਖੇਤਰ (ਵਰਗ ਫੁੱਟ)",
               "type": "number",
               "required": false
             },
             {
               "key": "building.mumty_constructed",
               "label": "Is Mumty Constructed",
+              "label_hi": "क्या मम्टी बनाई गई है",
+              "label_pa": "ਕੀ ਮಮਟੀ ਬਣਾਈ ਗਈ ਹੈ",
               "type": "boolean",
               "required": false
             },
             {
               "key": "building.mumty_area_sqft",
               "label": "Proposed Covered Area for Mumty (sq ft)",
+              "label_hi": "मम्टी का प्रस्तावित ढका क्षेत्र (वर्ग फुट)",
+              "label_pa": "ਮਮਟੀ ਲਈ ਪ੍ਰਸਤਾਵਿਤ ਢੱਕਿਆ ਖੇਤਰ (ਵਰਗ ਫੁੱਟ)",
               "type": "number",
               "required": false
             },
             {
               "key": "building.estimated_cost",
               "label": "Total Estimated Cost of Construction",
+              "label_hi": "निर्माण की कुल अनुमानित लागत",
+              "label_pa": "ਉਸਾਰੀ ਦੀ ਕੁੱਲ ਅਨੁਮਾਨਿਤ ਲਾਗਤ",
               "type": "number",
               "required": true
             }
@@ -172,44 +216,60 @@
     {
       "pageId": "PAGE_WATER_CONNECTION",
       "title": "Water Connection Details",
+      "title_hi": "जल कनेक्शन विवरण",
+      "title_pa": "ਪਾਣੀ ਕੁਨੈਕਸ਼ਨ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_WATER_CONNECTION",
           "title": "Technical Details",
+          "title_hi": "तकनीकी विवरण",
+          "title_pa": "ਤਕਨੀਕੀ ਵੇਰਵੇ",
           "fields": [
             {
               "key": "water.purpose",
               "label": "Purpose of Water Connection",
+              "label_hi": "जल कनेक्शन का उद्देश्य",
+              "label_pa": "ਪਾਣੀ ਕੁਨੈਕਸ਼ਨ ਦਾ ਮਕਸਦ",
               "type": "string",
               "required": true
             },
             {
               "key": "water.service_pipe_length_ft",
               "label": "Service Pipe Length (feet)",
+              "label_hi": "सेवा पाइप की लंबाई (फीट)",
+              "label_pa": "ਸੇਵਾ ਪਾਈਪ ਦੀ ਲੰਬਾਈ (ਫੁੱਟ)",
               "type": "number",
               "required": true
             },
             {
               "key": "water.service_pipe_size",
               "label": "Service Pipe Size",
+              "label_hi": "सेवा पाइप का आकार",
+              "label_pa": "ਸੇਵਾ ਪਾਈਪ ਦਾ ਆਕਾਰ",
               "type": "string",
               "required": true
             },
             {
               "key": "water.number_of_taps",
               "label": "Number of Taps",
+              "label_hi": "नलों की संख्या",
+              "label_pa": "ਟੂਟੀਆਂ ਦੀ ਗਿਣਤੀ",
               "type": "number",
               "required": true
             },
             {
               "key": "water.tap_size",
               "label": "Size of Tap",
+              "label_hi": "नल का आकार",
+              "label_pa": "ਟੂਟੀ ਦਾ ਆਕਾਰ",
               "type": "string",
               "required": true
             },
             {
               "key": "water.ferrule_cock_size",
               "label": "Size of Ferrule Cock",
+              "label_hi": "फेरूल कॉक का आकार",
+              "label_pa": "ਫੈਰੂਲ ਕਾਕ ਦਾ ਆਕਾਰ",
               "type": "string",
               "required": true
             }

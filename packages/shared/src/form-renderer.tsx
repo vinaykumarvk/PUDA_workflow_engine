@@ -17,6 +17,8 @@ export interface CitizenProperty {
 export interface FieldDef {
   key: string;
   label: string;
+  label_hi?: string;
+  label_pa?: string;
   type: string;
   required?: boolean;
   placeholder?: string;
@@ -33,12 +35,16 @@ export interface FieldDef {
 export interface FormSection {
   sectionId: string;
   title: string;
+  title_hi?: string;
+  title_pa?: string;
   fields: FieldDef[];
 }
 
 export interface FormPage {
   pageId: string;
   title: string;
+  title_hi?: string;
+  title_pa?: string;
   sections: FormSection[];
 }
 
@@ -71,6 +77,8 @@ interface FormRendererProps {
   submitDisabled?: boolean;
   /** Replace the Submit button entirely with custom content on a specific page */
   submitOverride?: React.ReactNode;
+  /** Secondary language code for bilingual labels ("hi", "pa", or "none"/undefined) */
+  secondaryLanguage?: string;
 }
 
 export function FormRenderer({
@@ -86,6 +94,7 @@ export function FormRenderer({
   submitLabel = "Submit",
   submitDisabled = false,
   submitOverride,
+  secondaryLanguage,
 }: FormRendererProps) {
   const [data, setData] = useState<any>(initialData);
   const [currentPage, setCurrentPage] = useState(0);
@@ -95,6 +104,19 @@ export function FormRenderer({
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
+
+  // Bilingual label helper: renders stacked English + secondary language
+  const bilingualText = (primary: string, hi?: string, pa?: string): React.ReactNode => {
+    if (!secondaryLanguage || secondaryLanguage === "none") return primary;
+    const secondary = secondaryLanguage === "hi" ? hi : secondaryLanguage === "pa" ? pa : undefined;
+    if (!secondary || secondary === primary) return primary;
+    return (
+      <span className="bilingual bilingual--stacked">
+        <span className="bilingual__primary">{primary}</span>
+        <span className="bilingual__secondary" lang={secondaryLanguage}>{secondary}</span>
+      </span>
+    );
+  };
 
   // Helper: read a nested dot-key from form data
   const getFieldValue = useCallback((key: string): any => {
@@ -237,7 +259,7 @@ export function FormRenderer({
           return (
             <div key={field.key} className="field">
               <label htmlFor={fieldId}>
-                {field.label}
+                {bilingualText(field.label, field.label_hi, field.label_pa)}
                 {field.required && <span className="required">*</span>}
               </label>
               <select
@@ -282,7 +304,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             {field.type === "text" ? (
@@ -315,7 +337,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             <input
@@ -343,7 +365,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             <input
@@ -364,7 +386,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             <input
@@ -385,7 +407,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             <input
@@ -407,7 +429,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             <input
@@ -438,7 +460,7 @@ export function FormRenderer({
                 disabled={!editable}
                 {...ariaProps}
               />
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             {error && <span id={errorId} className="error-message" role="alert">{error}</span>}
@@ -449,7 +471,7 @@ export function FormRenderer({
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
-              {field.label}
+              {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
             <select
@@ -502,7 +524,7 @@ export function FormRenderer({
             aria-current={idx === currentPage ? "step" : undefined}
           >
             {idx < currentPage && <span aria-hidden="true">&#10003; </span>}
-            {page.title}
+            {bilingualText(page.title, page.title_hi, page.title_pa)}
           </button>
         ))}
       </div>
@@ -514,10 +536,10 @@ export function FormRenderer({
       )}
 
       <div className="form-page">
-        <h2>{currentPageConfig.title}</h2>
+        <h2>{bilingualText(currentPageConfig.title, currentPageConfig.title_hi, currentPageConfig.title_pa)}</h2>
         {currentPageConfig.sections.map((section) => (
           <div key={section.sectionId} className="form-section">
-            <h3>{section.title}</h3>
+            <h3>{bilingualText(section.title, section.title_hi, section.title_pa)}</h3>
             {section.fields.map((field) => renderField(field))}
           </div>
         ))}

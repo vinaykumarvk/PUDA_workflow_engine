@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
 import { Alert, Button, Card, Field, Input, Textarea, Breadcrumb, timeAgo } from "@puda/shared";
 import { getStatusBadgeClass, getStatusLabel, formatDateTime } from "@puda/shared/utils";
+import { Bilingual } from "./Bilingual";
 import "./application-detail.css";
 
 interface ApplicationDetailProps {
@@ -323,19 +324,19 @@ export default function ApplicationDetail({
     return (
       <>
         <a href="#citizen-main-application-detail" className="skip-link">
-          Skip to main content
+          {t("common.skip_to_main")}
         </a>
         <main id="citizen-main-application-detail" className="application-detail" role="main">
         <div className="detail-header">
           <div className="detail-title-section">
             <Breadcrumb items={[
-              { label: "Back", onClick: onBack },
+              { label: t("app_detail.back"), onClick: onBack },
               { label: `Application ${application.arn}` }
             ]} />
-            <h1>Application Details</h1>
+            <h1><Bilingual tKey="app_detail.title" /></h1>
             <div className="detail-meta">
               <div className="meta-item">
-                <span className="meta-label">ARN:</span>
+                <span className="meta-label">{t("app_detail.arn")}</span>
                 <span className="meta-value">{application.arn}</span>
               </div>
             </div>
@@ -347,7 +348,7 @@ export default function ApplicationDetail({
               Offline mode is active. Cached application details are not available on this device yet.
             </Alert>
           ) : (
-            <p>Loading application details...</p>
+            <p>{t("app_detail.loading")}</p>
           )}
         </div>
         </main>
@@ -460,24 +461,24 @@ export default function ApplicationDetail({
   return (
     <>
       <a href="#citizen-main-application-detail" className="skip-link">
-        Skip to main content
+        {t("common.skip_to_main")}
       </a>
       <main id="citizen-main-application-detail" className="application-detail" role="main">
       {/* Header */}
       <div className="detail-header">
         <div className="detail-title-section">
           <Breadcrumb items={[
-            { label: t("back"), onClick: onBack },
-            { label: `${t("application_details")} — ${application.arn}` }
+            { label: t("app_detail.back"), onClick: onBack },
+            { label: `${t("app_detail.title")} — ${application.arn}` }
           ]} />
-          <h1>{t("application_details")}</h1>
+          <h1><Bilingual tKey="app_detail.title" /></h1>
           <div className="detail-meta">
             <div className="meta-item">
-              <span className="meta-label">ARN:</span>
+              <span className="meta-label">{t("app_detail.arn")}</span>
               <span className="meta-value">{application.arn}</span>
             </div>
             <div className="meta-item">
-              <span className="meta-label">Service:</span>
+              <span className="meta-label">{t("app_detail.service")}</span>
               <span className="meta-value">{serviceConfig?.displayName || application.service_key}</span>
             </div>
           </div>
@@ -495,32 +496,32 @@ export default function ApplicationDetail({
       <div className="detail-section status-card-section">
         <div className="status-card">
           <div className="status-header">
-            <span className="status-label">{t("current_status")}</span>
+            <span className="status-label">{t("app_detail.current_status")}</span>
             <span className={`status-badge-large ${getStatusBadgeClass(application.state_id)}`}>
               {getStatusLabel(application.state_id)}
             </span>
           </div>
           <div className="status-dates">
             <div className="date-item">
-              <span className="date-label">{t("created")}:</span>
+              <span className="date-label">{t("app_detail.created")}</span>
               <span className="date-value">{formatDate(application.created_at)}</span>
             </div>
             {application.submitted_at && (
               <div className="date-item">
-                <span className="date-label">{t("submitted")}:</span>
+                <span className="date-label">{t("app_detail.submitted")}</span>
                 <span className="date-value">{formatDate(application.submitted_at)}</span>
               </div>
             )}
             {application.disposed_at && (
               <div className="date-item">
-                <span className="date-label">{t("disposed")}:</span>
+                <span className="date-label">{t("app_detail.disposed")}</span>
                 <span className="date-value">{formatDate(application.disposed_at)}</span>
               </div>
             )}
           </div>
           {application.state_id === "DRAFT" && onSubmit && (
             <Button onClick={onSubmit} className="submit-button-large" fullWidth disabled={isOffline}>
-              {t("submit_application")}
+              {t("app_detail.submit")}
             </Button>
           )}
         </div>
@@ -528,7 +529,7 @@ export default function ApplicationDetail({
 
       {application.service_key === "no_due_certificate" && (
         <div className="detail-section" id="ndc-payment-ledger">
-          <h2 className="section-title">Payment Status</h2>
+          <h2 className="section-title"><Bilingual tKey="ndc.payment_status" /></h2>
           {ndcPaymentStatusLoading ? (
             <div style={{ display: "grid", gap: "var(--space-2)" }}>
               <div className="ui-skeleton" style={{ height: "2.6rem" }} />
@@ -540,19 +541,19 @@ export default function ApplicationDetail({
             <>
               <div className="ndc-summary-grid">
                 <Card className="ndc-summary-card">
-                  <span className="ndc-summary-label">Total Due</span>
+                  <span className="ndc-summary-label">{t("ndc.total_due")}</span>
                   <strong className="ndc-summary-value">
                     {formatCurrency(ndcPaymentStatus.totals.totalDueAmount)}
                   </strong>
                 </Card>
                 <Card className="ndc-summary-card">
-                  <span className="ndc-summary-label">Total Paid</span>
+                  <span className="ndc-summary-label">{t("ndc.total_paid")}</span>
                   <strong className="ndc-summary-value">
                     {formatCurrency(ndcPaymentStatus.totals.paidAmount)}
                   </strong>
                 </Card>
                 <Card className="ndc-summary-card">
-                  <span className="ndc-summary-label">Pending Balance</span>
+                  <span className="ndc-summary-label">{t("ndc.pending_balance")}</span>
                   <strong className="ndc-summary-value">
                     {formatCurrency(ndcPaymentStatus.totals.balanceAmount)}
                   </strong>
@@ -564,11 +565,11 @@ export default function ApplicationDetail({
 
               {ndcPaymentStatus.certificateEligible ? (
                 <Alert variant="success">
-                  All dues are cleared for property {ndcPaymentStatus.propertyUpn}. You can download the No Due Certificate directly.
+                  {t("ndc.certificate_eligible")}
                 </Alert>
               ) : (
                 <Alert variant="warning">
-                  Pending dues are available. Please proceed to the Payment page to clear them before downloading certificate.
+                  {t("ndc.dues_pending")}
                 </Alert>
               )}
 
@@ -579,7 +580,7 @@ export default function ApplicationDetail({
                     onClick={() => handleDownload(outputDownloadUrl, `NDC-${application.arn.replace(/\//g, "-")}.pdf`)}
                     disabled={downloading}
                   >
-                    {downloading ? "Downloading…" : "Download No Due Certificate"}
+                    {downloading ? t("ndc.downloading") : t("ndc.download_ndc")}
                   </button>
                 ) : (
                   <Button
@@ -587,7 +588,7 @@ export default function ApplicationDetail({
                     onClick={() => setShowNdcPaymentPage(true)}
                     className="submit-button-large"
                   >
-                    Go to Payment Page
+                    {t("ndc.go_to_payment")}
                   </Button>
                 )}
               </div>
@@ -633,12 +634,12 @@ export default function ApplicationDetail({
 
       {application.service_key === "no_due_certificate" && showNdcPaymentPage && ndcPaymentStatus ? (
         <div className="detail-section" id="ndc-payment-page">
-          <h2 className="section-title">Payment Page</h2>
-          <p className="timeline-note">This page posts settlement entries against selected dues.</p>
+          <h2 className="section-title"><Bilingual tKey="ndc.payment_page" /></h2>
+          <p className="timeline-note">{t("ndc.payment_page_desc")}</p>
           {ndcPostingError ? <Alert variant="warning">{ndcPostingError}</Alert> : null}
           <div className="read-card-list">
             {ndcPaymentStatus.dues.filter((due) => due.balanceAmount > 0.01).length === 0 ? (
-              <Alert variant="success">All dues are settled. Return to Payment Status and download the certificate.</Alert>
+              <Alert variant="success">{t("ndc.all_settled")}</Alert>
             ) : null}
             {ndcPaymentStatus.dues
               .filter((due) => due.balanceAmount > 0.01)
@@ -650,11 +651,11 @@ export default function ApplicationDetail({
                   </div>
                   <div className="read-card-grid">
                     <div className="read-meta-row">
-                      <span className="read-meta-key">Due Date</span>
+                      <span className="read-meta-key">{t("ndc.due_date")}</span>
                       <span className="read-meta-value">{due.dueDate}</span>
                     </div>
                     <div className="read-meta-row">
-                      <span className="read-meta-key">Payable Amount</span>
+                      <span className="read-meta-key">{t("ndc.payable_amount")}</span>
                       <span className="read-meta-value">{formatCurrency(due.balanceAmount)}</span>
                     </div>
                   </div>
@@ -665,14 +666,14 @@ export default function ApplicationDetail({
                       onClick={() => void handleNdcPaymentPost(due.dueCode)}
                       disabled={isOffline || Boolean(ndcPostingDueCode)}
                     >
-                      {ndcPostingDueCode === due.dueCode ? "Posting..." : `Pay ${formatCurrency(due.balanceAmount)}`}
+                      {ndcPostingDueCode === due.dueCode ? t("ndc.posting") : `${t("ndc.pay")} ${formatCurrency(due.balanceAmount)}`}
                     </Button>
                   </div>
                 </Card>
               ))}
           </div>
           <Button variant="ghost" onClick={() => setShowNdcPaymentPage(false)}>
-            Back to Payment Status
+            {t("ndc.back_to_status")}
           </Button>
         </div>
       ) : null}
@@ -680,7 +681,7 @@ export default function ApplicationDetail({
       {/* Application Data */}
       {groupedData.length > 0 && (
         <div className="detail-section">
-          <h2 className="section-title">{t("application_info")}</h2>
+          <h2 className="section-title"><Bilingual tKey="app_detail.info" /></h2>
           <div className="data-groups">
             {groupedData.map((group, idx) => (
               <div key={idx} className="data-group">
@@ -701,33 +702,33 @@ export default function ApplicationDetail({
 
       {/* Queries */}
       <div className="detail-section">
-        <h2 className="section-title">{t("queries")} ({queries.length})</h2>
+        <h2 className="section-title"><Bilingual tKey="app_detail.queries" /> ({queries.length})</h2>
         {queries.length > 0 ? (
           <div className="read-card-list">
             {queries.map((query: any) => (
               <Card key={query.query_id} className={`read-only-card query-read-card ${query.status === "PENDING" ? "query-pending" : ""}`}>
                 <div className="read-card-header">
-                  <p className="read-card-title">Query #{query.query_number}</p>
+                  <p className="read-card-title">{t("app_detail.query_number", { number: query.query_number })}</p>
                   <span className={`query-status ${query.status === "PENDING" ? "status-pending" : "status-responded"}`}>
-                    {query.status === "PENDING" ? "Pending Response" : "Responded"}
+                    {query.status === "PENDING" ? t("app_detail.pending_response") : t("app_detail.responded")}
                   </span>
                 </div>
                 <p className="read-card-body">{query.message}</p>
                 <div className="read-card-grid">
                   <div className="read-meta-row">
-                    <span className="read-meta-key">Raised At</span>
+                    <span className="read-meta-key">{t("app_detail.raised_at")}</span>
                     <span className="read-meta-value">
                       {query.raised_at ? formatDate(query.raised_at) : "—"}
                     </span>
                   </div>
                   <div className="read-meta-row">
-                    <span className="read-meta-key">Response Due</span>
+                    <span className="read-meta-key">{t("app_detail.response_due")}</span>
                     <span className="read-meta-value">
                       {query.response_due_at ? new Date(query.response_due_at).toLocaleDateString() : "—"}
                     </span>
                   </div>
                   <div className="read-meta-row">
-                    <span className="read-meta-key">Responded At</span>
+                    <span className="read-meta-key">{t("app_detail.responded_at")}</span>
                     <span className="read-meta-value">
                       {query.responded_at ? formatDate(query.responded_at) : "—"}
                     </span>
@@ -735,9 +736,9 @@ export default function ApplicationDetail({
                 </div>
                 {query.responded_at && (
                   <div className="query-response read-card-response">
-                    <div className="response-label">Your Response:</div>
+                    <div className="response-label">{t("app_detail.your_response")}:</div>
                     <div className="response-text">{query.response_remarks || "Response submitted"}</div>
-                    <div className="response-date">Responded on: {new Date(query.responded_at).toLocaleDateString()}</div>
+                    <div className="response-date">{t("app_detail.responded_on")}: {new Date(query.responded_at).toLocaleDateString()}</div>
                   </div>
                 )}
               </Card>
@@ -745,14 +746,14 @@ export default function ApplicationDetail({
           </div>
         ) : (
           <Alert variant="info" className="detail-empty-alert">
-            No queries have been raised for this application.
+            {t("app_detail.no_queries")}
           </Alert>
         )}
       </div>
 
       {pendingQuery && application.state_id === "QUERY_PENDING" && (
         <div className="detail-section">
-          <h2 className="section-title">{t("respond_to_query")}</h2>
+          <h2 className="section-title"><Bilingual tKey="app_detail.respond_to_query" /></h2>
           <Alert variant="info" className="query-pending-message">{pendingQuery.message}</Alert>
           {editableUnlockedFields.length > 0 && (
             <div className="query-response-form">
@@ -801,7 +802,7 @@ export default function ApplicationDetail({
               Applicant details are read-only. Please update your profile to change applicant information.
             </Alert>
           )}
-          <Field label={t("response_message")} htmlFor="query-response-message" required>
+          <Field label={<Bilingual tKey="app_detail.response_message" />} htmlFor="query-response-message" required>
             <Textarea
               id="query-response-message"
               value={responseMessage}
@@ -818,7 +819,7 @@ export default function ApplicationDetail({
               disabled={isOffline || responding || !responseMessage.trim()}
               fullWidth
             >
-              {responding ? t("submitting") : t("submit_response")}
+              {responding ? t("app_detail.submitting") : t("app_detail.submit_response")}
             </Button>
           </div>
         </div>
@@ -826,7 +827,7 @@ export default function ApplicationDetail({
 
       {/* Documents */}
       <div className="detail-section">
-        <h2 className="section-title">{t("documents")} ({documents.length})</h2>
+        <h2 className="section-title"><Bilingual tKey="app_detail.documents" /> ({documents.length})</h2>
         {documents.length > 0 ? (
           <div className="read-card-list">
             {documents.map((doc: any) => {
@@ -846,11 +847,11 @@ export default function ApplicationDetail({
                 )}
                 <div className="read-card-grid">
                   <div className="read-meta-row">
-                    <span className="read-meta-key">Document Type</span>
+                    <span className="read-meta-key">{t("app_detail.doc_type")}</span>
                     <span className="read-meta-value">{doc.doc_type_id || "—"}</span>
                   </div>
                   <div className="read-meta-row">
-                    <span className="read-meta-key">Document ID</span>
+                    <span className="read-meta-key">{t("app_detail.doc_id")}</span>
                     <span className="read-meta-value">{doc.doc_id}</span>
                   </div>
                 </div>
@@ -861,7 +862,7 @@ export default function ApplicationDetail({
                     rel="noopener noreferrer"
                     className="doc-download"
                   >
-                    Download
+                    {t("app_detail.download")}
                   </a>
                 </div>
               </Card>
@@ -870,7 +871,7 @@ export default function ApplicationDetail({
           </div>
         ) : (
           <Alert variant="info" className="detail-empty-alert">
-            No documents uploaded yet.
+            {t("app_detail.no_documents")}
           </Alert>
         )}
         {/* Re-upload alerts for queried/rejected documents */}
@@ -881,7 +882,7 @@ export default function ApplicationDetail({
         )}
         {canUpload && allowedDocTypes.length > 0 && (
           <div className="document-upload-section">
-            <h3 className="upload-title">{t("upload_documents")}</h3>
+            <h3 className="upload-title"><Bilingual tKey="app_detail.upload_documents" /></h3>
             {/* Optional docs UX hint */}
             {allowedDocTypes.every((dt: any) => !dt.mandatory) && documents.length === 0 && (
               <Alert variant="info" className="detail-empty-alert">
@@ -970,7 +971,7 @@ export default function ApplicationDetail({
 
       {/* Timeline */}
       <div className="detail-section">
-        <h2 className="section-title">{t("timeline")} ({timelineEvents.length})</h2>
+        <h2 className="section-title"><Bilingual tKey="app_detail.timeline" /> ({timelineEvents.length})</h2>
         {timelineEvents.length > 0 ? (
           <>
             <p className="timeline-note">Showing the most recent {visibleTimeline.length} events.</p>
@@ -980,17 +981,17 @@ export default function ApplicationDetail({
                   <p className="read-card-title">{event.event_type || "Timeline Event"}</p>
                   <div className="read-card-grid">
                     <div className="read-meta-row">
-                      <span className="read-meta-key">Timestamp</span>
+                      <span className="read-meta-key">{t("app_detail.timestamp")}</span>
                       <span className="read-meta-value" title={event.created_at ? formatDate(event.created_at) : ""}>
                         {event.created_at ? timeAgo(event.created_at) : "—"}
                       </span>
                     </div>
                     <div className="read-meta-row">
-                      <span className="read-meta-key">Actor Type</span>
+                      <span className="read-meta-key">{t("app_detail.actor_type")}</span>
                       <span className="read-meta-value">{event.actor_type || "System"}</span>
                     </div>
                     <div className="read-meta-row">
-                      <span className="read-meta-key">Actor</span>
+                      <span className="read-meta-key">{t("app_detail.actor")}</span>
                       <span className="read-meta-value">{event.actor_id || "System"}</span>
                     </div>
                   </div>
@@ -1000,7 +1001,7 @@ export default function ApplicationDetail({
           </>
         ) : (
           <Alert variant="info" className="detail-empty-alert">
-            Timeline events are not available yet.
+            {t("app_detail.no_timeline")}
           </Alert>
         )}
       </div>
@@ -1019,7 +1020,7 @@ export default function ApplicationDetail({
             )}
             disabled={downloading}
           >
-            {downloading ? "Downloading…" : (application.disposal_type === "REJECTED" ? t("download_order") : t("download_certificate"))}
+            {downloading ? t("ndc.downloading") : (application.disposal_type === "REJECTED" ? t("download_order") : t("download_certificate"))}
           </button>
         </div>
       )}

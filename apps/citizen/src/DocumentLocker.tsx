@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
+import { Bilingual } from "./Bilingual";
 import { Alert, Button, Card, Field, Input, Modal, DropZone, UploadConfirm, SkeletonBlock } from "@puda/shared";
 import "./document-locker.css";
 
@@ -17,6 +19,10 @@ interface CitizenDoc {
   is_current: boolean;
   valid_from?: string;
   valid_until?: string;
+  status: string;
+  computed_status: string;
+  origin: string;
+  source_arn?: string;
   linked_applications?: Array<{
     arn: string;
     app_doc_id: string;
@@ -63,39 +69,28 @@ function humanizeDocType(docTypeId: string): string {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-function getVerificationBadgeClass(status: string): string {
+function getStatusBadgeClass(status: string): string {
   switch (status) {
-    case "VERIFIED": return "locker-badge locker-badge--verified";
-    case "REJECTED": return "locker-badge locker-badge--rejected";
-    case "QUERY": return "locker-badge locker-badge--query";
-    default: return "locker-badge locker-badge--pending";
+    case "VALID": return "locker-badge locker-badge--valid";
+    case "EXPIRED": return "locker-badge locker-badge--expired";
+    case "MISMATCH": return "locker-badge locker-badge--mismatch";
+    case "CANCELLED": return "locker-badge locker-badge--cancelled";
+    default: return "locker-badge locker-badge--valid";
   }
 }
 
-function getVerificationLabel(status: string): string {
+function getStatusLabel(status: string, t: (key: string) => string): string {
   switch (status) {
-    case "VERIFIED": return "Verified";
-    case "REJECTED": return "Rejected";
-    case "QUERY": return "Query";
-    default: return "Pending";
+    case "VALID": return t("locker.status_valid");
+    case "EXPIRED": return t("locker.status_expired");
+    case "MISMATCH": return t("locker.status_mismatch");
+    case "CANCELLED": return t("locker.status_cancelled");
+    default: return status;
   }
 }
 
-/** Determine the best (worst-case) verification status across all linked apps */
-function getBestVerificationStatus(doc: CitizenDoc): string {
-  if (!doc.linked_applications || doc.linked_applications.length === 0) return "NONE";
-  const statuses = doc.linked_applications.map((a) => a.verification_status || "PENDING");
-  if (statuses.includes("REJECTED")) return "REJECTED";
-  if (statuses.includes("QUERY")) return "QUERY";
-  if (statuses.every((s) => s === "VERIFIED")) return "VERIFIED";
-  return "PENDING";
-}
-
-/** Check if document needs citizen action (QUERY or REJECTED in any linked app) */
-function needsAction(doc: CitizenDoc): boolean {
-  return (doc.linked_applications || []).some(
-    (a) => a.verification_status === "QUERY" || a.verification_status === "REJECTED"
-  );
+function isDownloadable(doc: CitizenDoc): boolean {
+  return doc.computed_status !== "CANCELLED" && doc.computed_status !== "EXPIRED";
 }
 
 /** Calculate days until expiry; null if no expiry date */
@@ -123,9 +118,10 @@ function getExpiryLabel(days: number | null, validUntil: string): string {
 }
 
 type SortOption = "newest" | "oldest" | "az";
-type FilterOption = "all" | "verified" | "pending" | "rejected" | "query" | "action_required";
+type FilterOption = "all" | "valid" | "expired" | "mismatch" | "cancelled";
 
 export default function DocumentLocker({ onBack, isOffline, initialFilter }: DocumentLockerProps) {
+  const { t } = useTranslation();
   const { authHeaders, token } = useAuth();
   const [documents, setDocuments] = useState<CitizenDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +130,8 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
   // Search, filter, sort
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterOption>(
-    initialFilter === "action_required" ? "action_required" : "all"
+    (initialFilter === "expired" || initialFilter === "valid" || initialFilter === "mismatch" || initialFilter === "cancelled")
+      ? initialFilter as FilterOption : "all"
   );
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
@@ -184,7 +181,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
       const data = await res.json();
       setDocuments(data.documents || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load documents");
+      setError(err instanceof Error ? err.message : t("locker.failed_load"));
     } finally {
       setLoading(false);
     }
@@ -194,7 +191,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
     if (!isOffline) loadDocuments();
     else {
       setLoading(false);
-      setError("Offline mode is active. Document Locker is unavailable.");
+      setError(t("locker.offline"));
     }
   }, [isOffline, loadDocuments]);
 
@@ -247,9 +244,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
         setPreviewBlobUrl(url);
         setPreviewMimeType(mime);
       } catch (err) {
-        setPreviewError(
-          "Failed to load document preview. The file may only exist on the deployed server."
-        );
+        setPreviewError(t("locker.failed_preview"));
       } finally {
         setPreviewLoading(false);
       }
@@ -270,7 +265,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } catch {
-        setError("Failed to download document.");
+        setError(t("locker.failed_download"));
       }
     },
     [fetchDocBlob]
@@ -338,12 +333,10 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
     }
     // Status filter
     if (activeFilter === "all") return true;
-    const bestStatus = getBestVerificationStatus(doc);
-    if (activeFilter === "action_required") return needsAction(doc);
-    if (activeFilter === "verified") return bestStatus === "VERIFIED";
-    if (activeFilter === "pending") return bestStatus === "PENDING" || bestStatus === "NONE";
-    if (activeFilter === "rejected") return bestStatus === "REJECTED";
-    if (activeFilter === "query") return bestStatus === "QUERY";
+    if (activeFilter === "valid") return doc.computed_status === "VALID";
+    if (activeFilter === "expired") return doc.computed_status === "EXPIRED";
+    if (activeFilter === "mismatch") return doc.computed_status === "MISMATCH";
+    if (activeFilter === "cancelled") return doc.computed_status === "CANCELLED";
     return true;
   });
 
@@ -371,58 +364,32 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
               <path d="M14 3v6h5" />
             </svg>
           </div>
-          <h3>No Documents Yet</h3>
-          <p>Documents you upload for applications will appear here for easy reuse.</p>
+          <h3><Bilingual tKey="locker.empty_title" /></h3>
+          <p>{t("locker.empty_desc")}</p>
           <Button onClick={onBack} variant="secondary">
-            Back to Dashboard
+            {t("locker.back_to_dashboard")}
           </Button>
         </div>
       )}
 
-      {!loading && documents.length > 0 && (
-        <>
-        <div className="locker-toolbar">
-          <input
-            type="text"
-            className="ui-input locker-search"
-            placeholder="Search by filename or document type..."
-            aria-label="Search documents"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <div className="locker-filters">
-            {(["all", "verified", "pending", "rejected", "query", "action_required"] as FilterOption[]).map((f) => (
-              <button
-                key={f}
-                type="button"
-                className={`locker-filter-chip ${activeFilter === f ? "locker-filter-chip--active" : ""}`}
-                onClick={() => setActiveFilter(f)}
-              >
-                {f === "all" ? "All" : f === "action_required" ? "Action Required" : f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
-          <select
-            className="locker-sort"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-          >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="az">A-Z by type</option>
-          </select>
-          <div className="locker-result-count">
-            Showing {sortedDocuments.length} of {documents.length} documents
-          </div>
-        </div>
-        <div className="locker-cards">
-          {sortedDocuments.map((doc) => (
-            <Card key={doc.citizen_doc_id} className={`locker-card ${needsAction(doc) ? "locker-card--action-required" : ""}`}>
+      {!loading && documents.length > 0 && (() => {
+        const uploadedDocs = sortedDocuments.filter((d) => d.origin !== "issued");
+        const issuedDocs = sortedDocuments.filter((d) => d.origin === "issued");
+
+        const renderDocCard = (doc: CitizenDoc) => {
+          const disabled = doc.computed_status === "CANCELLED" || doc.computed_status === "EXPIRED";
+          return (
+            <Card key={doc.citizen_doc_id} className={`locker-card ${disabled ? "locker-card--disabled" : ""}`}>
               <div className="locker-card-header">
                 <span className="locker-card-title">
                   {humanizeDocType(doc.doc_type_id)}
                 </span>
-                <span className="locker-card-version">v{doc.citizen_version}</span>
+                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                  <span className={getStatusBadgeClass(doc.computed_status)}>
+                    {getStatusLabel(doc.computed_status, t)}
+                  </span>
+                  <span className="locker-card-version">v{doc.citizen_version}</span>
+                </div>
               </div>
 
               <div className="locker-card-meta">
@@ -431,29 +398,32 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
                 <span>{formatBytes(doc.size_bytes)}</span>
                 {doc.valid_until && (() => {
                   const days = daysUntilExpiry(doc.valid_until);
+                  const label = days === null ? ""
+                    : days <= 0 ? `${t("common.expired")} (${formatDate(doc.valid_until)})`
+                    : days <= 90 ? `${t("common.expires_in", { days })} (${formatDate(doc.valid_until)})`
+                    : `${t("common.valid_until")} ${formatDate(doc.valid_until)}`;
                   return (
                     <span className={`locker-expiry ${getExpiryClass(days)}`}>
-                      {getExpiryLabel(days, doc.valid_until)}
+                      {label}
                     </span>
                   );
                 })()}
               </div>
 
-              {doc.linked_applications && doc.linked_applications.length > 0 && (
+              {doc.origin === "issued" && doc.source_arn && (
                 <div className="locker-card-apps">
-                  <strong>Used in:</strong>
+                  <strong>{t("locker.issued_for")}</strong>{" "}
+                  <span className="locker-app-arn">{doc.source_arn}</span>
+                </div>
+              )}
+
+              {doc.origin !== "issued" && doc.linked_applications && doc.linked_applications.length > 0 && (
+                <div className="locker-card-apps">
+                  <strong>{t("locker.used_in")}</strong>
                   <div className="locker-app-links">
                     {doc.linked_applications.map((app) => (
                       <div key={app.arn} className="locker-app-link">
                         <span className="locker-app-arn">{app.arn}</span>
-                        <span className={getVerificationBadgeClass(app.verification_status || "PENDING")}>
-                          {getVerificationLabel(app.verification_status || "PENDING")}
-                        </span>
-                        {(app.verification_status === "REJECTED" || app.verification_status === "QUERY") && app.verification_remarks && (
-                          <span className="locker-app-remarks">
-                            — {app.verification_remarks}
-                          </span>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -467,46 +437,49 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
                   onClick={() => void handlePreview(doc)}
                   disabled={isOffline}
                 >
-                  Preview
+                  {t("locker.preview")}
                 </Button>
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() => void handleDownload(doc)}
-                  disabled={isOffline}
+                  disabled={isOffline || !isDownloadable(doc)}
+                  title={!isDownloadable(doc) ? t("locker.not_downloadable") : undefined}
                 >
-                  Download
+                  {t("locker.download")}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() =>
-                    setUploadingDocType(
-                      uploadingDocType === doc.doc_type_id ? null : doc.doc_type_id
-                    )
-                  }
-                  disabled={isOffline || uploading}
-                >
-                  Upload New Version
-                </Button>
+                {doc.origin !== "issued" && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      setUploadingDocType(
+                        uploadingDocType === doc.doc_type_id ? null : doc.doc_type_id
+                      )
+                    }
+                    disabled={isOffline || uploading}
+                  >
+                    {t("locker.upload_new_version")}
+                  </Button>
+                )}
                 {doc.citizen_version > 1 && (
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => void loadVersions(doc.doc_type_id)}
                   >
-                    {expandedDocType === doc.doc_type_id ? "Hide History" : "Version History"}
+                    {expandedDocType === doc.doc_type_id ? t("locker.hide_history") : t("locker.version_history")}
                   </Button>
                 )}
               </div>
 
-              {uploadingDocType === doc.doc_type_id && (
+              {uploadingDocType === doc.doc_type_id && doc.origin !== "issued" && (
                 <div className="locker-upload-section">
                   {!pendingFile ? (
                     <DropZone
                       onFileSelected={(f) => setPendingFile(f)}
                       disabled={uploading || isOffline}
-                      label={`Drop file here to upload new version of ${humanizeDocType(doc.doc_type_id)}`}
+                      label={t("locker.drop_file", { docType: humanizeDocType(doc.doc_type_id) })}
                     />
                   ) : (
                     <>
@@ -525,7 +498,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
                       }}
                     />
                     <div className="locker-expiry-fields">
-                      <Field label="Document valid from (optional)" htmlFor={`valid-from-${doc.doc_type_id}`}>
+                      <Field label={<Bilingual tKey="locker.valid_from" />} htmlFor={`valid-from-${doc.doc_type_id}`}>
                         <Input
                           id={`valid-from-${doc.doc_type_id}`}
                           type="date"
@@ -534,7 +507,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
                           disabled={uploading}
                         />
                       </Field>
-                      <Field label="Valid until (optional)" htmlFor={`valid-until-${doc.doc_type_id}`}>
+                      <Field label={<Bilingual tKey="locker.valid_until" />} htmlFor={`valid-until-${doc.doc_type_id}`}>
                         <Input
                           id={`valid-until-${doc.doc_type_id}`}
                           type="date"
@@ -551,7 +524,7 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
 
               {expandedDocType === doc.doc_type_id && (
                 <div className="locker-version-list">
-                  {versionsLoading && <p>Loading versions...</p>}
+                  {versionsLoading && <p>{t("locker.loading_versions")}</p>}
                   {!versionsLoading &&
                     versions.map((v) => (
                       <div key={v.citizen_doc_id} className="locker-version-row">
@@ -565,14 +538,14 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
                             variant="ghost"
                             onClick={() => void handlePreview(v)}
                           >
-                            Preview
+                            {t("locker.preview")}
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => void handleDownload(v)}
                           >
-                            Download
+                            {t("locker.download")}
                           </Button>
                         </div>
                       </div>
@@ -580,10 +553,72 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
                 </div>
               )}
             </Card>
-          ))}
-        </div>
-        </>
-      )}
+          );
+        };
+
+        return (
+          <>
+          <div className="locker-toolbar">
+            <input
+              type="text"
+              className="ui-input locker-search"
+              placeholder={t("locker.search_placeholder")}
+              aria-label="Search documents"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <div className="locker-filters">
+              {(["all", "valid", "expired", "mismatch", "cancelled"] as FilterOption[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`locker-filter-chip ${activeFilter === f ? "locker-filter-chip--active" : ""}`}
+                  onClick={() => setActiveFilter(f)}
+                >
+                  {f === "all" ? t("locker.filter_all") : t(`locker.status_${f}`)}
+                </button>
+              ))}
+            </div>
+            <select
+              className="locker-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+            >
+              <option value="newest">{t("locker.sort_newest")}</option>
+              <option value="oldest">{t("locker.sort_oldest")}</option>
+              <option value="az">{t("locker.sort_az")}</option>
+            </select>
+            <div className="locker-result-count">
+              {t("locker.showing_count", { shown: sortedDocuments.length, total: documents.length })}
+            </div>
+          </div>
+
+          {uploadedDocs.length > 0 && (
+            <>
+              <div className="locker-section-header">
+                <h3>{t("locker.section_uploaded")}</h3>
+                <span className="locker-section-count">{uploadedDocs.length}</span>
+              </div>
+              <div className="locker-cards">
+                {uploadedDocs.map(renderDocCard)}
+              </div>
+            </>
+          )}
+
+          {issuedDocs.length > 0 && (
+            <>
+              <div className="locker-section-header">
+                <h3>{t("locker.section_issued")}</h3>
+                <span className="locker-section-count">{issuedDocs.length}</span>
+              </div>
+              <div className="locker-cards">
+                {issuedDocs.map(renderDocCard)}
+              </div>
+            </>
+          )}
+          </>
+        );
+      })()}
 
       {/* Preview Modal */}
       <Modal
@@ -594,16 +629,16 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
         actions={
           <>
             <Button variant="ghost" onClick={closePreview}>
-              Close
+              {t("locker.close")}
             </Button>
             {previewBlobUrl && (
               <Button variant="secondary" onClick={() => setFullscreen(true)}>
-                Fullscreen
+                {t("locker.fullscreen")}
               </Button>
             )}
             {previewDoc && (
               <Button variant="secondary" onClick={() => void handleDownload(previewDoc)}>
-                Download
+                {t("locker.download")}
               </Button>
             )}
           </>
@@ -628,9 +663,9 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
           )}
           {previewBlobUrl && !isImage && !isPdf && (
             <div className="locker-preview-unsupported">
-              <p>Preview not available for this file type.</p>
+              <p>{t("locker.preview_unavailable")}</p>
               <Button variant="secondary" onClick={() => void handleDownload(previewDoc!)}>
-                Download to view
+                {t("locker.download_to_view")}
               </Button>
             </div>
           )}
@@ -671,13 +706,13 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
             </span>
             <div className="locker-fullscreen__actions">
               <Button variant="ghost" onClick={() => void handleDownload(previewDoc)}>
-                Download
+                {t("locker.download")}
               </Button>
               <Button variant="ghost" onClick={() => setFullscreen(false)}>
-                Exit Fullscreen
+                {t("locker.exit_fullscreen")}
               </Button>
               <Button variant="ghost" onClick={closePreview}>
-                Close
+                {t("locker.close")}
               </Button>
             </div>
           </div>

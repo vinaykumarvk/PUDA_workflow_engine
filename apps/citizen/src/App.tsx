@@ -17,15 +17,24 @@ import {
 import { FormRenderer } from "@puda/shared/form-renderer";
 import { getStatusBadgeClass, getStatusLabel, formatDate, getServiceDisplayName } from "@puda/shared/utils";
 import type { FormConfig, CitizenProperty } from "@puda/shared/form-renderer";
+import { useTranslation } from "react-i18next";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useAuth } from "./AuthContext";
 import Login from "./Login";
 import ThemeToggle from "./ThemeToggle";
+import { SecondaryLanguageProvider } from "./SecondaryLanguageContext";
+import { Bilingual } from "./Bilingual";
 
 const Dashboard = lazy(() => import("./Dashboard"));
 const ApplicationDetail = lazy(() => import("./ApplicationDetail"));
 const DocumentLocker = lazy(() => import("./DocumentLocker"));
+const Settings = lazy(() => import("./Settings"));
+const ReportComplaint = lazy(() => import("./ReportComplaint"));
+const Onboarding = lazy(() => import("./Onboarding"));
+const ProfileSummaryLazy = lazy(() => import("./Onboarding").then((m) => ({ default: m.ProfileSummary })));
 import { useTheme } from "./theme";
+import { usePreferences } from "./preferences";
+import "./i18n";
 import { readCached, writeCached } from "./cache";
 import { flushCacheTelemetryWithRetry, incrementCacheTelemetry } from "./cacheTelemetry";
 
@@ -56,7 +65,7 @@ type Application = {
 };
 
 type ResumeSnapshot = {
-  view: "catalog" | "create" | "track" | "applications" | "locker";
+  view: "catalog" | "create" | "track" | "applications" | "locker" | "settings" | "profile" | "complaints";
   showDashboard: boolean;
   selectedService: ServiceSummary | null;
   currentApplication: Application | null;
@@ -182,7 +191,7 @@ function isServiceConfigPayload(value: unknown): value is Record<string, unknown
 function isResumeSnapshotPayload(value: unknown): value is ResumeSnapshot {
   return (
     isRecord(value) &&
-    (value.view === "catalog" || value.view === "create" || value.view === "track" || value.view === "applications" || value.view === "locker") &&
+    (value.view === "catalog" || value.view === "create" || value.view === "track" || value.view === "applications" || value.view === "locker" || value.view === "settings" || value.view === "profile" || value.view === "guide" || value.view === "complaints") &&
     typeof value.showDashboard === "boolean" &&
     "formData" in value &&
     typeof value.updatedAt === "string" &&
@@ -226,12 +235,14 @@ function lastSyncKey(userId: string) {
 export default function App() {
   const { user, isLoading, logout, authHeaders, token } = useAuth();
   const { theme, resolvedTheme, setTheme } = useTheme("puda_citizen_theme");
+  const { preferences, updatePreference } = usePreferences(apiBaseUrl, authHeaders, user?.user_id);
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  type ViewId = "catalog" | "create" | "track" | "applications" | "locker";
+  type ViewId = "catalog" | "create" | "track" | "applications" | "locker" | "settings" | "profile" | "guide" | "complaints";
   type ViewSnapshot = { view: ViewId; showDashboard: boolean };
   const [view, setView] = useState<ViewId>("catalog");
   const navStackRef = useRef<ViewSnapshot[]>([]);
@@ -259,6 +270,9 @@ export default function App() {
   const [profileEditorSaving, setProfileEditorSaving] = useState(false);
   const [profileEditorError, setProfileEditorError] = useState<string | null>(null);
   const [profileDraft, setProfileDraft] = useState<Record<string, any>>({});
+  const [profileVerification, setProfileVerification] = useState<any>({});
+  const [profileCompleteness, setProfileCompleteness] = useState<any>(null);
+  const onboardingRedirectDone = useRef(false);
   const [ndcPaymentStatus, setNdcPaymentStatus] = useState<NdcPaymentStatus | null>(null);
   const [ndcPaymentStatusLoading, setNdcPaymentStatusLoading] = useState(false);
   const [ndcPaymentStatusError, setNdcPaymentStatusError] = useState<string | null>(null);
@@ -289,7 +303,7 @@ export default function App() {
   /** Confirm before navigating away from a dirty form. */
   const confirmNavigation = useCallback((): boolean => {
     if (!formDirty) return true;
-    return window.confirm("You have unsaved changes. Are you sure you want to leave?");
+    return window.confirm(t("common.unsaved_confirm"));
   }, [formDirty]);
 
   /** Push current view onto nav stack and navigate to a new view. */
@@ -394,6 +408,8 @@ export default function App() {
       setProfileAddresses(data.addresses || {});
       setProfileComplete(Boolean(data.completeness?.isComplete));
       setProfileMissingFields(data.completeness?.missingFields || []);
+      setProfileVerification(data.verification || {});
+      setProfileCompleteness(data.completeness || null);
       writeCached(key, data, { schema: CACHE_SCHEMAS.profile });
       markSync();
     } catch {
@@ -616,6 +632,17 @@ export default function App() {
     }
   }, [user, loadServices, loadUserApplications, loadProfile, loadCitizenProperties, loadCitizenDocuments]);
 
+  // Post-login: redirect to onboarding if profile incomplete and not onboarded
+  useEffect(() => {
+    if (!user || profileLoading || onboardingRedirectDone.current) return;
+    if (!profileVerification.onboarding_completed_at && !profileComplete) {
+      onboardingRedirectDone.current = true;
+      setView("profile");
+      setShowDashboard(false);
+      showToast("info", "Complete your profile to start applying for services");
+    }
+  }, [user, profileLoading, profileVerification, profileComplete, showToast]);
+
   useEffect(() => {
     if (user && view === "track" && currentApplication?.arn && !applicationDetail) {
       loadApplicationDetail(currentApplication.arn);
@@ -649,6 +676,15 @@ export default function App() {
         }
         if (profileAddresses?.communication) {
           mergedAddress.communication = { ...(existingAddress.communication || {}), ...profileAddresses.communication };
+          // When "same as permanent" is checked, fill communication fields from permanent
+          if (mergedAddress.communication.same_as_permanent && mergedAddress.permanent) {
+            const { same_as_permanent, ...rest } = mergedAddress.communication;
+            const filled = { same_as_permanent };
+            for (const [k, v] of Object.entries(mergedAddress.permanent)) {
+              (filled as any)[k] = rest[k] != null && rest[k] !== "" ? rest[k] : v;
+            }
+            mergedAddress.communication = filled;
+          }
         }
 
         return { ...prev, applicant: mergedApplicant, address: mergedAddress };
@@ -828,7 +864,22 @@ export default function App() {
       maxAgeMs: CACHE_TTL_MS.resume,
       validate: isResumeSnapshotPayload
     });
-    if (!cached) return;
+    if (!cached) {
+      // Apply default landing page preference
+      const landing = preferences.defaultLandingPage;
+      if (landing === "services") {
+        setView("catalog");
+        setShowDashboard(false);
+      } else if (landing === "applications") {
+        setView("applications");
+        setShowDashboard(false);
+      } else if (landing === "locker") {
+        setView("locker");
+        setShowDashboard(false);
+      }
+      // "dashboard" is the default — no change needed
+      return;
+    }
     const snapshot = cached.data;
     setView(snapshot.view || "catalog");
     setShowDashboard(Boolean(snapshot.showDashboard));
@@ -854,6 +905,22 @@ export default function App() {
     };
     writeCached(resumeStateKey(user.user_id), snapshot, { schema: CACHE_SCHEMAS.resume });
   }, [user, view, showDashboard, selectedService, currentApplication, formData]);
+
+  // Bridge preferences → theme system
+  useEffect(() => {
+    if (preferences.theme !== theme) {
+      setTheme(preferences.theme);
+    }
+  }, [preferences.theme]);
+
+  // Bridge preferences → reduce-motion data attribute
+  useEffect(() => {
+    if (preferences.reduceAnimations) {
+      document.documentElement.dataset.reduceMotion = "true";
+    } else {
+      delete document.documentElement.dataset.reduceMotion;
+    }
+  }, [preferences.reduceAnimations]);
 
   useEffect(() => {
     if (!formDirty) return;
@@ -1001,13 +1068,17 @@ export default function App() {
 
   const pageTitle = useMemo(() => {
     if (showDashboard && view === "catalog") return "Dashboard";
-    if (view === "catalog") return "Services";
+    if (view === "catalog") return t("nav.services");
     if (view === "create") return selectedService?.displayName || "New Application";
     if (view === "track") return "Application Details";
     if (view === "applications") return "My Applications";
     if (view === "locker") return "Document Locker";
+    if (view === "settings") return "Settings";
+    if (view === "profile") return t("nav.profile");
+    if (view === "guide") return t("nav.guide");
+    if (view === "complaints") return t("complaints.title");
     return "PUDA";
-  }, [view, showDashboard, selectedService]);
+  }, [view, showDashboard, selectedService, t]);
 
   const handleDrawerNav = useCallback((target: ViewId, dashboard: boolean) => {
     setDrawerOpen(false);
@@ -1025,7 +1096,7 @@ export default function App() {
       />
       <span className="user-chip" title={user?.name}>{user?.name}</span>
       <Button onClick={handleLogout} variant="ghost" className="ui-btn-ghost">
-        Logout
+        {t("nav.logout")}
       </Button>
     </div>
   );
@@ -1036,14 +1107,14 @@ export default function App() {
     if (isOffline) {
       return (
         <Alert variant="warning" className="view-feedback">
-          Offline mode is active. Data-changing actions are disabled.
-          {timestamp ? ` Showing cached data from ${timestamp}.` : ""}
+          {t("common.offline_banner")}
+          {timestamp ? ` ${t("common.offline_cached", { time: timestamp })}` : ""}
         </Alert>
       );
     }
     return (
       <Alert variant="info" className="view-feedback">
-        Showing cached data{timestamp ? ` from ${timestamp}` : ""} while the network is recovering.
+        {t("common.stale_data", { time: timestamp || "" })}
       </Alert>
     );
   };
@@ -1062,7 +1133,11 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login />;
+    return (
+      <SecondaryLanguageProvider lang={preferences.language}>
+        <Login />
+      </SecondaryLanguageProvider>
+    );
   }
 
   const renderNavContent = (context: "sidebar" | "drawer") => {
@@ -1076,56 +1151,82 @@ export default function App() {
     return (
       <>
         <div className="sidebar__header">
-          <div className="sidebar__portal-name">PUDA Citizen Portal</div>
+          <div className="sidebar__portal-name"><Bilingual tKey="nav.portal_name" /></div>
           <div className="sidebar__user-name">{user.name}</div>
         </div>
         <ul className="sidebar__nav">
           <li>
-            <button type="button" className={`sidebar__item ${showDashboard && view === "catalog" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("catalog", true)}>
+            <button type="button" className={`sidebar__item ${showDashboard && view === "catalog" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("catalog", true)} title={t("nav.dashboard")}>
               <span className="sidebar__item-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
               </span>
-              Dashboard
+              <Bilingual tKey="nav.dashboard" />
             </button>
           </li>
           <li>
-            <button type="button" className={`sidebar__item ${!showDashboard && view === "catalog" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("catalog", false)}>
+            <button type="button" className={`sidebar__item ${view === "profile" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("profile", false)} title={t("nav.profile")}>
               <span className="sidebar__item-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </span>
-              Services
+              <Bilingual tKey="nav.profile" />
             </button>
           </li>
           <li>
-            <button type="button" className={`sidebar__item ${view === "applications" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("applications", false)}>
+            <button type="button" className={`sidebar__item ${!showDashboard && view === "catalog" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("catalog", false)} title={t("nav.services")}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </span>
+              <Bilingual tKey="nav.services" />
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${view === "applications" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("applications", false)} title={t("nav.applications")}>
               <span className="sidebar__item-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               </span>
-              My Applications
+              <Bilingual tKey="nav.applications" />
             </button>
           </li>
           <li>
-            <button type="button" className={`sidebar__item ${view === "locker" ? "sidebar__item--active" : ""}`} onClick={() => { setLockerFilter(undefined); handleNav("locker", false); }}>
+            <button type="button" className={`sidebar__item ${view === "locker" ? "sidebar__item--active" : ""}`} onClick={() => { setLockerFilter(undefined); handleNav("locker", false); }} title={t("nav.locker")}>
               <span className="sidebar__item-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               </span>
-              Document Locker
+              <Bilingual tKey="nav.locker" />
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${view === "guide" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("guide", false)} title={t("nav.guide")}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              </span>
+              <Bilingual tKey="nav.guide" />
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${view === "complaints" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("complaints", false)} title={t("nav.complaints")}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+              <Bilingual tKey="nav.complaints" />
+            </button>
+          </li>
+          <li>
+            <button type="button" className={`sidebar__item ${view === "settings" ? "sidebar__item--active" : ""}`} onClick={() => handleNav("settings", false)} title={t("nav.settings")}>
+              <span className="sidebar__item-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </span>
+              <Bilingual tKey="nav.settings" />
             </button>
           </li>
         </ul>
         <div className="sidebar__divider" />
         <div className="sidebar__footer">
-          <ThemeToggle
-            theme={theme}
-            resolvedTheme={resolvedTheme}
-            onThemeChange={setTheme}
-            idSuffix={idSuffix}
-          />
-          <button type="button" className="sidebar__item" onClick={() => { if (context === "drawer") setDrawerOpen(false); handleLogout(); }}>
+          <button type="button" className="sidebar__item" onClick={() => { if (context === "drawer") setDrawerOpen(false); handleLogout(); }} title={t("nav.logout")}>
             <span className="sidebar__item-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </span>
-            Logout
+            {t("nav.logout")}
           </button>
         </div>
       </>
@@ -1134,10 +1235,22 @@ export default function App() {
 
   // App Shell: app bar + persistent sidebar (desktop) + drawer (mobile)
   const appShell = (mainContent: React.ReactNode) => (
-    <>
+    <SecondaryLanguageProvider lang={preferences.language}>
       <header className="app-bar">
         <div className="app-bar__inner">
-          <button className="app-bar__hamburger" onClick={() => setDrawerOpen(true)} aria-label="Open menu" type="button">
+          <button
+            className="app-bar__hamburger"
+            onClick={() => {
+              // Desktop (>=48rem): toggle sidebar collapse. Mobile: open drawer.
+              if (window.matchMedia("(min-width: 48rem)").matches) {
+                updatePreference("sidebarCollapsed", !preferences.sidebarCollapsed);
+              } else {
+                setDrawerOpen(true);
+              }
+            }}
+            aria-label={preferences.sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+            type="button"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span className="app-bar__title">{pageTitle}</span>
@@ -1148,7 +1261,7 @@ export default function App() {
       </header>
 
       {/* Desktop: persistent sidebar (hidden on mobile via CSS) */}
-      <aside className="sidebar">
+      <aside className={`sidebar${preferences.sidebarCollapsed ? " sidebar--collapsed" : ""}`}>
         {renderNavContent("sidebar")}
       </aside>
 
@@ -1157,12 +1270,12 @@ export default function App() {
         {renderNavContent("drawer")}
       </Drawer>
 
-      <div className="app-layout">
+      <div className={`app-layout${preferences.sidebarCollapsed ? " app-layout--sidebar-collapsed" : ""}`}>
         <div className="app-layout__main">
           {mainContent}
         </div>
       </div>
-    </>
+    </SecondaryLanguageProvider>
   );
 
   // Show dashboard by default after login
@@ -1170,11 +1283,11 @@ export default function App() {
     return appShell(
       <div className="page">
         <a href="#citizen-main-dashboard" className="skip-link">
-          Skip to main content
+          {t("common.skip_to_main")}
         </a>
         <main id="citizen-main-dashboard" role="main">
-          <h1>Dashboard</h1>
-          <p className="subtitle">Welcome, {user.name}</p>
+          <h1><Bilingual tKey="dashboard.title" /></h1>
+          <p className="subtitle">{t("dashboard.welcome", { name: user.name })}</p>
           <Suspense fallback={<div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /></div>}>
             <Dashboard
               onNavigateToCatalog={() => {
@@ -1197,6 +1310,17 @@ export default function App() {
                 setLockerFilter(filter);
                 navigateTo("locker", false);
               }}
+              onNavigateToComplaints={() => {
+                setError(null);
+                setFeedback(null);
+                navigateTo("complaints", false);
+              }}
+              onNavigateToProfile={() => {
+                setError(null);
+                setFeedback(null);
+                navigateTo("profile", false);
+              }}
+              profileCompleteness={profileCompleteness}
               isOffline={isOffline}
             />
           </Suspense>
@@ -1586,9 +1710,9 @@ export default function App() {
   const ndcPaymentStatusPanel =
     selectedService?.serviceKey === "no_due_certificate" ? (
       <section className="ndc-payment-panel" id="ndc-payment-status-panel">
-        <h3>NDC Payment Ledger</h3>
+        <h3>{t("ndc.payment_status")}</h3>
         {!formData?.property?.upn ? (
-          <Alert variant="info">Select a property UPN on the previous page to load payment schedule.</Alert>
+          <Alert variant="info">{t("ndc.select_upn")}</Alert>
         ) : null}
         {ndcPaymentStatusLoading ? (
           <div style={{ display: "grid", gap: "var(--space-2)" }}>
@@ -1601,46 +1725,46 @@ export default function App() {
         {ndcPaymentStatus ? (
           <>
             <p style={{ margin: "0 0 0.75rem", color: "var(--color-text-muted)" }}>
-              Allotment Date: {ndcPaymentStatus.allotmentDate || "—"} | Property Value: {formatCurrency(ndcPaymentStatus.propertyValue)} | Interest Rate: {ndcPaymentStatus.annualInterestRatePct}% p.a. | DCF Rate: {ndcPaymentStatus.dcfRatePct}%
+              {t("ndc.allotment_info", { date: ndcPaymentStatus.allotmentDate || "—", value: formatCurrency(ndcPaymentStatus.propertyValue), rate: ndcPaymentStatus.annualInterestRatePct, dcf: ndcPaymentStatus.dcfRatePct })}
             </p>
             <div className="ndc-payment-summary">
               <Card className="ndc-payment-kpi">
-                <span>Total Due</span>
+                <span>{t("ndc.total_due")}</span>
                 <strong>{formatCurrency(ndcPaymentStatus.totals.totalDueAmount)}</strong>
               </Card>
               <Card className="ndc-payment-kpi">
-                <span>Total Paid</span>
+                <span>{t("ndc.total_paid")}</span>
                 <strong>{formatCurrency(ndcPaymentStatus.totals.paidAmount)}</strong>
               </Card>
               <Card className="ndc-payment-kpi">
-                <span>Pending Balance</span>
+                <span>{t("ndc.pending_balance")}</span>
                 <strong>{formatCurrency(ndcPaymentStatus.totals.balanceAmount)}</strong>
               </Card>
             </div>
             {ndcPaymentStatus.certificateEligible ? (
               <Alert variant="success">
-                All dues are cleared for {ndcPaymentStatus.propertyUpn}. You can continue to direct certificate download after submission.
+                {t("ndc.certificate_eligible", { upn: ndcPaymentStatus.propertyUpn })}
               </Alert>
             ) : (
               <Alert variant="warning">
-                Pending dues exist. Applicant should proceed to the Payment page to clear dues before certificate download.
+                {t("ndc.dues_pending")}
               </Alert>
             )}
             <div className="ndc-payment-table-wrap">
               <table className="ndc-payment-table">
                 <thead>
                   <tr>
-                    <th>Due Type</th>
-                    <th>Due Date</th>
-                    <th>Payment Date</th>
-                    <th>Delay (Days)</th>
-                    <th>Base</th>
-                    <th>Interest</th>
-                    <th>Total</th>
-                    <th>Paid</th>
-                    <th>Balance</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th>{t("ndc.due_type")}</th>
+                    <th>{t("ndc.due_date")}</th>
+                    <th>{t("ndc.payment_date")}</th>
+                    <th>{t("ndc.delay_days")}</th>
+                    <th>{t("ndc.base")}</th>
+                    <th>{t("ndc.interest")}</th>
+                    <th>{t("ndc.total")}</th>
+                    <th>{t("ndc.paid")}</th>
+                    <th>{t("ndc.balance")}</th>
+                    <th>{t("ndc.status")}</th>
+                    <th>{t("ndc.action")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1665,10 +1789,10 @@ export default function App() {
                             onClick={() => void postNdcPaymentByUpn(due.dueCode)}
                             disabled={Boolean(ndcPaymentPostingDueCode)}
                           >
-                            {ndcPaymentPostingDueCode === due.dueCode ? "Posting..." : "Pay Now"}
+                            {ndcPaymentPostingDueCode === due.dueCode ? t("ndc.posting") : t("ndc.pay_now")}
                           </Button>
                         ) : (
-                          "Paid"
+                          t("ndc.paid")
                         )}
                       </td>
                     </tr>
@@ -1685,10 +1809,10 @@ export default function App() {
     return appShell(
       <div className="page">
         <a href="#citizen-main-create" className="skip-link">
-          Skip to main content
+          {t("common.skip_to_main")}
         </a>
         <Breadcrumb items={[
-          { label: "Services", onClick: () => { navigateBack(); setError(null); } },
+          { label: t("nav.services"), onClick: () => { navigateBack(); setError(null); } },
           { label: selectedService.displayName }
         ]} />
         <h1>{selectedService.displayName}</h1>
@@ -1745,10 +1869,11 @@ export default function App() {
                   }
                   readOnly={isOffline}
                   citizenProperties={citizenProperties}
+                  secondaryLanguage={preferences.language}
                   pageActions={[
                     {
                       pageId: "PAGE_APPLICATION",
-                      label: "Update Personal Details",
+                      label: t("profile.title"),
                       onClick: openProfileEditor,
                       disabled: isOffline
                     }
@@ -1815,7 +1940,7 @@ export default function App() {
             </>
           )}
           {!configLoading && serviceConfig && !serviceConfig.form && !error && (
-            <Alert variant="warning">Form configuration is not available. Please try again later.</Alert>
+            <Alert variant="warning">{t("create.form_unavailable")}</Alert>
           )}
         </main>
         <Modal
@@ -1823,8 +1948,8 @@ export default function App() {
           onClose={() => {
             if (!profileEditorSaving) setProfileEditorOpen(false);
           }}
-          title="Update Personal Details"
-          description="These details are pulled into the Applicant section and validated before submission."
+          title={t("profile.title")}
+          description={t("profile.description")}
           actions={
             <>
               <Button
@@ -1833,7 +1958,7 @@ export default function App() {
                 onClick={() => setProfileEditorOpen(false)}
                 disabled={profileEditorSaving}
               >
-                Cancel
+                {t("profile.cancel")}
               </Button>
               <Button
                 type="button"
@@ -1841,84 +1966,84 @@ export default function App() {
                 onClick={() => void saveProfileDraft()}
                 disabled={profileEditorSaving}
               >
-                {profileEditorSaving ? "Saving..." : "Save Details"}
+                {profileEditorSaving ? t("profile.saving") : t("profile.save")}
               </Button>
             </>
           }
         >
           <div className="profile-editor-grid">
             {profileEditorError ? <Alert variant="error">{profileEditorError}</Alert> : null}
-            <Field label="Salutation" htmlFor="profile-salutation">
+            <Field label={<Bilingual tKey="profile.salutation" />} htmlFor="profile-salutation">
               <Select
                 id="profile-salutation"
                 value={profileDraft.salutation || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, salutation: e.target.value }))}
               >
-                <option value="">Select...</option>
-                <option value="MR">Mr.</option>
-                <option value="MS">Ms.</option>
-                <option value="MRS">Mrs.</option>
+                <option value="">{t("profile.select")}</option>
+                <option value="MR">{t("profile.mr")}</option>
+                <option value="MS">{t("profile.ms")}</option>
+                <option value="MRS">{t("profile.mrs")}</option>
               </Select>
             </Field>
-            <Field label="First Name" htmlFor="profile-first-name" required>
+            <Field label={<Bilingual tKey="profile.first_name" />} htmlFor="profile-first-name" required>
               <Input
                 id="profile-first-name"
                 value={profileDraft.first_name || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, first_name: e.target.value }))}
               />
             </Field>
-            <Field label="Middle Name" htmlFor="profile-middle-name">
+            <Field label={<Bilingual tKey="profile.middle_name" />} htmlFor="profile-middle-name">
               <Input
                 id="profile-middle-name"
                 value={profileDraft.middle_name || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, middle_name: e.target.value }))}
               />
             </Field>
-            <Field label="Last Name" htmlFor="profile-last-name" required>
+            <Field label={<Bilingual tKey="profile.last_name" />} htmlFor="profile-last-name" required>
               <Input
                 id="profile-last-name"
                 value={profileDraft.last_name || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, last_name: e.target.value }))}
               />
             </Field>
-            <Field label="Full Name" htmlFor="profile-full-name" required>
+            <Field label={<Bilingual tKey="profile.full_name" />} htmlFor="profile-full-name" required>
               <Input
                 id="profile-full-name"
                 value={profileDraft.full_name || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, full_name: e.target.value }))}
               />
             </Field>
-            <Field label="Father's / Husband's Name" htmlFor="profile-father-name" required>
+            <Field label={<Bilingual tKey="profile.father_name" />} htmlFor="profile-father-name" required>
               <Input
                 id="profile-father-name"
                 value={profileDraft.father_name || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, father_name: e.target.value }))}
               />
             </Field>
-            <Field label="Gender" htmlFor="profile-gender" required>
+            <Field label={<Bilingual tKey="profile.gender" />} htmlFor="profile-gender" required>
               <Select
                 id="profile-gender"
                 value={profileDraft.gender || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, gender: e.target.value }))}
               >
-                <option value="">Select...</option>
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
+                <option value="">{t("profile.select")}</option>
+                <option value="MALE">{t("profile.male")}</option>
+                <option value="FEMALE">{t("profile.female")}</option>
+                <option value="OTHER">{t("profile.other")}</option>
               </Select>
             </Field>
-            <Field label="Marital Status" htmlFor="profile-marital-status" required>
+            <Field label={<Bilingual tKey="profile.marital_status" />} htmlFor="profile-marital-status" required>
               <Select
                 id="profile-marital-status"
                 value={profileDraft.marital_status || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, marital_status: e.target.value }))}
               >
-                <option value="">Select...</option>
-                <option value="SINGLE">Single</option>
-                <option value="MARRIED">Married</option>
+                <option value="">{t("profile.select")}</option>
+                <option value="SINGLE">{t("profile.single")}</option>
+                <option value="MARRIED">{t("profile.married")}</option>
               </Select>
             </Field>
-            <Field label="Date of Birth" htmlFor="profile-dob" required>
+            <Field label={<Bilingual tKey="profile.dob" />} htmlFor="profile-dob" required>
               <Input
                 id="profile-dob"
                 type="date"
@@ -1926,21 +2051,21 @@ export default function App() {
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, date_of_birth: e.target.value }))}
               />
             </Field>
-            <Field label="Aadhaar" htmlFor="profile-aadhaar" required>
+            <Field label={<Bilingual tKey="profile.aadhaar" />} htmlFor="profile-aadhaar" required>
               <Input
                 id="profile-aadhaar"
                 value={profileDraft.aadhaar || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, aadhaar: e.target.value }))}
               />
             </Field>
-            <Field label="PAN" htmlFor="profile-pan" required>
+            <Field label={<Bilingual tKey="profile.pan" />} htmlFor="profile-pan" required>
               <Input
                 id="profile-pan"
                 value={profileDraft.pan || ""}
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, pan: e.target.value.toUpperCase() }))}
               />
             </Field>
-            <Field label="Email" htmlFor="profile-email" required>
+            <Field label={<Bilingual tKey="profile.email" />} htmlFor="profile-email" required>
               <Input
                 id="profile-email"
                 type="email"
@@ -1948,7 +2073,7 @@ export default function App() {
                 onChange={(e) => setProfileDraft((prev) => ({ ...prev, email: e.target.value }))}
               />
             </Field>
-            <Field label="Mobile" htmlFor="profile-mobile" required>
+            <Field label={<Bilingual tKey="profile.mobile" />} htmlFor="profile-mobile" required>
               <Input
                 id="profile-mobile"
                 value={profileDraft.mobile || ""}
@@ -2021,15 +2146,119 @@ export default function App() {
     );
   }
 
+  // Profile / Onboarding View
+  if (view === "profile") {
+    const onboardingCompleted = Boolean(profileVerification.onboarding_completed_at);
+    return appShell(
+      <div className="page">
+        <a href="#citizen-main-profile" className="skip-link">{t("common.skip_to_main")}</a>
+        <h1>{onboardingCompleted ? t("nav.profile") : t("profile.complete_profile")}</h1>
+        {!onboardingCompleted && <p className="subtitle">{t("profile.complete_subtitle")}</p>}
+        <main id="citizen-main-profile" className="panel" role="main">
+          <Suspense fallback={<div style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div>}>
+            {onboardingCompleted ? (
+              <ProfileSummaryLazy
+                applicant={profileApplicant}
+                addresses={profileAddresses}
+                verification={profileVerification}
+                completeness={profileCompleteness}
+                onEdit={() => {
+                  // Reset onboarding to re-enter wizard at step 3
+                  setProfileVerification((prev: any) => ({ ...prev, onboarding_completed_at: undefined }));
+                }}
+                onReVerifyAadhaar={() => {
+                  setProfileVerification((prev: any) => ({ ...prev, onboarding_completed_at: undefined, aadhaar_verified: false }));
+                }}
+                onReVerifyPan={() => {
+                  setProfileVerification((prev: any) => ({ ...prev, onboarding_completed_at: undefined, pan_verified: false }));
+                }}
+              />
+            ) : (
+              <Onboarding
+                applicant={profileApplicant}
+                addresses={profileAddresses}
+                verification={profileVerification}
+                completeness={profileCompleteness}
+                onComplete={(data) => {
+                  setProfileApplicant(data.applicant || {});
+                  setProfileAddresses(data.addresses || {});
+                  setProfileComplete(Boolean(data.completeness?.isComplete));
+                  setProfileMissingFields(data.completeness?.missingFields || []);
+                  setProfileVerification(data.verification || {});
+                  setProfileCompleteness(data.completeness || null);
+                  if (user) writeCached(profileCacheKey(user.user_id), data, { schema: CACHE_SCHEMAS.profile });
+                  showToast("success", "Profile completed successfully!");
+                  navigateTo("catalog", true);
+                }}
+                onSkip={() => {
+                  navigateTo("catalog", true);
+                }}
+              />
+            )}
+          </Suspense>
+        </main>
+      </div>
+    );
+  }
+
+  // Citizen Guide View
+  if (view === "guide") {
+    return appShell(
+      <div className="page">
+        <a href="#citizen-main-guide" className="skip-link">{t("common.skip_to_main")}</a>
+        <h1><Bilingual tKey="nav.guide" /></h1>
+        <p className="subtitle">{t("guide.subtitle")}</p>
+        <main id="citizen-main-guide" className="panel" role="main">
+          <Card style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "var(--space-3)" }}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <h2 style={{ margin: "0 0 var(--space-2)", fontSize: "1.1rem" }}>{t("guide.coming_soon_title")}</h2>
+            <p style={{ color: "var(--color-text-subtle)", fontSize: "0.9rem", margin: 0 }}>{t("guide.coming_soon_desc")}</p>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  // Settings View
+  if (view === "settings") {
+    return appShell(
+      <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="2.75rem" /><SkeletonBlock height="2.75rem" /></div></div>}>
+        <Settings preferences={preferences} onUpdatePreference={updatePreference} />
+      </Suspense>
+    );
+  }
+
+  // Report Complaint View
+  if (view === "complaints") {
+    return appShell(
+      <div className="page">
+        <a href="#citizen-main-complaints" className="skip-link">
+          {t("common.skip_to_main")}
+        </a>
+        <h1><Bilingual tKey="complaints.title" /></h1>
+        <p className="subtitle">{t("complaints.subtitle")}</p>
+        <main id="citizen-main-complaints" className="panel" role="main">
+          {renderResilienceBanner()}
+          <Suspense fallback={<div style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /></div>}>
+            <ReportComplaint
+              onBack={() => navigateBack()}
+              isOffline={isOffline}
+            />
+          </Suspense>
+        </main>
+      </div>
+    );
+  }
+
   // Document Locker View
   if (view === "locker") {
     return appShell(
       <div className="page">
         <a href="#citizen-main-locker" className="skip-link">
-          Skip to main content
+          {t("common.skip_to_main")}
         </a>
-        <h1>My Document Locker</h1>
-        <p className="subtitle">View and manage all your uploaded documents</p>
+        <h1><Bilingual tKey="locker.title" /></h1>
+        <p className="subtitle">{t("locker.subtitle")}</p>
         <main id="citizen-main-locker" className="panel" role="main">
           {renderResilienceBanner()}
           <Suspense fallback={<div style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="5rem" /><SkeletonBlock height="5rem" /></div>}>
@@ -2052,10 +2281,10 @@ export default function App() {
     return appShell(
       <div className="page">
         <a href="#citizen-main-applications" className="skip-link">
-          Skip to main content
+          {t("common.skip_to_main")}
         </a>
-        <h1>All Applications</h1>
-        <p className="subtitle">View and manage your applications</p>
+        <h1><Bilingual tKey="common.all_applications" /></h1>
+        <p className="subtitle">{t("common.manage_applications")}</p>
 
         <main id="citizen-main-applications" className="panel" role="main">
           {renderResilienceBanner()}
@@ -2074,15 +2303,15 @@ export default function App() {
                   <path d="M14 3v6h5" />
                 </svg>
               </div>
-              <h3>No Applications</h3>
-              <p>You haven't submitted any applications yet.</p>
+              <h3>{t("dashboard.empty_title")}</h3>
+              <p>{t("dashboard.empty_message")}</p>
               <Button
                 onClick={() => navigateTo("catalog", false)}
                 fullWidth
                 className="empty-state-action"
                 disabled={isOffline}
               >
-                Apply for Service
+                {t("dashboard.apply_now")}
               </Button>
             </div>
           )}
@@ -2121,7 +2350,7 @@ export default function App() {
               <>
                 <div className="app-search-bar">
                   <Input
-                    placeholder="Search by ARN, service name, or status..."
+                    placeholder={t("common.search_placeholder")}
                     value={appSearchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAppSearchQuery(e.target.value)}
                     aria-label="Search applications"
@@ -2131,7 +2360,7 @@ export default function App() {
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAppStatusFilter(e.target.value)}
                     aria-label="Filter by status"
                   >
-                    <option value="">All Statuses</option>
+                    <option value="">{t("common.all_statuses")}</option>
                     {statusOptions.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
@@ -2139,10 +2368,10 @@ export default function App() {
                 </div>
                 {filteredApps.length === 0 ? (
                   <div className="empty-state">
-                    <h3>No Matching Applications</h3>
-                    <p>Try adjusting your search or filter criteria.</p>
+                    <h3>{t("common.no_matching")}</h3>
+                    <p>{t("common.clear_filters")}</p>
                     <Button variant="ghost" onClick={() => { setAppSearchQuery(""); setAppStatusFilter(""); }}>
-                      Clear Filters
+                      {t("common.clear_filters")}
                     </Button>
                   </div>
                 ) : (
@@ -2166,7 +2395,7 @@ export default function App() {
                             <span className="app-card-date" title={app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}>
                               {timeAgo(app.submitted_at || app.created_at)}
                             </span>
-                            <span className="app-card-action">View Details →</span>
+                            <span className="app-card-action">{t("common.view_details")} →</span>
                           </div>
                         </Button>
                       </Card>
@@ -2184,10 +2413,10 @@ export default function App() {
   return appShell(
     <div className="page">
       <a href="#citizen-main-catalog" className="skip-link">
-        Skip to main content
+        {t("common.skip_to_main")}
       </a>
-      <h1>Service Catalog</h1>
-      <p className="subtitle">Select a service to apply</p>
+      <h1><Bilingual tKey="catalog.title" /></h1>
+      <p className="subtitle">{t("catalog.subtitle")}</p>
 
       <main id="citizen-main-catalog" className="panel" role="main">
         {renderResilienceBanner()}
@@ -2203,8 +2432,8 @@ export default function App() {
             <div className="empty-icon">
               <svg viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
-            <h3>No services found</h3>
-            <p>There are no services available at the moment.</p>
+            <h3>{t("catalog.no_services")}</h3>
+            <p>{t("catalog.no_services_desc")}</p>
           </div>
         )}
         <ul className="service-list">
@@ -2214,11 +2443,11 @@ export default function App() {
                 <div>
                   <h2>{service.displayName}</h2>
                   <p className="service-key">{service.serviceKey}</p>
-                  <p className="service-desc">{service.description || "No description provided."}</p>
+                  <p className="service-desc">{service.description || t("catalog.no_description")}</p>
                 </div>
                 <div className="service-actions">
                   <Button onClick={() => handleStartApplication(service)} className="action-button" disabled={isOffline}>
-                    Apply Now
+                    {t("catalog.apply_now")}
                   </Button>
                 </div>
               </div>
@@ -2243,7 +2472,7 @@ export default function App() {
                       <span style={{ color: "var(--color-text-subtle)", fontSize: "0.85em" }}>
                         {formatDate(app.created_at)}
                       </span>
-                      <span className="app-card-action">View →</span>
+                      <span className="app-card-action">{t("common.view")} →</span>
                     </Button>
                   ))}
                   <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "0.75rem" }}>
@@ -2256,10 +2485,10 @@ export default function App() {
                         }
                       }}
                     >
-                      Continue Anyway
+                      {t("catalog.duplicate_continue")}
                     </Button>
                     <Button type="button" variant="ghost" onClick={() => setDuplicateWarning(null)}>
-                      Dismiss
+                      {t("catalog.dismiss")}
                     </Button>
                   </div>
                 </Alert>

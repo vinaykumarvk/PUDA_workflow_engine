@@ -5,7 +5,9 @@ import { Alert, Button, Card } from "@puda/shared";
 import { getStatusBadgeClass, getStatusLabel, formatDate, getServiceDisplayName } from "@puda/shared/utils";
 import { readCached, writeCached } from "./cache";
 import { incrementCacheTelemetry } from "./cacheTelemetry";
+import { Bilingual } from "./Bilingual";
 import "./dashboard.css";
+import "./onboarding.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
@@ -54,19 +56,33 @@ interface Notification {
 
 interface DocLockerSummary {
   total: number;
-  verified: number;
-  pending: number;
-  rejected: number;
-  query: number;
-  actionRequired: number;
+  uploaded: number;
+  issued: number;
+  valid: number;
+  expired: number;
+  mismatch: number;
+  cancelled: number;
   expiringSoon: number;
+}
+
+interface ProfileCompleteness {
+  completionPercent?: number;
+  sections?: {
+    identity?: { complete: boolean };
+    personal?: { complete: boolean };
+    contact?: { complete: boolean };
+    address?: { complete: boolean };
+  };
 }
 
 interface DashboardProps {
   onNavigateToCatalog: () => void;
   onNavigateToApplication: (arn: string) => void;
   onNavigateToLocker?: (filter?: string) => void;
+  onNavigateToComplaints?: () => void;
   onFilterApplications?: (filter: { status?: string; type?: string }) => void;
+  onNavigateToProfile?: () => void;
+  profileCompleteness?: ProfileCompleteness | null;
   isOffline: boolean;
 }
 
@@ -184,7 +200,10 @@ export default function Dashboard({
   onNavigateToCatalog,
   onNavigateToApplication,
   onNavigateToLocker,
+  onNavigateToComplaints,
   onFilterApplications,
+  onNavigateToProfile,
+  profileCompleteness,
   isOffline
 }: DashboardProps) {
   const { t } = useTranslation();
@@ -195,6 +214,7 @@ export default function Dashboard({
   const [pendingActions, setPendingActions] = useState<PendingAction | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [docLockerSummary, setDocLockerSummary] = useState<DocLockerSummary | null>(null);
+  const [complaintSummary, setComplaintSummary] = useState<{ total: number; active: number; resolved: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -250,12 +270,13 @@ export default function Dashboard({
       const hdrs = authHeaders();
 
       // Load stats, applications, pending actions, notifications, and doc locker summary in parallel
-      const [statsRes, appsRes, actionsRes, notifsRes, docsRes] = await Promise.all([
+      const [statsRes, appsRes, actionsRes, notifsRes, docsRes, complaintsRes] = await Promise.all([
         fetch(`${apiBaseUrl}/api/v1/applications/stats?userId=${user.user_id}`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/applications?userId=${user.user_id}&limit=10`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/applications/pending-actions?userId=${user.user_id}`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/notifications?userId=${user.user_id}&limit=5&unreadOnly=true`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/citizens/me/documents`, { headers: hdrs }),
+        fetch(`${apiBaseUrl}/api/v1/complaints?limit=100`, { headers: hdrs }),
       ]);
 
       let nextStats: Stats | null = null;
@@ -292,6 +313,14 @@ export default function Dashboard({
         if (docsData.summary) {
           setDocLockerSummary(docsData.summary);
         }
+      }
+
+      if (complaintsRes.ok) {
+        const complaintsData = await complaintsRes.json();
+        const all = complaintsData.complaints || [];
+        const active = all.filter((c: any) => !["RESOLVED", "CLOSED", "REJECTED"].includes(c.status)).length;
+        const resolved = all.filter((c: any) => c.status === "RESOLVED" || c.status === "CLOSED").length;
+        setComplaintSummary({ total: complaintsData.total || all.length, active, resolved });
       }
 
       if (statsRes.ok && appsRes.ok && actionsRes.ok && notifsRes.ok) {
@@ -347,7 +376,7 @@ export default function Dashboard({
     const recentSkeletons = [0, 1, 2, 3];
     return (
       <div className="dashboard">
-        <div className="stats-grid" aria-label={t("loading_dashboard")}>
+        <div className="stats-grid" aria-label={t("dashboard.loading")}>
           {statsSkeletons.map((idx) => (
             <Card key={idx} className="stat-card stat-card-skeleton" aria-hidden="true">
               <div className="skeleton skeleton-stat-value" />
@@ -361,7 +390,7 @@ export default function Dashboard({
             <span className="section-icon" aria-hidden="true">
               <SectionIcon kind="applications" />
             </span>
-            {t("recent_applications")}
+            <Bilingual tKey="dashboard.recent_apps" />
           </h2>
           <div className="application-cards">
             {recentSkeletons.map((idx) => (
@@ -374,7 +403,7 @@ export default function Dashboard({
           </div>
         </div>
 
-        <p className="dashboard-loading-text" role="status">{t("loading_dashboard")}</p>
+        <p className="dashboard-loading-text" role="status">{t("dashboard.loading")}</p>
       </div>
     );
   }
@@ -385,7 +414,7 @@ export default function Dashboard({
         <Alert variant="error">{error}</Alert>
         <div className="dashboard-error-actions">
           <Button onClick={loadDashboardData} className="btn-retry">
-            {t("retry")}
+            {t("common.retry")}
           </Button>
         </div>
       </div>
@@ -400,16 +429,51 @@ export default function Dashboard({
     <div className="dashboard">
       {isOffline ? (
         <Alert variant="warning" className="dashboard-offline-banner">
-          Offline mode is active. Changes are disabled.
-          {cachedAt ? ` Showing cached data from ${new Date(cachedAt).toLocaleString()}.` : ""}
+          {t("common.offline_banner")}
+          {cachedAt ? ` ${t("common.offline_cached", { time: new Date(cachedAt).toLocaleString() })}` : ""}
         </Alert>
       ) : null}
 
       {refreshing ? (
         <Alert variant="info" className="dashboard-refreshing">
-          Updating dashboard...
+          {t("dashboard.refreshing")}
         </Alert>
       ) : null}
+
+      {/* Profile Completion Card */}
+      {profileCompleteness && (profileCompleteness.completionPercent ?? 0) < 100 && onNavigateToProfile && (
+        <div className="profile-completion-card">
+          <div className="profile-completion-card__title">Complete Your Profile</div>
+          <div className="profile-completion-card__bar">
+            <div
+              className="profile-completion-card__bar-fill"
+              style={{ width: `${profileCompleteness.completionPercent ?? 0}%` }}
+            />
+          </div>
+          <div style={{ fontSize: "0.85rem", color: "var(--color-text-subtle)", marginBottom: "var(--space-3)" }}>
+            {profileCompleteness.completionPercent ?? 0}% complete
+          </div>
+          {profileCompleteness.sections && (
+            <div className="profile-completion-card__sections">
+              {(["identity", "personal", "contact", "address"] as const).map((key) => {
+                const section = profileCompleteness.sections?.[key];
+                const done = section?.complete ?? false;
+                return (
+                  <span key={key} className="profile-completion-card__section">
+                    <span className={done ? "profile-completion-card__check" : "profile-completion-card__cross"}>
+                      {done ? "\u2713" : "\u2717"}
+                    </span>
+                    {key.charAt(0).toUpperCase() + key.slice(1)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <Button variant="primary" onClick={onNavigateToProfile}>
+            Complete Profile →
+          </Button>
+        </div>
+      )}
 
       {/* Quick Stats Cards */}
       {stats && (
@@ -425,7 +489,7 @@ export default function Dashboard({
               }}
             >
               <div className="stat-value">{stats.total}</div>
-              <div className="stat-label">{t("total_applications")}</div>
+              <div className="stat-label">{t("dashboard.stat_total")}</div>
             </Button>
           </Card>
           <Card className="stat-card-wrap">
@@ -439,7 +503,7 @@ export default function Dashboard({
               }}
             >
               <div className="stat-value">{stats.active}</div>
-              <div className="stat-label">{t("active")}</div>
+              <div className="stat-label">{t("dashboard.stat_active")}</div>
             </Button>
           </Card>
           <Card className="stat-card-wrap">
@@ -461,7 +525,7 @@ export default function Dashboard({
               }}
             >
               <div className="stat-value">{stats.pendingAction}</div>
-              <div className="stat-label">{t("pending_action")}</div>
+              <div className="stat-label">{t("dashboard.stat_pending_action")}</div>
             </Button>
           </Card>
           <Card className="stat-card-wrap">
@@ -475,25 +539,11 @@ export default function Dashboard({
               }}
             >
               <div className="stat-value">{stats.approved}</div>
-              <div className="stat-label">{t("approved")}</div>
+              <div className="stat-label">{t("dashboard.stat_approved")}</div>
             </Button>
           </Card>
         </div>
       )}
-
-      {/* New Service Request - Prominent Button */}
-      <div className="new-service-section">
-        <Button onClick={onNavigateToCatalog} className="new-service-btn" disabled={isOffline}>
-          <span className="new-service-icon" aria-hidden="true">
-            <SectionIcon kind="request" />
-          </span>
-          <div className="new-service-content">
-            <span className="new-service-title">{t("new_service_request")}</span>
-            <span className="new-service-subtitle">{t("apply_for_service")}</span>
-          </div>
-          <span className="new-service-arrow">→</span>
-        </Button>
-      </div>
 
       {/* Document Locker stats card */}
       {onNavigateToLocker && (
@@ -506,42 +556,83 @@ export default function Dashboard({
                   <path d="M14 3v6h5" />
                 </svg>
               </span>
-              <h3 className="doc-locker-card-title">{t("document_locker", "My Document Locker")}</h3>
+              <h3 className="doc-locker-card-title"><Bilingual tKey="dashboard.doc_locker_title" /></h3>
             </div>
             {docLockerSummary && docLockerSummary.total > 0 ? (
               <div className="doc-locker-stats-grid">
                 <div className="doc-locker-stat">
                   <span className="doc-locker-stat-value">{docLockerSummary.total}</span>
-                  <span className="doc-locker-stat-label">Total</span>
+                  <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
                 </div>
                 <div className="doc-locker-stat">
-                  <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.verified}</span>
-                  <span className="doc-locker-stat-label">Verified</span>
+                  <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.valid}</span>
+                  <span className="doc-locker-stat-label">{t("dashboard.doc_valid")}</span>
                 </div>
-                <div className={`doc-locker-stat ${docLockerSummary.actionRequired > 0 ? "doc-locker-stat--action" : ""}`}>
-                  <span className={`doc-locker-stat-value ${docLockerSummary.actionRequired > 0 ? "doc-locker-stat-value--action" : ""}`}>
-                    {docLockerSummary.actionRequired}
+                <div className={`doc-locker-stat ${docLockerSummary.expired > 0 ? "doc-locker-stat--action" : ""}`}>
+                  <span className={`doc-locker-stat-value ${docLockerSummary.expired > 0 ? "doc-locker-stat-value--action" : ""}`}>
+                    {docLockerSummary.expired}
                   </span>
-                  <span className="doc-locker-stat-label">Action Required</span>
+                  <span className="doc-locker-stat-label">{t("dashboard.doc_expired")}</span>
                 </div>
               </div>
             ) : (
-              <p className="doc-locker-empty-text">{t("document_locker_desc", "View and manage all your uploaded documents")}</p>
+              <p className="doc-locker-empty-text">{t("dashboard.doc_locker_desc")}</p>
             )}
             {docLockerSummary && docLockerSummary.expiringSoon > 0 && (
               <Alert variant="warning" className="doc-locker-expiry-banner">
-                {docLockerSummary.expiringSoon} document{docLockerSummary.expiringSoon > 1 ? "s" : ""} expiring soon
+                {t("dashboard.doc_expiring", { count: docLockerSummary.expiringSoon })}
               </Alert>
             )}
             <div className="doc-locker-card-actions">
               <Button onClick={() => onNavigateToLocker()} variant="secondary" size="sm">
-                Open Document Locker
+                {t("dashboard.doc_open")}
               </Button>
-              {docLockerSummary && docLockerSummary.actionRequired > 0 && (
-                <Button onClick={() => onNavigateToLocker("action_required")} variant="danger" size="sm">
-                  View Action Required ({docLockerSummary.actionRequired})
+              {docLockerSummary && docLockerSummary.expired > 0 && (
+                <Button onClick={() => onNavigateToLocker("expired")} variant="danger" size="sm">
+                  {t("dashboard.doc_view_expired", { count: docLockerSummary.expired })}
                 </Button>
               )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Complaints summary card */}
+      {onNavigateToComplaints && (
+        <div className="section doc-locker-section">
+          <Card className="doc-locker-card">
+            <div className="doc-locker-card-header">
+              <span className="doc-locker-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </span>
+              <h3 className="doc-locker-card-title"><Bilingual tKey="nav.complaints" /></h3>
+            </div>
+            {complaintSummary && complaintSummary.total > 0 ? (
+              <div className="doc-locker-stats-grid">
+                <div className="doc-locker-stat">
+                  <span className="doc-locker-stat-value">{complaintSummary.total}</span>
+                  <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
+                </div>
+                <div className="doc-locker-stat">
+                  <span className="doc-locker-stat-value doc-locker-stat-value--action">{complaintSummary.active}</span>
+                  <span className="doc-locker-stat-label">{t("dashboard.stat_active")}</span>
+                </div>
+                <div className="doc-locker-stat">
+                  <span className="doc-locker-stat-value doc-locker-stat-value--verified">{complaintSummary.resolved}</span>
+                  <span className="doc-locker-stat-label">{t("complaints.status_resolved")}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="doc-locker-empty-text">{t("complaints.subtitle")}</p>
+            )}
+            <div className="doc-locker-card-actions">
+              <Button onClick={() => onNavigateToComplaints()} variant="secondary" size="sm">
+                {t("complaints.my_complaints")}
+              </Button>
             </div>
           </Card>
         </div>
@@ -554,7 +645,7 @@ export default function Dashboard({
             <span className="section-icon" aria-hidden="true">
               <SectionIcon kind="attention" />
             </span>
-            {t("requires_attention")}
+            <Bilingual tKey="dashboard.requires_attention" />
           </h2>
           
           {pendingActions.queries.length > 0 && (
@@ -562,14 +653,14 @@ export default function Dashboard({
               {pendingActions.queries.map((query) => (
                 <Card key={query.query_id} className="attention-card attention-query">
                   <div className="attention-header">
-                    <span className="attention-badge">{t("query_raised")}</span>
+                    <span className="attention-badge">{t("dashboard.query_raised")}</span>
                     <span className="attention-service">{getServiceDisplayName(query.service_key)}</span>
                   </div>
                   <div className="attention-arn">{query.arn}</div>
                   <div className="attention-message">{query.message.substring(0, 100)}...</div>
                   <div className="attention-footer">
                     <span className="attention-due">
-                      {t("respond_by")} {new Date(query.response_due_at).toLocaleDateString()}
+                      {t("dashboard.respond_by")} {new Date(query.response_due_at).toLocaleDateString()}
                     </span>
                     <Button
                       onClick={() => onNavigateToApplication(query.arn)}
@@ -577,7 +668,7 @@ export default function Dashboard({
                       size="sm"
                       disabled={isOffline}
                     >
-                      {t("respond")}
+                      {t("dashboard.respond")}
                     </Button>
                   </div>
                 </Card>
@@ -590,7 +681,7 @@ export default function Dashboard({
               {pendingActions.documentRequests.map((doc, idx) => (
                 <Card key={`${doc.arn}-${doc.doc_type_id}-${idx}`} className="attention-card attention-document">
                   <div className="attention-header">
-                    <span className="attention-badge">{t("document_required")}</span>
+                    <span className="attention-badge">{t("dashboard.document_required")}</span>
                     <span className="attention-service">{getServiceDisplayName(doc.service_key)}</span>
                   </div>
                   <div className="attention-arn">{doc.arn}</div>
@@ -602,7 +693,7 @@ export default function Dashboard({
                       size="sm"
                       disabled={isOffline}
                     >
-                      {t("upload_now")}
+                      {t("dashboard.upload_now")}
                     </Button>
                   </div>
                 </Card>
@@ -619,7 +710,7 @@ export default function Dashboard({
             <span className="section-icon" aria-hidden="true">
               <SectionIcon kind="applications" />
             </span>
-            {t("recent_applications")}
+            <Bilingual tKey="dashboard.recent_apps" />
           </h2>
             <div className="application-cards">
               {applications.map((app) => (
@@ -641,7 +732,7 @@ export default function Dashboard({
                       <span className="app-card-date">
                         {app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}
                       </span>
-                      <span className="app-card-action">{t("view_details")} →</span>
+                      <span className="app-card-action">{t("dashboard.view_details")} →</span>
                     </div>
                   </Button>
                 </Card>
@@ -653,7 +744,7 @@ export default function Dashboard({
                 onClick={() => onNavigateToApplication("")}
                 className="btn-view-all"
               >
-                {t("view_all_applications")} →
+                {t("dashboard.view_all")} →
               </Button>
             </div>
           )}
@@ -667,7 +758,7 @@ export default function Dashboard({
             <span className="section-icon" aria-hidden="true">
               <SectionIcon kind="notifications" />
             </span>
-            {t("recent_updates")}
+            <Bilingual tKey="dashboard.recent_updates" />
           </h2>
           <div className="notification-list">
             {notifications.map((notif) => (
@@ -687,7 +778,7 @@ export default function Dashboard({
                     className="notification-open-btn"
                     onClick={() => onNavigateToApplication(notif.arn)}
                   >
-                    {t("view_details")}
+                    {t("dashboard.view_details")}
                   </Button>
                 </div>
               </Card>
@@ -702,10 +793,10 @@ export default function Dashboard({
           <div className="empty-icon" aria-hidden="true">
             <SectionIcon kind="empty" />
           </div>
-          <h3>{t("welcome_title")}</h3>
-          <p>{t("welcome_message")}</p>
+          <h3>{t("dashboard.empty_title")}</h3>
+          <p>{t("dashboard.empty_message")}</p>
           <Button onClick={onNavigateToCatalog} className="btn-primary" disabled={isOffline}>
-            {t("apply_now")}
+            {t("dashboard.apply_now")}
           </Button>
         </div>
       )}

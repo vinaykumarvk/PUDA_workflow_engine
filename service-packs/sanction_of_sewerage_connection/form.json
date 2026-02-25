@@ -5,14 +5,20 @@
     {
       "pageId": "PAGE_PROPERTY",
       "title": "Property Details",
+      "title_hi": "संपत्ति विवरण",
+      "title_pa": "ਜਾਇਦਾਦ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_PROPERTY",
           "title": "Property Information",
+          "title_hi": "संपत्ति जानकारी",
+          "title_pa": "ਜਾਇਦਾਦ ਜਾਣਕਾਰੀ",
           "fields": [
             {
               "key": "property.upn",
               "label": "Unique Property Number (UPN / Bhu-Aadhar)",
+              "label_hi": "विशिष्ट संपत्ति संख्या (यूपीएन / भू-आधार)",
+              "label_pa": "ਵਿਲੱਖਣ ਜਾਇਦਾਦ ਨੰਬਰ (ਯੂਪੀਐਨ / ਭੂ-ਆਧਾਰ)",
               "type": "string",
               "required": true,
               "ui": {
@@ -22,6 +28,8 @@
             {
               "key": "property.area_sqyd",
               "label": "Area (Sq. Yards)",
+              "label_hi": "क्षेत्रफल (वर्ग गज)",
+              "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)",
               "type": "number",
               "required": false,
               "ui": {
@@ -31,6 +39,8 @@
             {
               "key": "property.authority_name",
               "label": "Authority Name",
+              "label_hi": "प्राधिकरण का नाम",
+              "label_pa": "ਅਥਾਰਟੀ ਦਾ ਨਾਮ",
               "type": "string",
               "required": false,
               "ui": {
@@ -40,6 +50,8 @@
             {
               "key": "property.plot_no",
               "label": "Plot Number",
+              "label_hi": "प्लॉट नंबर",
+              "label_pa": "ਪਲਾਟ ਨੰਬਰ",
               "type": "string",
               "required": false,
               "ui": {
@@ -49,6 +61,8 @@
             {
               "key": "property.type",
               "label": "Property Type",
+              "label_hi": "संपत्ति का प्रकार",
+              "label_pa": "ਜਾਇਦਾਦ ਦੀ ਕਿਸਮ",
               "type": "enum",
               "required": false,
               "ui": {
@@ -72,6 +86,8 @@
             {
               "key": "property.scheme_name",
               "label": "Scheme Name",
+              "label_hi": "योजना का नाम",
+              "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ",
               "type": "string",
               "required": false,
               "ui": {
@@ -85,10 +101,14 @@
     {
       "pageId": "PAGE_APPLICANT",
       "title": "Applicant Details",
+      "title_hi": "आवेदक विवरण",
+      "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_APPLICANT",
           "title": "Applicant Information",
+          "title_hi": "आवेदक जानकारी",
+          "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਜਾਣਕਾਰੀ",
           "fields": [
             {
               "sharedSection": "applicant"
@@ -100,44 +120,60 @@
     {
       "pageId": "PAGE_BUILDING",
       "title": "Building / Occupancy Details",
+      "title_hi": "भवन / अधिभोग विवरण",
+      "title_pa": "ਇਮਾਰਤ / ਕਬਜ਼ਾ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_BUILDING",
           "title": "Building Details",
+          "title_hi": "भवन विवरण",
+          "title_pa": "ਇਮਾਰਤ ਵੇਰਵੇ",
           "fields": [
             {
               "key": "building.status",
               "label": "Building Status",
+              "label_hi": "भवन की स्थिति",
+              "label_pa": "ਇਮਾਰਤ ਦੀ ਸਥਿਤੀ",
               "type": "string",
               "required": false
             },
             {
               "key": "building.plan_sanction_date",
               "label": "Date of Sanction of Building Plan",
+              "label_hi": "भवन योजना मंजूरी की तिथि",
+              "label_pa": "ਇਮਾਰਤ ਯੋਜਨਾ ਮਨਜ਼ੂਰੀ ਦੀ ਮਿਤੀ",
               "type": "date",
               "required": true
             },
             {
               "key": "building.floors_constructed",
               "label": "Number of Floors Constructed",
+              "label_hi": "निर्मित मंजिलों की संख्या",
+              "label_pa": "ਉਸਾਰੀਆਂ ਮੰਜ਼ਿਲਾਂ ਦੀ ਗਿਣਤੀ",
               "type": "number",
               "required": true
             },
             {
               "key": "building.basement_constructed",
               "label": "Is Basement Constructed",
+              "label_hi": "क्या तहखाना बनाया गया है",
+              "label_pa": "ਕੀ ਬੇਸਮੈਂਟ ਬਣਾਈ ਗਈ ਹੈ",
               "type": "boolean",
               "required": false
             },
             {
               "key": "building.number_of_seats",
               "label": "Number of Seats",
+              "label_hi": "सीटों की संख्या",
+              "label_pa": "ਸੀਟਾਂ ਦੀ ਗਿਣਤੀ",
               "type": "number",
               "required": false
             },
             {
               "key": "building.hot_water_fitting_material",
               "label": "Hot Water Fitting Material Details",
+              "label_hi": "गर्म पानी फिटिंग सामग्री विवरण",
+              "label_pa": "ਗਰਮ ਪਾਣੀ ਫਿਟਿੰਗ ਸಮੱਗਰੀ ਵੇਰਵੇ",
               "type": "string",
               "required": false
             }
@@ -148,38 +184,52 @@
     {
       "pageId": "PAGE_PLUMBER",
       "title": "Plumber / Installation Details",
+      "title_hi": "प्लंबर / स्थापना विवरण",
+      "title_pa": "ਪਲੰਬਰ / ਸਥਾਪਨਾ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_PLUMBER",
           "title": "Plumber Details",
+          "title_hi": "प्लंबर विवरण",
+          "title_pa": "ਪਲੰਬਰ ਵੇਰਵੇ",
           "fields": [
             {
               "key": "plumber.installation_bill_no",
               "label": "Hot Water Fitting Installation Bill Number",
+              "label_hi": "गर्म पानी फिटिंग स्थापना बिल नंबर",
+              "label_pa": "ਗਰਮ ਪਾਣੀ ਫਿਟਿੰਗ ਸਥਾਪਨਾ ਬਿੱਲ ਨੰਬਰ",
               "type": "string",
               "required": false
             },
             {
               "key": "plumber.name",
               "label": "Name of the Plumber",
+              "label_hi": "प्लंबर का नाम",
+              "label_pa": "ਪਲੰਬਰ ਦਾ ਨਾਮ",
               "type": "string",
               "required": true
             },
             {
               "key": "plumber.license_no",
               "label": "License Number",
+              "label_hi": "लाइसेंस नंबर",
+              "label_pa": "ਲਾਇਸੈਂਸ ਨੰਬਰ",
               "type": "string",
               "required": true
             },
             {
               "key": "plumber.address",
               "label": "Address of the Plumber",
+              "label_hi": "प्लंबर का पता",
+              "label_pa": "ਪਲੰਬਰ ਦਾ ਪਤਾ",
               "type": "string",
               "required": false
             },
             {
               "key": "plumber.certificate_date",
               "label": "Date of Issue of Certificate",
+              "label_hi": "प्रमाण पत्र जारी करने की तिथि",
+              "label_pa": "ਸਰਟੀਫਿਕੇਟ ਜਾਰੀ ਕਰਨ ਦੀ ਮਿਤੀ",
               "type": "date",
               "required": false
             }

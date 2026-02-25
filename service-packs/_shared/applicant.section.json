@@ -1,30 +1,32 @@
 {
   "sectionId": "SEC_APPLICANT_SHARED",
   "title": "Applicant Details",
+  "title_hi": "आवेदक विवरण",
+  "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਵੇਰਵੇ",
   "fields": [
-    { "key": "applicant.salutation", "label": "Salutation", "type": "enum", "required": false, "ui": { "readOnly": true, "options": [
+    { "key": "applicant.salutation", "label": "Salutation", "label_hi": "संबोधन", "label_pa": "ਸੰਬੋਧਨ", "type": "enum", "required": false, "ui": { "readOnly": true, "options": [
       { "value": "MR", "label": "Mr." },
       { "value": "MS", "label": "Ms." },
       { "value": "MRS", "label": "Mrs." }
     ] } },
-    { "key": "applicant.first_name", "label": "First Name", "type": "string", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.middle_name", "label": "Middle Name", "type": "string", "required": false, "ui": { "readOnly": true } },
-    { "key": "applicant.last_name", "label": "Last Name", "type": "string", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.full_name", "label": "Full Name", "type": "string", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.father_name", "label": "Father's/Husband's Name", "type": "string", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.gender", "label": "Gender", "type": "enum", "required": true, "ui": { "readOnly": true, "options": [
+    { "key": "applicant.first_name", "label": "First Name", "label_hi": "पहला नाम", "label_pa": "ਪਹਿਲਾ ਨਾਮ", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.middle_name", "label": "Middle Name", "label_hi": "मध्य नाम", "label_pa": "ਮੱਧ ਨਾਮ", "type": "string", "required": false, "ui": { "readOnly": true } },
+    { "key": "applicant.last_name", "label": "Last Name", "label_hi": "अंतिम नाम", "label_pa": "ਆਖ਼ਰੀ ਨਾਮ", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.full_name", "label": "Full Name", "label_hi": "पूरा नाम", "label_pa": "ਪੂਰਾ ਨਾਮ", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.father_name", "label": "Father's/Husband's Name", "label_hi": "पिता/पति का नाम", "label_pa": "ਪਿਤਾ/ਪਤੀ ਦਾ ਨਾਮ", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.gender", "label": "Gender", "label_hi": "लिंग", "label_pa": "ਲਿੰਗ", "type": "enum", "required": true, "ui": { "readOnly": true, "options": [
       { "value": "MALE", "label": "Male" },
       { "value": "FEMALE", "label": "Female" },
       { "value": "OTHER", "label": "Other" }
     ] } },
-    { "key": "applicant.marital_status", "label": "Marital Status", "type": "enum", "required": true, "ui": { "readOnly": true, "options": [
+    { "key": "applicant.marital_status", "label": "Marital Status", "label_hi": "वैवाहिक स्थिति", "label_pa": "ਵਿਆਹੁਤਾ ਸਥਿਤੀ", "type": "enum", "required": true, "ui": { "readOnly": true, "options": [
       { "value": "SINGLE", "label": "Single" },
       { "value": "MARRIED", "label": "Married" }
     ] } },
-    { "key": "applicant.date_of_birth", "label": "Date of Birth", "type": "date", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.aadhaar", "label": "Aadhaar Number", "type": "aadhaar", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.pan", "label": "PAN", "type": "string", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.email", "label": "Email Address", "type": "email", "required": true, "ui": { "readOnly": true } },
-    { "key": "applicant.mobile", "label": "Mobile Number", "type": "phone", "required": true, "ui": { "readOnly": true } }
+    { "key": "applicant.date_of_birth", "label": "Date of Birth", "label_hi": "जन्म तिथि", "label_pa": "ਜਨਮ ਮਿਤੀ", "type": "date", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.aadhaar", "label": "Aadhaar Number", "label_hi": "आधार संख्या", "label_pa": "ਆਧਾਰ ਨੰਬਰ", "type": "aadhaar", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.pan", "label": "PAN", "label_hi": "पैन", "label_pa": "ਪੈਨ", "type": "string", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.email", "label": "Email Address", "label_hi": "ईमेल पता", "label_pa": "ਈਮੇਲ ਪਤਾ", "type": "email", "required": true, "ui": { "readOnly": true } },
+    { "key": "applicant.mobile", "label": "Mobile Number", "label_hi": "मोबाइल नंबर", "label_pa": "ਮੋਬਾਈਲ ਨੰਬਰ", "type": "phone", "required": true, "ui": { "readOnly": true } }
   ]
 }

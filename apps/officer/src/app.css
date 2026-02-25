@@ -510,6 +510,50 @@
   }
 }
 
+/* Complaint management */
+.complaint-filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.complaint-filter-select {
+  min-width: 12rem;
+}
+
+.complaint-evidence-preview {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  padding: var(--space-3);
+}
+
+.complaint-evidence-preview__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  font-weight: 600;
+}
+
+.complaint-evidence-preview__img {
+  max-width: 100%;
+  max-height: 32rem;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.doc-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.doc-actions__btn {
+  gap: var(--space-1);
+}
+
 @media (max-width: 32rem) {
   .task-card {
     flex-direction: column;

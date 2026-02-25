@@ -240,7 +240,7 @@
   height: calc(100dvh - 6rem);
 }
 
-/* Verification badges */
+/* Document status badges */
 .locker-badge {
   display: inline-flex;
   align-items: center;
@@ -253,24 +253,55 @@
   letter-spacing: 0.02em;
 }
 
-.locker-badge--verified {
+.locker-badge--valid {
   background: var(--color-success-soft, #e6f7ee);
   color: var(--color-success, #157347);
 }
 
-.locker-badge--rejected {
+.locker-badge--expired {
+  background: var(--color-warning-soft, #fff8e7);
+  color: var(--color-warning, #946200);
+}
+
+.locker-badge--mismatch {
   background: var(--color-danger-soft, #fee9e7);
   color: var(--color-danger, #b42318);
 }
 
-.locker-badge--query {
-  background: var(--color-brand-soft, #e8f0ff);
-  color: var(--color-brand, #0b5fff);
+.locker-badge--cancelled {
+  background: var(--color-surface-muted, #f0f0f0);
+  color: var(--color-text-muted, #6b7280);
+  text-decoration: line-through;
 }
 
-.locker-badge--pending {
-  background: var(--color-warning-soft, #fff8e7);
-  color: var(--color-warning, #946200);
+/* Section headers for two-section layout */
+.locker-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--color-border);
+  margin-top: var(--space-3);
+}
+
+.locker-section-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.locker-section-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+}
+
+/* Disabled card for CANCELLED/EXPIRED docs */
+.locker-card--disabled {
+  opacity: 0.65;
 }
 
 .locker-app-links {
@@ -490,8 +521,8 @@
   color: var(--color-danger, #b42318);
 }
 
-/* Action required highlight */
-.locker-card--action-required {
+/* Mismatch highlight */
+.locker-card--mismatch {
   border-left: 3px solid var(--color-danger, #b42318);
 }
 

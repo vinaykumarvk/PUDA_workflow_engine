@@ -43,9 +43,14 @@ export function getStatusLabel(stateId: string): string {
   return labelMap[stateId] || stateId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 }
 
-export function formatDate(dateStr: string | Date): string {
+export function formatDate(dateStr: string | Date, dateFormat?: "DD/MM/YYYY" | "YYYY-MM-DD"): string {
   const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   if (isNaN(date.getTime())) return "—";
+
+  if (dateFormat === "YYYY-MM-DD") {
+    return date.toISOString().slice(0, 10);
+  }
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -56,9 +61,13 @@ export function formatDate(dateStr: string | Date): string {
   return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export function formatDateTime(dateStr: string | Date): string {
+export function formatDateTime(dateStr: string | Date, dateFormat?: "DD/MM/YYYY" | "YYYY-MM-DD"): string {
   const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   if (isNaN(date.getTime())) return "—";
+  if (dateFormat === "YYYY-MM-DD") {
+    const time = date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    return `${date.toISOString().slice(0, 10)} ${time}`;
+  }
   return date.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 

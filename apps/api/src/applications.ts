@@ -808,6 +808,59 @@ export async function exportApplicationsToCSV(
   return lines.join("\n");
 }
 
+const IN_PROGRESS_STATES = [
+  "DRAFT",
+  "SUBMITTED",
+  "PENDING_AT_CLERK",
+  "IN_PROGRESS",
+  "QUERY_PENDING",
+  "RESUBMITTED",
+  "PENDING_AT_SR_ASSISTANT",
+  "PENDING_AT_SR_ASSISTANT_ACCOUNTS",
+  "PENDING_AT_ACCOUNT_OFFICER",
+  "PENDING_AT_JUNIOR_ENGINEER",
+  "PENDING_AT_SDE",
+  "PENDING_AT_SDO",
+  "PENDING_AT_SDO_PH",
+  "PENDING_AT_DRAFTSMAN",
+];
+
+export async function checkDuplicateApplication(
+  userId: string,
+  serviceKey: string,
+  propertyId?: string | null
+): Promise<Array<{ arn: string; public_arn: string | null; state_id: string; created_at: Date }>> {
+  const placeholders = IN_PROGRESS_STATES.map((_, i) => `$${i + 3}`).join(", ");
+  const params: any[] = [userId, serviceKey, ...IN_PROGRESS_STATES];
+
+  if (propertyId) {
+    const sql = `
+      SELECT a.arn, a.public_arn, a.state_id, a.created_at
+      FROM application a
+      JOIN application_property ap ON a.arn = ap.arn
+      WHERE a.applicant_user_id = $1
+        AND a.service_key = $2
+        AND a.state_id IN (${placeholders})
+        AND ap.property_id = $${params.length + 1}
+      ORDER BY a.created_at DESC
+    `;
+    params.push(propertyId);
+    const result = await query(sql, params);
+    return result.rows;
+  }
+
+  const sql = `
+    SELECT arn, public_arn, state_id, created_at
+    FROM application
+    WHERE applicant_user_id = $1
+      AND service_key = $2
+      AND state_id IN (${placeholders})
+    ORDER BY created_at DESC
+  `;
+  const result = await query(sql, params);
+  return result.rows;
+}
+
 export async function getUserPendingActions(userId: string): Promise<{
   queries: Array<{ arn: string; service_key: string; query_id: string; query_number: number; message: string; response_due_at: Date }>;
   documentRequests: Array<{ arn: string; service_key: string; doc_type_id: string; doc_type_name: string }>;

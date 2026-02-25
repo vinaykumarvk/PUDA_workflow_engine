@@ -1255,16 +1255,97 @@ textarea.error {
     padding: var(--space-4) 0;
   }
 
+  .sidebar {
+    transition: width 200ms ease;
+  }
+
   .sidebar .sidebar__header {
     padding-top: var(--space-3);
   }
 
-  .app-bar__hamburger {
-    display: none; /* hide hamburger on desktop */
+  /* Hamburger visible on desktop too — toggles sidebar collapse */
+  .app-bar__avatar {
+    display: none; /* avatar only shown on mobile */
   }
 
   .app-layout__main {
     margin-left: 16rem; /* offset for sidebar */
+    transition: margin-left 200ms ease;
+  }
+
+  /* (collapse toggle removed — hamburger in app-bar handles it) */
+
+  /* ---- Collapsed sidebar ---- */
+  .sidebar--collapsed {
+    width: 4rem;
+  }
+
+  .sidebar--collapsed .sidebar__header {
+    display: none;
+  }
+
+  /* Collapsed nav items: hide text (including text nodes that CSS selectors can't target) */
+  .sidebar--collapsed .sidebar__nav .sidebar__item {
+    padding: 0;
+    overflow: hidden;
+    gap: 0;
+  }
+  .sidebar--collapsed .sidebar__nav .sidebar__item > *:not(.sidebar__item-icon) {
+    display: none;
+  }
+  .sidebar--collapsed .sidebar__nav .sidebar__item .sidebar__item-icon {
+    min-width: 4rem;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* CSS tooltip on hover in collapsed state */
+  .sidebar--collapsed .sidebar__nav .sidebar__item[title] {
+    position: relative;
+  }
+  .sidebar--collapsed .sidebar__nav .sidebar__item[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--color-surface-raised, var(--color-surface));
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm, 4px);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: calc(var(--z-header) + 1);
+    pointer-events: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+  }
+
+  /* Collapsed footer: same overflow clipping for text nodes */
+  .sidebar--collapsed .sidebar__footer {
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .sidebar--collapsed .sidebar__footer .sidebar__item > *:not(.sidebar__item-icon) {
+    display: none;
+  }
+  .sidebar--collapsed .sidebar__footer .sidebar__item {
+    padding: 0;
+    overflow: hidden;
+    gap: 0;
+  }
+  .sidebar--collapsed .sidebar__footer .sidebar__item .sidebar__item-icon {
+    min-width: 4rem;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .app-layout--sidebar-collapsed .app-layout__main {
+    margin-left: 4rem;
   }
 }
 
@@ -1295,4 +1376,12 @@ textarea.error {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* User-toggled reduce-motion override */
+[data-reduce-motion="true"] * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

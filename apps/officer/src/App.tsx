@@ -13,9 +13,10 @@ import ThemeToggle from "./ThemeToggle";
 const Inbox = lazy(() => import("./Inbox"));
 const TaskDetail = lazy(() => import("./TaskDetail"));
 const SearchPanel = lazy(() => import("./SearchPanel"));
+const ComplaintManagement = lazy(() => import("./ComplaintManagement"));
 import { useTheme } from "./theme";
 
-type View = "inbox" | "task" | "search";
+type View = "inbox" | "task" | "search" | "complaints";
 
 export default function App() {
   const { auth, login, logout, authHeaders, postings, roles, authorities } = useOfficerAuth();
@@ -165,6 +166,19 @@ export default function App() {
     return <OfficerLogin onLogin={login} />;
   }
 
+  // --- Complaint Management ---
+  if (view === "complaints") {
+    return (
+      <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
+        <ComplaintManagement
+          authHeaders={authHeaders}
+          isOffline={isOffline}
+          onBack={() => setView("inbox")}
+        />
+      </Suspense>
+    );
+  }
+
   // --- Task detail ---
   if (view === "task" && selectedTask && application) {
     return (
@@ -217,7 +231,14 @@ export default function App() {
               className="search-toggle-btn"
               type="button"
             >
-              {view === "search" ? "← Back to Inbox" : "Search"}
+              {view === "search" ? "\u2190 Back to Inbox" : "Search"}
+            </Button>
+            <Button
+              onClick={() => setView("complaints")}
+              className="search-toggle-btn"
+              type="button"
+            >
+              Complaints
             </Button>
           </div>
         </div>

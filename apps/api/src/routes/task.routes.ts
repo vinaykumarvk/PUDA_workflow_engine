@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import * as tasks from "../tasks";
 import * as applications from "../applications";
 import * as outputs from "../outputs";
+import * as documents from "../documents";
 import { executeTransition } from "../workflow";
 import { getAuthUserId, send400, send403 } from "../errors";
 import { requireAuthorityStaffAccess } from "../route-access";
@@ -224,7 +225,26 @@ export async function registerTaskRoutes(app: FastifyInstance) {
           const decision = result.newStateId === "APPROVED" ? "APPROVED" : "REJECTED";
           const templateId = getTemplateForService(appRecord.service_key, decision);
           try {
-            if (templateId) await outputs.generateOutput(appRecord.arn, templateId, appRecord.service_key);
+            if (templateId) {
+              const outputRecord = await outputs.generateOutput(appRecord.arn, templateId, appRecord.service_key);
+              // Issue document to citizen's locker
+              try {
+                if (appRecord.applicant_user_id && outputRecord.storage_key) {
+                  const basename = outputRecord.storage_key.split("/").pop() || "certificate.pdf";
+                  await documents.issueCitizenDocument(
+                    appRecord.applicant_user_id,
+                    `output_${appRecord.service_key}`,
+                    outputRecord.storage_key,
+                    basename,
+                    "application/pdf",
+                    0,
+                    appRecord.public_arn || appRecord.arn,
+                    outputRecord.valid_from ? outputRecord.valid_from.toISOString().split("T")[0] : null,
+                    outputRecord.valid_to ? outputRecord.valid_to.toISOString().split("T")[0] : null
+                  );
+                }
+              } catch (e) { request.log.warn(e, "Issuing document to locker failed"); }
+            }
           } catch (e) { request.log.warn(e, "Output generation failed"); }
           const closeTx = result.newStateId === "APPROVED" ? "CLOSE_APPROVED" : "CLOSE_REJECTED";
           try {

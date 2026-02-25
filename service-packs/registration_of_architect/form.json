@@ -5,14 +5,20 @@
     {
       "pageId": "PAGE_APPLICATION",
       "title": "Application Details",
+      "title_hi": "आवेदन विवरण",
+      "title_pa": "ਅਰਜ਼ੀ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_AUTHORITY",
           "title": "Authority",
+          "title_hi": "प्राधिकरण",
+          "title_pa": "ਅਥਾਰਟੀ",
           "fields": [
             {
               "key": "authority_id",
               "label": "Select Authority",
+              "label_hi": "प्राधिकरण चुनें",
+              "label_pa": "ਅਥਾਰਟੀ ਚੁਣੋ",
               "type": "enum",
               "required": true,
               "ui": {
@@ -32,10 +38,14 @@
     {
       "pageId": "PAGE_PERSONAL",
       "title": "Personal Details",
+      "title_hi": "व्यक्तिगत विवरण",
+      "title_pa": "ਨਿੱਜੀ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_PERSONAL",
           "title": "Applicant Information",
+          "title_hi": "आवेदक जानकारी",
+          "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਜਾਣਕਾਰੀ",
           "fields": [
             { "sharedSection": "applicant" }
           ]
@@ -45,14 +55,18 @@
     {
       "pageId": "PAGE_COA",
       "title": "Council of Architecture Registration",
+      "title_hi": "वास्तुकला परिषद पंजीकरण",
+      "title_pa": "ਆਰਕੀਟੈਕਚਰ ਕੌਂਸਲ ਰਜਿਸਟ੍ਰੇਸ਼ਨ",
       "sections": [
         {
           "sectionId": "SEC_COA",
           "title": "CoA Registration Details",
+          "title_hi": "सीओए पंजीकरण विवरण",
+          "title_pa": "ਸੀਓਏ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਵੇਰਵੇ",
           "fields": [
-            { "key": "coa.certificate_number", "label": "Certificate Number", "type": "string", "required": true },
-            { "key": "coa.valid_from", "label": "Valid From", "type": "date", "required": true },
-            { "key": "coa.valid_till", "label": "Valid Till", "type": "date", "required": true }
+            { "key": "coa.certificate_number", "label": "Certificate Number", "label_hi": "प्रमाण पत्र संख्या", "label_pa": "ਸਰਟੀਫਿਕੇਟ ਨੰਬਰ", "type": "string", "required": true },
+            { "key": "coa.valid_from", "label": "Valid From", "label_hi": "से मान्य", "label_pa": "ਤੋਂ ਵੈਧ", "type": "date", "required": true },
+            { "key": "coa.valid_till", "label": "Valid Till", "label_hi": "तक मान्य", "label_pa": "ਤੱਕ ਵੈਧ", "type": "date", "required": true }
           ]
         }
       ]
@@ -60,26 +74,36 @@
     {
       "pageId": "PAGE_ADDRESS",
       "title": "Address Details",
+      "title_hi": "पता विवरण",
+      "title_pa": "ਪਤਾ ਵੇਰਵੇ",
       "sections": [
         {
           "sectionId": "SEC_PERMANENT_ADDRESS",
           "title": "Permanent Address",
+          "title_hi": "स्थायी पता",
+          "title_pa": "ਸਥਾਈ ਪਤਾ",
           "fields": [
-            { "key": "address.permanent.line1", "label": "Address Line 1", "type": "string", "required": true },
-            { "key": "address.permanent.state", "label": "State", "type": "string", "required": true },
-            { "key": "address.permanent.district", "label": "District", "type": "string", "required": true },
-            { "key": "address.permanent.pincode", "label": "Pincode", "type": "string", "required": true }
+            { "key": "address.permanent.line1", "label": "Address Line 1", "label_hi": "पता पंक्ति 1", "label_pa": "ਪਤਾ ਲਾਈਨ 1", "type": "string", "required": true, "ui": { "readOnly": true } },
+            { "key": "address.permanent.line2", "label": "Address Line 2", "label_hi": "पता पंक्ति 2", "label_pa": "ਪਤਾ ਲਾਈਨ 2", "type": "string", "ui": { "readOnly": true } },
+            { "key": "address.permanent.city", "label": "City", "label_hi": "शहर", "label_pa": "ਸ਼ਹਿਰ", "type": "string", "ui": { "readOnly": true } },
+            { "key": "address.permanent.state", "label": "State", "label_hi": "राज्य", "label_pa": "ਰਾਜ", "type": "string", "required": true, "ui": { "readOnly": true } },
+            { "key": "address.permanent.district", "label": "District", "label_hi": "जिला", "label_pa": "ਜ਼ਿਲ੍ਹਾ", "type": "string", "required": true, "ui": { "readOnly": true } },
+            { "key": "address.permanent.pincode", "label": "Pincode", "label_hi": "पिनकोड", "label_pa": "ਪਿਨਕੋਡ", "type": "string", "required": true, "ui": { "readOnly": true } }
           ]
         },
         {
-          "sectionId": "SEC_OFFICIAL_ADDRESS",
-          "title": "Official Address",
+          "sectionId": "SEC_COMMUNICATION_ADDRESS",
+          "title": "Communication Address",
+          "title_hi": "संपर्क पता",
+          "title_pa": "ਸੰਪਰਕ ਪਤਾ",
           "fields": [
-            { "key": "address.official.same_as_permanent", "label": "Same as Permanent Address", "type": "boolean", "required": false },
-            { "key": "address.official.line1", "label": "Address Line 1", "type": "string", "required": true },
-            { "key": "address.official.state", "label": "State", "type": "string", "required": true },
-            { "key": "address.official.district", "label": "District", "type": "string", "required": true },
-            { "key": "address.official.pincode", "label": "Pincode", "type": "string", "required": true }
+            { "key": "address.communication.same_as_permanent", "label": "Same as Permanent Address", "label_hi": "स्थायी पते जैसा ही", "label_pa": "ਸਥਾਈ ਪਤੇ ਵਰਗਾ ਹੀ", "type": "boolean", "required": false, "ui": { "readOnly": true } },
+            { "key": "address.communication.line1", "label": "Address Line 1", "label_hi": "पता पंक्ति 1", "label_pa": "ਪਤਾ ਲਾਈਨ 1", "type": "string", "required": true, "ui": { "readOnly": true } },
+            { "key": "address.communication.line2", "label": "Address Line 2", "label_hi": "पता पंक्ति 2", "label_pa": "ਪਤਾ ਲਾਈਨ 2", "type": "string", "ui": { "readOnly": true } },
+            { "key": "address.communication.city", "label": "City", "label_hi": "शहर", "label_pa": "ਸ਼ਹਿਰ", "type": "string", "ui": { "readOnly": true } },
+            { "key": "address.communication.state", "label": "State", "label_hi": "राज्य", "label_pa": "ਰਾਜ", "type": "string", "required": true, "ui": { "readOnly": true } },
+            { "key": "address.communication.district", "label": "District", "label_hi": "जिला", "label_pa": "ਜ਼ਿਲ੍ਹਾ", "type": "string", "required": true, "ui": { "readOnly": true } },
+            { "key": "address.communication.pincode", "label": "Pincode", "label_hi": "पिनकोड", "label_pa": "ਪਿਨਕੋਡ", "type": "string", "required": true, "ui": { "readOnly": true } }
           ]
         }
       ]

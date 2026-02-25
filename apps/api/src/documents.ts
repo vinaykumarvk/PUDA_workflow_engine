@@ -207,6 +207,10 @@ export interface CitizenDocument {
   is_current: boolean;
   valid_from?: string | null;
   valid_until?: string | null;
+  status: string;
+  computed_status: string;
+  origin: string;
+  source_arn?: string | null;
   linked_applications?: Array<{
     arn: string;
     app_doc_id: string;
@@ -265,6 +269,10 @@ export async function uploadCitizenDocument(
     is_current: true,
     valid_from: validFrom,
     valid_until: validUntil,
+    status: "VALID",
+    computed_status: "VALID",
+    origin: "uploaded",
+    source_arn: null,
   };
 }
 
@@ -274,6 +282,13 @@ export async function getCitizenDocuments(userId: string): Promise<CitizenDocume
             cd.storage_key, cd.original_filename, cd.mime_type, cd.size_bytes,
             cd.checksum, cd.uploaded_at, cd.is_current,
             cd.valid_from, cd.valid_until,
+            cd.status, cd.origin, cd.source_arn,
+            CASE
+              WHEN cd.status = 'CANCELLED' THEN 'CANCELLED'
+              WHEN cd.status = 'MISMATCH' THEN 'MISMATCH'
+              WHEN cd.valid_until IS NOT NULL AND cd.valid_until < CURRENT_DATE THEN 'EXPIRED'
+              ELSE 'VALID'
+            END AS computed_status,
             COALESCE(json_agg(json_build_object(
               'arn', ad.arn,
               'app_doc_id', ad.app_doc_id,
@@ -302,6 +317,10 @@ export async function getCitizenDocuments(userId: string): Promise<CitizenDocume
     is_current: row.is_current,
     valid_from: row.valid_from,
     valid_until: row.valid_until,
+    status: row.status || "VALID",
+    computed_status: row.computed_status || "VALID",
+    origin: row.origin || "uploaded",
+    source_arn: row.source_arn,
     linked_applications: row.linked_applications,
   }));
 }
@@ -314,7 +333,14 @@ export async function getCitizenDocVersions(
   const result = await query(
     `SELECT citizen_doc_id, user_id, doc_type_id, citizen_version,
             storage_key, original_filename, mime_type, size_bytes,
-            checksum, uploaded_at, is_current
+            checksum, uploaded_at, is_current,
+            valid_from, valid_until, status, origin, source_arn,
+            CASE
+              WHEN status = 'CANCELLED' THEN 'CANCELLED'
+              WHEN status = 'MISMATCH' THEN 'MISMATCH'
+              WHEN valid_until IS NOT NULL AND valid_until < CURRENT_DATE THEN 'EXPIRED'
+              ELSE 'VALID'
+            END AS computed_status
      FROM citizen_document
      WHERE user_id = $1 AND doc_type_id = $2
      ORDER BY citizen_version DESC
@@ -333,6 +359,12 @@ export async function getCitizenDocVersions(
     checksum: row.checksum,
     uploaded_at: row.uploaded_at,
     is_current: row.is_current,
+    valid_from: row.valid_from,
+    valid_until: row.valid_until,
+    status: row.status || "VALID",
+    computed_status: row.computed_status || "VALID",
+    origin: row.origin || "uploaded",
+    source_arn: row.source_arn,
   }));
 }
 
@@ -465,7 +497,14 @@ export async function getCitizenDocument(citizenDocId: string): Promise<CitizenD
   const result = await query(
     `SELECT citizen_doc_id, user_id, doc_type_id, citizen_version,
             storage_key, original_filename, mime_type, size_bytes,
-            checksum, uploaded_at, is_current
+            checksum, uploaded_at, is_current,
+            valid_from, valid_until, status, origin, source_arn,
+            CASE
+              WHEN status = 'CANCELLED' THEN 'CANCELLED'
+              WHEN status = 'MISMATCH' THEN 'MISMATCH'
+              WHEN valid_until IS NOT NULL AND valid_until < CURRENT_DATE THEN 'EXPIRED'
+              ELSE 'VALID'
+            END AS computed_status
      FROM citizen_document WHERE citizen_doc_id = $1`,
     [citizenDocId]
   );
@@ -483,6 +522,12 @@ export async function getCitizenDocument(citizenDocId: string): Promise<CitizenD
     checksum: row.checksum,
     uploaded_at: row.uploaded_at,
     is_current: row.is_current,
+    valid_from: row.valid_from,
+    valid_until: row.valid_until,
+    status: row.status || "VALID",
+    computed_status: row.computed_status || "VALID",
+    origin: row.origin || "uploaded",
+    source_arn: row.source_arn,
   };
 }
 
@@ -490,4 +535,73 @@ export async function getCitizenDocumentFile(citizenDocId: string): Promise<Buff
   const doc = await getCitizenDocument(citizenDocId);
   if (!doc || !doc.storage_key) return null;
   return getStorage().read(doc.storage_key);
+}
+
+export async function issueCitizenDocument(
+  userId: string,
+  docTypeId: string,
+  storageKey: string,
+  filename: string,
+  mimeType: string,
+  sizeBytes: number,
+  sourceArn: string,
+  validFrom?: string | null,
+  validUntil?: string | null
+): Promise<CitizenDocument> {
+  const existingResult = await query(
+    "SELECT citizen_version FROM citizen_document WHERE user_id = $1 AND doc_type_id = $2 ORDER BY citizen_version DESC LIMIT 1",
+    [userId, docTypeId]
+  );
+  const citizenVersion = existingResult.rows.length > 0 ? existingResult.rows[0].citizen_version + 1 : 1;
+
+  // Mark previous versions as not current
+  await query(
+    "UPDATE citizen_document SET is_current = FALSE WHERE user_id = $1 AND doc_type_id = $2",
+    [userId, docTypeId]
+  );
+
+  const citizenDocId = uuidv4();
+  await query(
+    `INSERT INTO citizen_document (citizen_doc_id, user_id, doc_type_id, citizen_version, storage_key, original_filename, mime_type, size_bytes, is_current, valid_from, valid_until, status, origin, source_arn)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, 'VALID', 'issued', $11)`,
+    [citizenDocId, userId, docTypeId, citizenVersion, storageKey, filename, mimeType, sizeBytes, validFrom || null, validUntil || null, sourceArn]
+  );
+
+  return {
+    citizen_doc_id: citizenDocId,
+    user_id: userId,
+    doc_type_id: docTypeId,
+    citizen_version: citizenVersion,
+    storage_key: storageKey,
+    original_filename: filename,
+    mime_type: mimeType,
+    size_bytes: sizeBytes,
+    uploaded_at: new Date(),
+    is_current: true,
+    valid_from: validFrom || null,
+    valid_until: validUntil || null,
+    status: "VALID",
+    computed_status: "VALID",
+    origin: "issued",
+    source_arn: sourceArn,
+  };
+}
+
+const VALID_CITIZEN_DOC_STATUSES = ["VALID", "MISMATCH", "CANCELLED"];
+
+export async function updateCitizenDocumentStatus(
+  citizenDocId: string,
+  status: string,
+  userId: string
+): Promise<void> {
+  if (!VALID_CITIZEN_DOC_STATUSES.includes(status)) {
+    throw new Error("INVALID_STATUS");
+  }
+  const result = await query(
+    "UPDATE citizen_document SET status = $1 WHERE citizen_doc_id = $2 AND user_id = $3",
+    [status, citizenDocId, userId]
+  );
+  if (result.rowCount === 0) {
+    throw new Error("CITIZEN_DOC_NOT_FOUND");
+  }
 }

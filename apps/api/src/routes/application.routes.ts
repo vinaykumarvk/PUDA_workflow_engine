@@ -4,6 +4,7 @@ import * as documents from "../documents";
 import * as outputs from "../outputs";
 import * as notifications from "../notifications";
 import * as ndcPaymentStatus from "../ndc-payment-status";
+import { getPropertyByUPN } from "../properties";
 import { getAuthUserId, send400, send403, send404 } from "../errors";
 import {
   requireApplicationReadAccess,
@@ -349,6 +350,51 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
     return applications.getUserPendingActions(userId);
   });
 
+  app.post("/api/v1/applications/check-duplicate", {
+    schema: {
+      body: {
+        type: "object",
+        required: ["serviceKey"],
+        additionalProperties: false,
+        properties: {
+          serviceKey: { type: "string", minLength: 1 },
+          propertyUpn: { type: "string" },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const userId = getAuthUserId(request, "userId");
+    if (!userId) return send400(reply, "USER_ID_REQUIRED");
+    const body = request.body as { serviceKey: string; propertyUpn?: string };
+
+    let propertyId: string | null = null;
+    if (body.propertyUpn) {
+      // Resolve UPN to property_id — try all authorities
+      const prop = await getPropertyByUPN("PUDA", body.propertyUpn)
+        || await getPropertyByUPN("GMADA", body.propertyUpn)
+        || await getPropertyByUPN("GLADA", body.propertyUpn)
+        || await getPropertyByUPN("BDA", body.propertyUpn);
+      if (prop) {
+        propertyId = prop.property_id;
+      }
+    }
+
+    const existing = await applications.checkDuplicateApplication(
+      userId,
+      body.serviceKey,
+      propertyId
+    );
+
+    return {
+      hasDuplicate: existing.length > 0,
+      existingApplications: existing.map((app) => ({
+        arn: app.public_arn || app.arn,
+        state_id: app.state_id,
+        created_at: app.created_at,
+      })),
+    };
+  });
+
   app.get("/api/v1/applications/search", { schema: applicationSearchSchema }, async (request, reply) => {
     const q = request.query as any;
     const scopedAuthorityId = await resolveBackofficeAuthorityScope(
@@ -635,7 +681,24 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
           };
         }
         if (!existingOutput && application.disposal_type !== "REJECTED") {
-          await outputs.generateOutput(internalArn, "ndc_approval", application.service_key);
+          const outputRecord = await outputs.generateOutput(internalArn, "ndc_approval", application.service_key);
+          // Issue document to citizen's locker
+          try {
+            if (application.applicant_user_id && outputRecord.storage_key) {
+              const basename = outputRecord.storage_key.split("/").pop() || "certificate.pdf";
+              await documents.issueCitizenDocument(
+                application.applicant_user_id,
+                `output_${application.service_key}`,
+                outputRecord.storage_key,
+                basename,
+                "application/pdf",
+                0,
+                application.public_arn || application.arn,
+                outputRecord.valid_from ? outputRecord.valid_from.toISOString().split("T")[0] : null,
+                outputRecord.valid_to ? outputRecord.valid_to.toISOString().split("T")[0] : null
+              );
+            }
+          } catch (e) { request.log.warn(e, "Issuing document to locker failed"); }
         }
       }
 
