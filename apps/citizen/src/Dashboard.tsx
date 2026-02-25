@@ -78,6 +78,7 @@ interface ProfileCompleteness {
 interface DashboardProps {
   onNavigateToCatalog: () => void;
   onNavigateToApplication: (arn: string) => void;
+  onNavigateToApplications?: (filter?: string) => void;
   onNavigateToLocker?: (filter?: string) => void;
   onNavigateToComplaints?: () => void;
   onFilterApplications?: (filter: { status?: string; type?: string }) => void;
@@ -199,6 +200,7 @@ function isDashboardCachePayload(value: unknown): value is DashboardCachePayload
 export default function Dashboard({
   onNavigateToCatalog,
   onNavigateToApplication,
+  onNavigateToApplications,
   onNavigateToLocker,
   onNavigateToComplaints,
   onFilterApplications,
@@ -215,6 +217,19 @@ export default function Dashboard({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [docLockerSummary, setDocLockerSummary] = useState<DocLockerSummary | null>(null);
   const [complaintSummary, setComplaintSummary] = useState<{ total: number; active: number; resolved: number } | null>(null);
+  const [nudges, setNudges] = useState<{
+    expiringDocuments: Array<{ citizen_doc_id: string; doc_type_id: string; original_filename: string; valid_until: string }>;
+    stalledApplications: Array<{ arn: string; service_key: string; system_role_id: string; sla_due_at: string }>;
+  } | null>(null);
+  const [processingStats, setProcessingStats] = useState<Array<{
+    serviceKey: string;
+    serviceName: string;
+    avgDays: number;
+    p90Days: number;
+    totalCompleted: number;
+    slaDays: number;
+    complianceRate: number;
+  }> | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -270,13 +285,15 @@ export default function Dashboard({
       const hdrs = authHeaders();
 
       // Load stats, applications, pending actions, notifications, and doc locker summary in parallel
-      const [statsRes, appsRes, actionsRes, notifsRes, docsRes, complaintsRes] = await Promise.all([
+      const [statsRes, appsRes, actionsRes, notifsRes, docsRes, complaintsRes, nudgesRes, processingStatsRes] = await Promise.all([
         fetch(`${apiBaseUrl}/api/v1/applications/stats?userId=${user.user_id}`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/applications?userId=${user.user_id}&limit=10`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/applications/pending-actions?userId=${user.user_id}`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/notifications?userId=${user.user_id}&limit=5&unreadOnly=true`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/citizens/me/documents`, { headers: hdrs }),
         fetch(`${apiBaseUrl}/api/v1/complaints?limit=100`, { headers: hdrs }),
+        fetch(`${apiBaseUrl}/api/v1/applications/nudges?userId=${user.user_id}`, { headers: hdrs }).catch(() => null),
+        fetch(`${apiBaseUrl}/api/v1/services/processing-stats`, { headers: hdrs }).catch(() => null),
       ]);
 
       let nextStats: Stats | null = null;
@@ -321,6 +338,19 @@ export default function Dashboard({
         const active = all.filter((c: any) => !["RESOLVED", "CLOSED", "REJECTED"].includes(c.status)).length;
         const resolved = all.filter((c: any) => c.status === "RESOLVED" || c.status === "CLOSED").length;
         setComplaintSummary({ total: complaintsData.total || all.length, active, resolved });
+      }
+
+      if (nudgesRes && nudgesRes.ok) {
+        const nudgesData = await nudgesRes.json();
+        setNudges({
+          expiringDocuments: nudgesData.expiringDocuments || [],
+          stalledApplications: nudgesData.stalledApplications || [],
+        });
+      }
+
+      if (processingStatsRes && processingStatsRes.ok) {
+        const psData = await processingStatsRes.json();
+        setProcessingStats(psData.services || []);
       }
 
       if (statsRes.ok && appsRes.ok && actionsRes.ok && notifsRes.ok) {
@@ -425,6 +455,25 @@ export default function Dashboard({
     pendingActions.queries.length > 0 || pendingActions.documentRequests.length > 0
   );
 
+  const TERMINAL_STATES = new Set(["APPROVED", "REJECTED", "CLOSED"]);
+
+  const getSlaForService = (serviceKey: string) =>
+    processingStats?.find((s) => s.serviceKey === serviceKey) ?? null;
+
+  const profileSectionLabels: Record<string, string> = {
+    identity: t("dashboard.profile_identity"),
+    personal: t("dashboard.profile_personal"),
+    contact: t("dashboard.profile_contact"),
+    address: t("dashboard.profile_address"),
+  };
+
+  const profileSectionIcons: Record<string, string> = {
+    identity: "\uD83C\uDD94",
+    personal: "\uD83D\uDC64",
+    contact: "\uD83D\uDCDE",
+    address: "\uD83C\uDFE0",
+  };
+
   return (
     <div className="dashboard">
       {isOffline ? (
@@ -440,42 +489,7 @@ export default function Dashboard({
         </Alert>
       ) : null}
 
-      {/* Profile Completion Card */}
-      {profileCompleteness && (profileCompleteness.completionPercent ?? 0) < 100 && onNavigateToProfile && (
-        <div className="profile-completion-card">
-          <div className="profile-completion-card__title">Complete Your Profile</div>
-          <div className="profile-completion-card__bar">
-            <div
-              className="profile-completion-card__bar-fill"
-              style={{ width: `${profileCompleteness.completionPercent ?? 0}%` }}
-            />
-          </div>
-          <div style={{ fontSize: "0.85rem", color: "var(--color-text-subtle)", marginBottom: "var(--space-3)" }}>
-            {profileCompleteness.completionPercent ?? 0}% complete
-          </div>
-          {profileCompleteness.sections && (
-            <div className="profile-completion-card__sections">
-              {(["identity", "personal", "contact", "address"] as const).map((key) => {
-                const section = profileCompleteness.sections?.[key];
-                const done = section?.complete ?? false;
-                return (
-                  <span key={key} className="profile-completion-card__section">
-                    <span className={done ? "profile-completion-card__check" : "profile-completion-card__cross"}>
-                      {done ? "\u2713" : "\u2717"}
-                    </span>
-                    {key.charAt(0).toUpperCase() + key.slice(1)}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          <Button variant="primary" onClick={onNavigateToProfile}>
-            Complete Profile →
-          </Button>
-        </div>
-      )}
-
-      {/* Quick Stats Cards */}
+      {/* 1. Quick Stats Cards */}
       {stats && (
         <div className="stats-grid">
           <Card className="stat-card-wrap">
@@ -484,8 +498,8 @@ export default function Dashboard({
               variant="ghost"
               className="stat-card stat-clickable"
               onClick={() => {
-                // Show all applications
-                onNavigateToApplication("");
+                if (onNavigateToApplications) onNavigateToApplications();
+                else onNavigateToApplication("");
               }}
             >
               <div className="stat-value">{stats.total}</div>
@@ -498,8 +512,8 @@ export default function Dashboard({
               variant="ghost"
               className="stat-card stat-active stat-clickable"
               onClick={() => {
-                // Filter by active status
-                onNavigateToApplication("");
+                if (onNavigateToApplications) onNavigateToApplications("active");
+                else onNavigateToApplication("");
               }}
             >
               <div className="stat-value">{stats.active}</div>
@@ -534,8 +548,8 @@ export default function Dashboard({
               variant="ghost"
               className="stat-card stat-approved stat-clickable"
               onClick={() => {
-                // Filter by approved
-                onNavigateToApplication("");
+                if (onNavigateToApplications) onNavigateToApplications("approved");
+                else onNavigateToApplication("");
               }}
             >
               <div className="stat-value">{stats.approved}</div>
@@ -545,100 +559,47 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Document Locker stats card */}
-      {onNavigateToLocker && (
-        <div className="section doc-locker-section">
-          <Card className="doc-locker-card">
-            <div className="doc-locker-card-header">
-              <span className="doc-locker-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M7 3h7l5 5v13H7z" />
-                  <path d="M14 3v6h5" />
-                </svg>
-              </span>
-              <h3 className="doc-locker-card-title"><Bilingual tKey="dashboard.doc_locker_title" /></h3>
+      {/* 2. Profile Completion Card (only when incomplete) */}
+      {profileCompleteness && (profileCompleteness.completionPercent ?? 0) < 100 && onNavigateToProfile && (
+        <div className="profile-completion-card">
+          <div className="profile-completion-card__header">
+            <div className="profile-completion-card__title">{t("dashboard.profile_title")}</div>
+            <span className="profile-completion-card__counter">
+              {t("dashboard.profile_count", {
+                done: (["identity", "personal", "contact", "address"] as const).filter(
+                  (k) => profileCompleteness.sections?.[k]?.complete
+                ).length,
+                total: 4,
+              })}
+            </span>
+          </div>
+          {profileCompleteness.sections && (
+            <div className="profile-completion-card__grid">
+              {(["identity", "personal", "contact", "address"] as const).map((key) => {
+                const done = profileCompleteness.sections?.[key]?.complete ?? false;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`profile-tile ${done ? "profile-tile--done" : "profile-tile--pending"}`}
+                    onClick={onNavigateToProfile}
+                  >
+                    <span className="profile-tile__icon" aria-hidden="true">
+                      {done ? "\u2713" : profileSectionIcons[key]}
+                    </span>
+                    <span className="profile-tile__label">{profileSectionLabels[key]}</span>
+                    <span className="profile-tile__status">
+                      {done ? t("dashboard.profile_done") : t("dashboard.profile_fill_in")}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            {docLockerSummary && docLockerSummary.total > 0 ? (
-              <div className="doc-locker-stats-grid">
-                <div className="doc-locker-stat">
-                  <span className="doc-locker-stat-value">{docLockerSummary.total}</span>
-                  <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
-                </div>
-                <div className="doc-locker-stat">
-                  <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.valid}</span>
-                  <span className="doc-locker-stat-label">{t("dashboard.doc_valid")}</span>
-                </div>
-                <div className={`doc-locker-stat ${docLockerSummary.expired > 0 ? "doc-locker-stat--action" : ""}`}>
-                  <span className={`doc-locker-stat-value ${docLockerSummary.expired > 0 ? "doc-locker-stat-value--action" : ""}`}>
-                    {docLockerSummary.expired}
-                  </span>
-                  <span className="doc-locker-stat-label">{t("dashboard.doc_expired")}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="doc-locker-empty-text">{t("dashboard.doc_locker_desc")}</p>
-            )}
-            {docLockerSummary && docLockerSummary.expiringSoon > 0 && (
-              <Alert variant="warning" className="doc-locker-expiry-banner">
-                {t("dashboard.doc_expiring", { count: docLockerSummary.expiringSoon })}
-              </Alert>
-            )}
-            <div className="doc-locker-card-actions">
-              <Button onClick={() => onNavigateToLocker()} variant="secondary" size="sm">
-                {t("dashboard.doc_open")}
-              </Button>
-              {docLockerSummary && docLockerSummary.expired > 0 && (
-                <Button onClick={() => onNavigateToLocker("expired")} variant="danger" size="sm">
-                  {t("dashboard.doc_view_expired", { count: docLockerSummary.expired })}
-                </Button>
-              )}
-            </div>
-          </Card>
+          )}
         </div>
       )}
 
-      {/* Complaints summary card */}
-      {onNavigateToComplaints && (
-        <div className="section doc-locker-section">
-          <Card className="doc-locker-card">
-            <div className="doc-locker-card-header">
-              <span className="doc-locker-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </span>
-              <h3 className="doc-locker-card-title"><Bilingual tKey="nav.complaints" /></h3>
-            </div>
-            {complaintSummary && complaintSummary.total > 0 ? (
-              <div className="doc-locker-stats-grid">
-                <div className="doc-locker-stat">
-                  <span className="doc-locker-stat-value">{complaintSummary.total}</span>
-                  <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
-                </div>
-                <div className="doc-locker-stat">
-                  <span className="doc-locker-stat-value doc-locker-stat-value--action">{complaintSummary.active}</span>
-                  <span className="doc-locker-stat-label">{t("dashboard.stat_active")}</span>
-                </div>
-                <div className="doc-locker-stat">
-                  <span className="doc-locker-stat-value doc-locker-stat-value--verified">{complaintSummary.resolved}</span>
-                  <span className="doc-locker-stat-label">{t("complaints.status_resolved")}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="doc-locker-empty-text">{t("complaints.subtitle")}</p>
-            )}
-            <div className="doc-locker-card-actions">
-              <Button onClick={() => onNavigateToComplaints()} variant="secondary" size="sm">
-                {t("complaints.my_complaints")}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Requires Attention - TOP PRIORITY */}
+      {/* 3. Requires Attention (promoted — most critical user actions) */}
       {hasPendingActions && (
         <div className="section requires-attention">
           <h2 className="section-title">
@@ -647,7 +608,7 @@ export default function Dashboard({
             </span>
             <Bilingual tKey="dashboard.requires_attention" />
           </h2>
-          
+
           {pendingActions.queries.length > 0 && (
             <div className="attention-cards">
               {pendingActions.queries.map((query) => (
@@ -703,7 +664,56 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Recent Applications */}
+      {/* 4. Smart Suggestions / Nudges */}
+      {nudges && (nudges.expiringDocuments.length > 0 || nudges.stalledApplications.length > 0) && (
+        <div className="section nudge-section">
+          <h2 className="section-title">
+            <span className="section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </span>
+            <Bilingual tKey="nudge.title" />
+          </h2>
+          <div className="nudge-list">
+            {nudges.stalledApplications.map((app) => (
+              <div key={app.arn} className="nudge-card nudge-card--warning">
+                <div className="nudge-card__content">
+                  <p className="nudge-card__message">
+                    {t("nudge.stalled_app", {
+                      service: getServiceDisplayName(app.service_key),
+                      role: app.system_role_id?.replace(/_/g, " ") || "",
+                      defaultValue: `Your ${getServiceDisplayName(app.service_key)} application is approaching its SLA deadline`,
+                    })}
+                  </p>
+                  <span className="nudge-card__meta">{app.arn}</span>
+                </div>
+                <Button variant="secondary" size="sm" onClick={() => onNavigateToApplication(app.arn)}>
+                  {t("common.view_details")}
+                </Button>
+              </div>
+            ))}
+            {nudges.expiringDocuments.map((doc) => (
+              <div key={doc.citizen_doc_id} className="nudge-card nudge-card--tip">
+                <div className="nudge-card__content">
+                  <p className="nudge-card__message">
+                    {t("nudge.doc_expiring", {
+                      docType: doc.doc_type_id?.replace(/_/g, " ") || doc.original_filename,
+                      date: new Date(doc.valid_until).toLocaleDateString(),
+                      defaultValue: `Your ${doc.doc_type_id?.replace(/_/g, " ")} expires on ${new Date(doc.valid_until).toLocaleDateString()}`,
+                    })}
+                  </p>
+                </div>
+                {onNavigateToLocker && (
+                  <Button variant="secondary" size="sm" onClick={() => onNavigateToLocker()}>
+                    {t("nudge.upload_renewal")}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. Recent Applications */}
       {applications.length > 0 && (
         <div className="section recent-applications">
           <h2 className="section-title">
@@ -713,7 +723,14 @@ export default function Dashboard({
             <Bilingual tKey="dashboard.recent_apps" />
           </h2>
             <div className="application-cards">
-              {applications.map((app) => (
+              {applications.map((app) => {
+                const sla = !TERMINAL_STATES.has(app.state_id) && app.submitted_at
+                  ? getSlaForService(app.service_key)
+                  : null;
+                const daysSoFar = app.submitted_at
+                  ? Math.max(0, Math.round((Date.now() - new Date(app.submitted_at).getTime()) / 86400000))
+                  : 0;
+                return (
                 <Card key={app.arn} className="application-card-wrap">
                   <Button
                     type="button"
@@ -728,6 +745,19 @@ export default function Dashboard({
                       </span>
                     </div>
                     <div className="app-card-arn">{app.arn}</div>
+                    {sla && sla.slaDays > 0 && (
+                      <div className="app-card-sla">
+                        <div className="app-card-sla__bar">
+                          <div
+                            className={`app-card-sla__fill ${daysSoFar > sla.slaDays ? "app-card-sla__fill--over" : ""}`}
+                            style={{ width: `${Math.min(100, (daysSoFar / sla.slaDays) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="app-card-sla__label">
+                          {t("sla.day_of", { current: daysSoFar, estimated: sla.slaDays })}
+                        </span>
+                      </div>
+                    )}
                     <div className="app-card-footer">
                       <span className="app-card-date">
                         {app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}
@@ -736,12 +766,16 @@ export default function Dashboard({
                     </div>
                   </Button>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           {applications.length >= 10 && (
             <div className="view-all-link">
               <Button
-                onClick={() => onNavigateToApplication("")}
+                onClick={() => {
+                  if (onNavigateToApplications) onNavigateToApplications();
+                  else onNavigateToApplication("");
+                }}
                 className="btn-view-all"
               >
                 {t("dashboard.view_all")} →
@@ -751,7 +785,92 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Notifications */}
+      {/* 6. Document Locker summary (only when data exists) */}
+      {onNavigateToLocker && docLockerSummary && docLockerSummary.total > 0 && (
+        <div className="section doc-locker-section">
+          <Card className="doc-locker-card">
+            <div className="doc-locker-card-header">
+              <span className="doc-locker-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M7 3h7l5 5v13H7z" />
+                  <path d="M14 3v6h5" />
+                </svg>
+              </span>
+              <h3 className="doc-locker-card-title"><Bilingual tKey="dashboard.doc_locker_title" /></h3>
+            </div>
+            <div className="doc-locker-stats-grid">
+              <div className="doc-locker-stat">
+                <span className="doc-locker-stat-value">{docLockerSummary.total}</span>
+                <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
+              </div>
+              <div className="doc-locker-stat">
+                <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.valid}</span>
+                <span className="doc-locker-stat-label">{t("dashboard.doc_valid")}</span>
+              </div>
+              <div className={`doc-locker-stat ${docLockerSummary.expired > 0 ? "doc-locker-stat--action" : ""}`}>
+                <span className={`doc-locker-stat-value ${docLockerSummary.expired > 0 ? "doc-locker-stat-value--action" : ""}`}>
+                  {docLockerSummary.expired}
+                </span>
+                <span className="doc-locker-stat-label">{t("dashboard.doc_expired")}</span>
+              </div>
+            </div>
+            {docLockerSummary.expiringSoon > 0 && (
+              <Alert variant="warning" className="doc-locker-expiry-banner">
+                {t("dashboard.doc_expiring", { count: docLockerSummary.expiringSoon })}
+              </Alert>
+            )}
+            <div className="doc-locker-card-actions">
+              <Button onClick={() => onNavigateToLocker()} variant="secondary" size="sm">
+                {t("dashboard.doc_open")}
+              </Button>
+              {docLockerSummary.expired > 0 && (
+                <Button onClick={() => onNavigateToLocker("expired")} variant="danger" size="sm">
+                  {t("dashboard.doc_view_expired", { count: docLockerSummary.expired })}
+                </Button>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 7. Complaints summary (only when data exists) */}
+      {onNavigateToComplaints && complaintSummary && complaintSummary.total > 0 && (
+        <div className="section doc-locker-section">
+          <Card className="doc-locker-card">
+            <div className="doc-locker-card-header">
+              <span className="doc-locker-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </span>
+              <h3 className="doc-locker-card-title"><Bilingual tKey="nav.complaints" /></h3>
+            </div>
+            <div className="doc-locker-stats-grid">
+              <div className="doc-locker-stat">
+                <span className="doc-locker-stat-value">{complaintSummary.total}</span>
+                <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
+              </div>
+              <div className="doc-locker-stat">
+                <span className="doc-locker-stat-value doc-locker-stat-value--action">{complaintSummary.active}</span>
+                <span className="doc-locker-stat-label">{t("dashboard.stat_active")}</span>
+              </div>
+              <div className="doc-locker-stat">
+                <span className="doc-locker-stat-value doc-locker-stat-value--verified">{complaintSummary.resolved}</span>
+                <span className="doc-locker-stat-label">{t("complaints.status_resolved")}</span>
+              </div>
+            </div>
+            <div className="doc-locker-card-actions">
+              <Button onClick={() => onNavigateToComplaints()} variant="secondary" size="sm">
+                {t("complaints.my_complaints")}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 8. Notifications */}
       {notifications.length > 0 && (
         <div className="section notifications">
           <h2 className="section-title">
@@ -787,7 +906,7 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Empty State */}
+      {/* 10. Empty State (first-time users only) */}
       {!stats && applications.length === 0 && !hasPendingActions && (
         <div className="empty-state">
           <div className="empty-icon" aria-hidden="true">

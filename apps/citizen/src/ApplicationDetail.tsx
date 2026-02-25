@@ -23,6 +23,21 @@ interface ApplicationDetailProps {
     queries?: any[];
     tasks?: any[];
     timeline?: any[];
+    workflow_stages?: Array<{
+      stateId: string;
+      systemRoleId: string | null;
+      slaDays: number | null;
+      status: "completed" | "current" | "upcoming";
+      enteredAt?: string | null;
+      completedAt?: string | null;
+    }>;
+    current_handler?: {
+      officer_name?: string;
+      role_id: string;
+      sla_due_at?: string | null;
+      days_in_stage: number;
+      since: string;
+    } | null;
   };
   feedback?: {
     variant: "info" | "success" | "warning" | "error";
@@ -519,6 +534,22 @@ export default function ApplicationDetail({
               </div>
             )}
           </div>
+          {application.submitted_at && !["APPROVED", "REJECTED", "DRAFT"].includes(application.state_id) && (() => {
+            const daysSinceSubmission = Math.floor((Date.now() - new Date(application.submitted_at).getTime()) / (1000 * 60 * 60 * 24));
+            const currentStage = detail.workflow_stages?.find(s => s.status === "current");
+            const estimatedDays = currentStage?.slaDays || 30;
+            const progressPercent = Math.min(100, Math.round((daysSinceSubmission / estimatedDays) * 100));
+            return (
+              <div className="sla-progress">
+                <div className="sla-progress__bar">
+                  <div className="sla-progress__fill" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <span className="sla-progress__text">
+                  {t("sla.day_of", { current: daysSinceSubmission, estimated: estimatedDays })}
+                </span>
+              </div>
+            );
+          })()}
           {application.state_id === "DRAFT" && onSubmit && (
             <Button onClick={onSubmit} className="submit-button-large" fullWidth disabled={isOffline}>
               {t("app_detail.submit")}
@@ -527,7 +558,88 @@ export default function ApplicationDetail({
         </div>
       </div>
 
-      {application.service_key === "no_due_certificate" && (
+      {/* Milestone Banners */}
+      {application.disposal_type === "APPROVED" && (
+        <div className="milestone-banner milestone-banner--approved" role="status">
+          <div className="milestone-banner__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div className="milestone-banner__content">
+            <h3 className="milestone-banner__title">{t("milestone.approved_title")}</h3>
+            <p className="milestone-banner__desc">{t("milestone.approved_desc")}</p>
+          </div>
+        </div>
+      )}
+      {application.disposal_type === "REJECTED" && (
+        <div className="milestone-banner milestone-banner--rejected" role="status">
+          <div className="milestone-banner__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          </div>
+          <div className="milestone-banner__content">
+            <h3 className="milestone-banner__title">{t("milestone.rejected_title")}</h3>
+            <p className="milestone-banner__desc">{t("milestone.rejected_desc")}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Tracker */}
+      {detail.workflow_stages && detail.workflow_stages.length > 0 && (
+        <div className="detail-section progress-tracker-section">
+          <h2 className="section-title"><Bilingual tKey="timeline.progress" /></h2>
+          <div className="progress-tracker">
+            {detail.workflow_stages.map((stage, idx) => (
+              <div
+                key={stage.stateId}
+                className={`progress-tracker__step progress-tracker__step--${stage.status}`}
+              >
+                <div className="progress-tracker__dot">
+                  {stage.status === "completed" ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  ) : (
+                    <span>{idx + 1}</span>
+                  )}
+                </div>
+                <div className="progress-tracker__label">
+                  <span className="progress-tracker__role">
+                    {t(`stage.${(stage.systemRoleId || stage.stateId).toLowerCase()}`, { defaultValue: (stage.systemRoleId || stage.stateId).replace(/_/g, " ") })}
+                  </span>
+                  {stage.slaDays && (
+                    <span className="progress-tracker__sla">
+                      {t("timeline.estimated_days", { count: stage.slaDays, defaultValue: `~${stage.slaDays} days` })}
+                    </span>
+                  )}
+                </div>
+                {idx < detail.workflow_stages!.length - 1 && <div className="progress-tracker__connector" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Who Has My File */}
+      {detail.current_handler && (
+        <div className="detail-section handler-card">
+          <div className="handler-card__header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="handler-card__icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <h3><Bilingual tKey="handler.currently_with" /></h3>
+          </div>
+          <div className="handler-card__body">
+            {detail.current_handler.officer_name ? (
+              <p className="handler-card__name">{detail.current_handler.officer_name}</p>
+            ) : (
+              <p className="handler-card__awaiting">{t("handler.awaiting_assignment", { role: detail.current_handler.role_id.replace(/_/g, " "), defaultValue: `Awaiting assignment to ${detail.current_handler.role_id.replace(/_/g, " ")}` })}</p>
+            )}
+            <p className="handler-card__role">
+              {t(`stage.${detail.current_handler.role_id.toLowerCase()}`, { defaultValue: detail.current_handler.role_id.replace(/_/g, " ") })}
+            </p>
+            <p className="handler-card__since">
+              {t("handler.since", { defaultValue: "Since" })}: {new Date(detail.current_handler.since).toLocaleDateString()} ({t("handler.days", { count: detail.current_handler.days_in_stage, defaultValue: `${detail.current_handler.days_in_stage} days` })})
+            </p>
+          </div>
+        </div>
+      )}
+
+      {application.service_key === "no_due_certificate" && (ndcPaymentStatusLoading || ndcPaymentStatus) && (
         <div className="detail-section" id="ndc-payment-ledger">
           <h2 className="section-title"><Bilingual tKey="ndc.payment_status" /></h2>
           {ndcPaymentStatusLoading ? (

@@ -29,18 +29,18 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div style={{ padding: "2rem", fontFamily: "var(--font-sans, sans-serif)", maxWidth: "600px", margin: "2rem auto" }}>
-          <h2 style={{ color: "var(--color-danger, #c00)", marginBottom: "1rem" }}>Something went wrong</h2>
-          <pre style={{ background: "var(--color-bg-elevated, #f5f5f5)", padding: "1rem", overflow: "auto", borderRadius: "0.5rem", fontSize: "0.85rem" }}>
+        <div style={{ padding: "var(--space-7, 2rem)", fontFamily: "var(--font-sans, sans-serif)", maxWidth: "min(100%, 48rem)", margin: "var(--space-7, 2rem) auto" }}>
+          <h2 style={{ color: "var(--color-danger, #c00)", marginBottom: "var(--space-4, 1rem)" }}>Something went wrong</h2>
+          <pre style={{ background: "var(--color-bg-elevated, #f5f5f5)", padding: "var(--space-4, 1rem)", overflow: "auto", borderRadius: "var(--radius-sm, 0.5rem)", fontSize: "0.85rem" }}>
             {this.state.error.message}
           </pre>
-          <p style={{ fontSize: "0.9rem", marginTop: "1rem", color: "var(--color-text-muted, #666)" }}>
+          <p style={{ fontSize: "0.9rem", marginTop: "var(--space-4, 1rem)", color: "var(--color-text-muted, #666)" }}>
             This error has been reported. Try refreshing the page.
           </p>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            style={{ marginTop: "1rem", padding: "0.5rem 1rem", borderRadius: "0.5rem", border: "1px solid #ccc", cursor: "pointer", fontWeight: 600 }}
+            style={{ marginTop: "var(--space-4, 1rem)", padding: "var(--space-2, 0.5rem) var(--space-4, 1rem)", borderRadius: "var(--radius-sm, 0.5rem)", border: "1px solid var(--color-border, #ccc)", cursor: "pointer", fontWeight: 600, minHeight: "2.75rem" }}
           >
             Refresh Page
           </button>

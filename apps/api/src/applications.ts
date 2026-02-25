@@ -647,9 +647,9 @@ export async function getUserApplicationStats(userId: string): Promise<{
   const result = await query(
     `SELECT
        COUNT(*) as total,
-       COUNT(*) FILTER (WHERE state_id IN ('DRAFT', 'SUBMITTED', 'IN_PROGRESS', 'QUERY_PENDING')) as active,
+       COUNT(*) FILTER (WHERE state_id NOT IN ('APPROVED', 'REJECTED', 'CLOSED')) as active,
        COUNT(*) FILTER (WHERE state_id = 'QUERY_PENDING') as pending_action,
-       COUNT(*) FILTER (WHERE disposal_type = 'APPROVED') as approved
+       COUNT(*) FILTER (WHERE state_id = 'APPROVED') as approved
      FROM application
      WHERE applicant_user_id = $1`,
     [userId]

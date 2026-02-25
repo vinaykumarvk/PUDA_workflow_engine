@@ -1,12 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 
-export type ThemePreference = "light" | "dark" | "system";
-export type ResolvedTheme = "light" | "dark";
+export const CUSTOM_THEMES = [
+  "rolex",
+  "nord",
+  "dracula",
+  "solarized",
+  "monokai",
+  "catppuccin",
+  "gruvbox",
+  "onedark",
+  "tokyonight",
+  "rosepine",
+  "ayu",
+  "github",
+  "sunset",
+] as const;
+
+export type CustomTheme = (typeof CUSTOM_THEMES)[number];
+export type ThemePreference = "light" | "dark" | "system" | CustomTheme;
+export type ResolvedTheme = "light" | "dark" | CustomTheme;
+
+const VALID_STORED = new Set<string>(["light", "dark", "system", ...CUSTOM_THEMES]);
 
 function getStoredTheme(storageKey: string): ThemePreference {
   const stored = localStorage.getItem(storageKey);
-  if (stored === "light" || stored === "dark" || stored === "system") {
-    return stored;
+  if (stored && VALID_STORED.has(stored)) {
+    return stored as ThemePreference;
   }
   return "system";
 }

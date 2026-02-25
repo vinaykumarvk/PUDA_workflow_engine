@@ -15,7 +15,7 @@
 
 .complaint-toolbar .search-input {
   flex: 1;
-  min-width: 200px;
+  min-width: 12rem;
 }
 
 .complaint-filters {
@@ -26,6 +26,9 @@
 
 .complaint-filter-chip {
   padding: 0.35rem 0.75rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
   border-radius: var(--radius-full, 999px);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -34,11 +37,16 @@
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .complaint-filter-chip:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+.complaint-filter-chip:active {
+  background: var(--color-bg-elevated);
 }
 
 .complaint-filter-chip--active {
@@ -64,6 +72,10 @@
 
 .complaint-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.complaint-card:active {
+  background: var(--color-bg-elevated);
 }
 
 .complaint-card-header {
@@ -191,7 +203,7 @@
   gap: var(--space-3);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 48rem) {
   .complaint-form-grid {
     grid-template-columns: 1fr;
   }
@@ -260,8 +272,90 @@
   gap: var(--space-3);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 48rem) {
   .complaint-detail-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ─── Voice Input ─── */
+.voice-input-wrap {
+  position: relative;
+}
+
+.voice-input-btn {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.voice-input-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.voice-input-btn:hover {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.voice-input-btn:active {
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+.voice-input-btn--listening {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.voice-input-btn--listening:hover,
+.voice-input-btn--listening:active {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.voice-input-btn__pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--color-danger);
+  animation: voice-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-input-btn__pulse {
+    animation: none;
+  }
+}
+
+[data-reduce-motion="true"] .voice-input-btn__pulse {
+  animation: none;
+}
+
+.voice-input-hint {
+  margin-top: var(--space-1);
+  font-size: 0.82rem;
+  color: var(--color-danger);
+  font-weight: 600;
 }

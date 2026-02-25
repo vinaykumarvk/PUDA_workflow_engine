@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
 export type UserPreferences = {
-  theme: "light" | "dark" | "system";
+  theme: string; // "light" | "dark" | "system" | custom theme names
   sidebarCollapsed: boolean;
   defaultLandingPage: "dashboard" | "services" | "applications" | "locker";
   reduceAnimations: boolean;
+  contrastMode: "normal" | "high";
   language: "hi" | "pa" | "none";
   dateFormat: "DD/MM/YYYY" | "YYYY-MM-DD";
 };
@@ -14,6 +15,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   sidebarCollapsed: false,
   defaultLandingPage: "dashboard",
   reduceAnimations: false,
+  contrastMode: "normal",
   language: "none",
   dateFormat: "DD/MM/YYYY",
 };
@@ -37,7 +39,7 @@ function readLocal(): UserPreferences {
   // Migrate from old keys on first load
   const prefs = { ...DEFAULT_PREFERENCES };
   const oldTheme = localStorage.getItem("puda_citizen_theme");
-  if (oldTheme === "light" || oldTheme === "dark" || oldTheme === "system") {
+  if (oldTheme) {
     prefs.theme = oldTheme;
   }
   const oldLang = localStorage.getItem("puda_lang");

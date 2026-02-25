@@ -35,7 +35,7 @@ const ProfileSummaryLazy = lazy(() => import("./Onboarding").then((m) => ({ defa
 import { useTheme } from "./theme";
 import { usePreferences } from "./preferences";
 import "./i18n";
-import { readCached, writeCached } from "./cache";
+import { readCached, writeCached, readOfflineDrafts, writeOfflineDraft, markOfflineDraftSynced, removeOfflineDraft, getUnsyncedDraftCount } from "./cache";
 import { flushCacheTelemetryWithRetry, incrementCacheTelemetry } from "./cacheTelemetry";
 
 type ServiceSummary = {
@@ -283,12 +283,35 @@ export default function App() {
   );
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [usingStaleData, setUsingStaleData] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(() => getUnsyncedDraftCount());
   const [draftConflictArn, setDraftConflictArn] = useState<string | null>(null);
   const [resolvingDraftConflict, setResolvingDraftConflict] = useState(false);
   const [appSearchQuery, setAppSearchQuery] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState("");
+  const [submissionConfirmation, setSubmissionConfirmation] = useState<{
+    arn: string;
+    serviceName: string;
+    submittedAt: string;
+  } | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarMenuRef = useRef<HTMLDivElement>(null);
+  const avatarBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (
+        avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node) &&
+        avatarBtnRef.current && !avatarBtnRef.current.contains(e.target as Node)
+      ) setAvatarMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAvatarMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [avatarMenuOpen]);
 
   const [duplicateWarning, setDuplicateWarning] = useState<{
     serviceKey: string;
@@ -310,6 +333,7 @@ export default function App() {
   const navigateTo = useCallback((nextView: ViewId, nextDashboard: boolean) => {
     if (!confirmNavigation()) return;
     setFormDirty(false);
+    setAvatarMenuOpen(false);
     navStackRef.current.push({ view, showDashboard });
     setView(nextView);
     setShowDashboard(nextDashboard);
@@ -833,6 +857,50 @@ export default function App() {
     };
   }, [flushCacheTelemetryNow]);
 
+  // Offline draft sync: flush queued drafts when coming back online
+  useEffect(() => {
+    if (isOffline || !user) return;
+    const unsyncedDrafts = readOfflineDrafts().filter(d => !d.synced);
+    if (unsyncedDrafts.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      let syncedCount = 0;
+      for (const draft of unsyncedDrafts) {
+        if (cancelled) break;
+        try {
+          const res = await fetch(`${apiBaseUrl}/api/v1/applications`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              authorityId: draft.formData?.authority_id || "PUDA",
+              serviceKey: draft.serviceKey,
+              data: draft.formData,
+              userId: user.user_id,
+            }),
+          });
+          if (res.ok) {
+            removeOfflineDraft(draft.id);
+            syncedCount++;
+          } else {
+            markOfflineDraftSynced(draft.id);
+          }
+        } catch {
+          // Network still flaky, stop trying
+          break;
+        }
+      }
+      if (syncedCount > 0 && !cancelled) {
+        showToast("success", t("offline.synced_count", { count: syncedCount }));
+      }
+      if (!cancelled) {
+        setPendingSyncCount(getUnsyncedDraftCount());
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isOffline, user]);
+
   useEffect(() => {
     if (!user || isOffline) return;
     const interval = window.setInterval(() => {
@@ -886,11 +954,7 @@ export default function App() {
     setSelectedService(snapshot.selectedService || null);
     setCurrentApplication(snapshot.currentApplication || null);
     setFormData(snapshot.formData || {});
-    const resumeTime = snapshot.updatedAt ? new Date(snapshot.updatedAt).toLocaleString() : "your last session";
-    setFeedback({
-      variant: "info",
-      text: `Resumed your previous session from ${resumeTime}.`
-    });
+    // Session restoration is silent — no feedback banner needed
   }, [user]);
 
   useEffect(() => {
@@ -921,6 +985,15 @@ export default function App() {
       delete document.documentElement.dataset.reduceMotion;
     }
   }, [preferences.reduceAnimations]);
+
+  // Bridge preferences → high-contrast data attribute
+  useEffect(() => {
+    if (preferences.contrastMode === "high") {
+      document.documentElement.dataset.contrast = "high";
+    } else {
+      delete document.documentElement.dataset.contrast;
+    }
+  }, [preferences.contrastMode]);
 
   useEffect(() => {
     if (!formDirty) return;
@@ -1102,7 +1175,6 @@ export default function App() {
   );
 
   const renderResilienceBanner = () => {
-    if (!isOffline && !usingStaleData) return null;
     const timestamp = lastSyncAt ? new Date(lastSyncAt).toLocaleString() : null;
     if (isOffline) {
       return (
@@ -1112,11 +1184,21 @@ export default function App() {
         </Alert>
       );
     }
-    return (
-      <Alert variant="info" className="view-feedback">
-        {t("common.stale_data", { time: timestamp || "" })}
-      </Alert>
-    );
+    if (usingStaleData) {
+      return (
+        <Alert variant="info" className="view-feedback">
+          {t("common.stale_data", { time: timestamp || "" })}
+        </Alert>
+      );
+    }
+    if (pendingSyncCount > 0 && !isOffline) {
+      return (
+        <Alert variant="info" className="view-feedback">
+          {t("offline.pending_count", { count: pendingSyncCount })}
+        </Alert>
+      );
+    }
+    return null;
   };
 
   // Show login if not authenticated (after all hooks)
@@ -1239,24 +1321,59 @@ export default function App() {
       <header className="app-bar">
         <div className="app-bar__inner">
           <button
-            className="app-bar__hamburger"
-            onClick={() => {
-              // Desktop (>=48rem): toggle sidebar collapse. Mobile: open drawer.
-              if (window.matchMedia("(min-width: 48rem)").matches) {
-                updatePreference("sidebarCollapsed", !preferences.sidebarCollapsed);
-              } else {
-                setDrawerOpen(true);
-              }
-            }}
+            className="app-bar__hamburger app-bar__hamburger--desktop-only"
+            onClick={() => updatePreference("sidebarCollapsed", !preferences.sidebarCollapsed)}
             aria-label={preferences.sidebarCollapsed ? "Expand menu" : "Collapse menu"}
             type="button"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <span className="app-bar__title">{pageTitle}</span>
-          <button className="app-bar__avatar" onClick={() => setDrawerOpen(true)} aria-label="Open menu" type="button">
-            {user.name.charAt(0).toUpperCase()}
-          </button>
+          <div className="app-bar__brand">
+            <svg className="app-bar__logo" viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="20" cy="20" r="19" fill="var(--color-brand)" stroke="var(--color-brand)" strokeWidth="1" />
+              <circle cx="20" cy="20" r="15" fill="none" stroke="#fff" strokeWidth="0.8" />
+              <text x="20" y="16" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="700" fontFamily="system-ui, sans-serif">PUDA</text>
+              <text x="20" y="23" textAnchor="middle" fill="#fff" fontSize="3.2" fontFamily="system-ui, sans-serif">PUNJAB URBAN</text>
+              <text x="20" y="27" textAnchor="middle" fill="#fff" fontSize="3.2" fontFamily="system-ui, sans-serif">DEVELOPMENT</text>
+              <text x="20" y="31" textAnchor="middle" fill="#fff" fontSize="3.2" fontFamily="system-ui, sans-serif">AUTHORITY</text>
+            </svg>
+            <div className="app-bar__brand-text">
+              <span className="app-bar__brand-name">PUDA Citizen Portal</span>
+              <span className="app-bar__page-title">{pageTitle}</span>
+            </div>
+          </div>
+          <div className="app-bar__avatar-wrap" style={{ position: "relative" }}>
+            <button ref={avatarBtnRef} className="app-bar__avatar"
+              onClick={() => setAvatarMenuOpen(p => !p)}
+              aria-label="User menu" aria-expanded={avatarMenuOpen} type="button">
+              {user.name.charAt(0).toUpperCase()}
+            </button>
+            {avatarMenuOpen && (
+              <div ref={avatarMenuRef} className="avatar-menu">
+                <div className="avatar-menu__header">
+                  <span className="avatar-menu__initial">{user.name.charAt(0).toUpperCase()}</span>
+                  <span className="avatar-menu__name">{user.name}</span>
+                </div>
+                <div className="avatar-menu__divider" />
+                <button className="avatar-menu__item" type="button"
+                  onClick={() => { setAvatarMenuOpen(false); navigateTo("profile", false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <Bilingual tKey="nav.profile" />
+                </button>
+                <button className="avatar-menu__item" type="button"
+                  onClick={() => { setAvatarMenuOpen(false); navigateTo("settings", false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <Bilingual tKey="nav.settings" />
+                </button>
+                <div className="avatar-menu__divider" />
+                <button className="avatar-menu__item avatar-menu__item--danger" type="button"
+                  onClick={() => { setAvatarMenuOpen(false); handleLogout(); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <Bilingual tKey="nav.logout" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1269,6 +1386,35 @@ export default function App() {
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         {renderNavContent("drawer")}
       </Drawer>
+
+      {/* Mobile: persistent bottom navigation */}
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <button className={`bottom-nav__tab${showDashboard && view === "catalog" ? " bottom-nav__tab--active" : ""}`}
+          type="button" onClick={() => { if (!(showDashboard && view === "catalog")) navigateTo("catalog", true); }}>
+          <svg className="bottom-nav__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span className="bottom-nav__label"><Bilingual tKey="nav.dashboard" /></span>
+        </button>
+        <button className={`bottom-nav__tab${!showDashboard && view === "catalog" ? " bottom-nav__tab--active" : ""}`}
+          type="button" onClick={() => { if (!(!showDashboard && view === "catalog")) navigateTo("catalog", false); }}>
+          <svg className="bottom-nav__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span className="bottom-nav__label"><Bilingual tKey="nav.services" /></span>
+        </button>
+        <button className={`bottom-nav__tab${view === "applications" ? " bottom-nav__tab--active" : ""}`}
+          type="button" onClick={() => { if (view !== "applications") navigateTo("applications", false); }}>
+          <svg className="bottom-nav__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span className="bottom-nav__label"><Bilingual tKey="nav.applications" /></span>
+        </button>
+        <button className={`bottom-nav__tab${view === "locker" ? " bottom-nav__tab--active" : ""}`}
+          type="button" onClick={() => { if (view !== "locker") { setLockerFilter(undefined); navigateTo("locker", false); } }}>
+          <svg className="bottom-nav__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span className="bottom-nav__label"><Bilingual tKey="nav.locker" /></span>
+        </button>
+        <button className={`bottom-nav__tab${drawerOpen ? " bottom-nav__tab--active" : ""}`}
+          type="button" onClick={() => setDrawerOpen(true)}>
+          <svg className="bottom-nav__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span className="bottom-nav__label"><Bilingual tKey="nav.more" /></span>
+        </button>
+      </nav>
 
       <div className={`app-layout${preferences.sidebarCollapsed ? " app-layout--sidebar-collapsed" : ""}`}>
         <div className="app-layout__main">
@@ -1303,6 +1449,12 @@ export default function App() {
                 } else {
                   navigateTo("applications", false);
                 }
+              }}
+              onNavigateToApplications={(filter) => {
+                setError(null);
+                setFeedback(null);
+                setAppStatusFilter(filter === "active" ? "In Progress" : filter === "approved" ? "Approved" : "");
+                navigateTo("applications", false);
               }}
               onNavigateToLocker={(filter?: string) => {
                 setError(null);
@@ -1388,7 +1540,17 @@ export default function App() {
     if (!selectedService || !user) return;
     if (isOffline) {
       setError(null);
-      setFeedback({ variant: "warning", text: "You are offline. Draft saving is unavailable in read-only mode." });
+      const draftId = currentApplication?.arn || crypto.randomUUID();
+      writeOfflineDraft({
+        id: draftId,
+        serviceKey: selectedService.serviceKey,
+        formData,
+        savedAt: new Date().toISOString(),
+        synced: false,
+      });
+      showToast("info", t("offline.draft_saved_locally"));
+      setFeedback({ variant: "info", text: t("offline.draft_saved_locally") });
+      setFormDirty(false);
       return;
     }
     if (!ensureProfileComplete()) return;
@@ -1503,6 +1665,11 @@ export default function App() {
       const result = await res.json();
       setCurrentApplication({ ...currentApplication, arn: result.submittedArn, state_id: "SUBMITTED" });
       setFormDirty(false);
+      setSubmissionConfirmation({
+        arn: result.submittedArn,
+        serviceName: selectedService ? getServiceDisplayName(selectedService.serviceKey) : "",
+        submittedAt: new Date().toISOString(),
+      });
       showToast("success", `Application submitted successfully. ARN: ${result.submittedArn}`);
       setFeedback({
         variant: "success",
@@ -2117,7 +2284,42 @@ export default function App() {
   if (view === "track" && currentApplication) {
     return appShell(
       <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
-      <ApplicationDetail
+      {submissionConfirmation && (
+        <div className="submission-confirmation">
+          <div className="submission-confirmation__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 className="submission-confirmation__title"><Bilingual tKey="confirm.title" /></h2>
+          <div className="submission-confirmation__details">
+            <div className="submission-confirmation__row">
+              <span className="submission-confirmation__label"><Bilingual tKey="confirm.arn_label" /></span>
+              <span className="submission-confirmation__value submission-confirmation__arn">{submissionConfirmation.arn}</span>
+            </div>
+            {submissionConfirmation.serviceName && (
+              <div className="submission-confirmation__row">
+                <span className="submission-confirmation__label"><Bilingual tKey="app_detail.service" /></span>
+                <span className="submission-confirmation__value">{submissionConfirmation.serviceName}</span>
+              </div>
+            )}
+            <div className="submission-confirmation__row">
+              <span className="submission-confirmation__label"><Bilingual tKey="confirm.submitted_at" /></span>
+              <span className="submission-confirmation__value">{new Date(submissionConfirmation.submittedAt).toLocaleString()}</span>
+            </div>
+          </div>
+          <div className="submission-confirmation__next">
+            <h3><Bilingual tKey="confirm.what_next" /></h3>
+            <ol className="submission-confirmation__steps">
+              <li>{t("confirm.step1")}</li>
+              <li>{t("confirm.step2")}</li>
+              <li>{t("confirm.step3")}</li>
+            </ol>
+          </div>
+          <Button variant="primary" onClick={() => setSubmissionConfirmation(null)}>
+            {t("confirm.view_application")}
+          </Button>
+        </div>
+      )}
+      {!submissionConfirmation && <ApplicationDetail
         application={currentApplication}
         serviceConfig={serviceConfig}
         detail={applicationDetail || { documents: [], queries: [], tasks: [], timeline: [] }}
@@ -2141,7 +2343,7 @@ export default function App() {
         uploadProgress={uploadProgress}
         isOffline={isOffline}
         staleAt={lastSyncAt}
-      />
+      />}
       </Suspense>
     );
   }
@@ -2283,6 +2485,9 @@ export default function App() {
         <a href="#citizen-main-applications" className="skip-link">
           {t("common.skip_to_main")}
         </a>
+        <Button variant="ghost" onClick={navigateBack} className="back-btn" aria-label={t("common.back")}>
+          ← {t("common.back")}
+        </Button>
         <h1><Bilingual tKey="common.all_applications" /></h1>
         <p className="subtitle">{t("common.manage_applications")}</p>
 

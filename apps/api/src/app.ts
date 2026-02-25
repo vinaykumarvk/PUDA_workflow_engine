@@ -26,6 +26,7 @@ import { registerProfileRoutes } from "./routes/profile.routes";
 import { registerTelemetryRoutes } from "./routes/telemetry.routes";
 import { registerCitizenDocumentRoutes } from "./routes/citizen-document.routes";
 import { registerComplaintRoutes } from "./routes/complaint.routes";
+import { registerAIRoutes } from "./routes/ai.routes";
 import { startSLAChecker } from "./sla-checker";
 import { startClientTelemetryRetentionJob } from "./telemetry-retention";
 import { registerTransport } from "./notifications";
@@ -601,6 +602,7 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
   await registerCitizenDocumentRoutes(app);
   await registerComplaintRoutes(app);
   await registerTelemetryRoutes(app);
+  await registerAIRoutes(app);
 
   app.get("/api/v1/openapi.json", async (_request, reply) => {
     reply.header("cache-control", "no-store");

@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
 import { Alert, Button, Card, Field, Input, Select, SkeletonBlock } from "@puda/shared";
+import { Bilingual } from "./Bilingual";
 import "./report-complaint.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -132,11 +133,109 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
   // Evidence upload state
   const [evidenceUploading, setEvidenceUploading] = useState(false);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [aiParsing, setAiParsing] = useState(false);
+  const [aiFilled, setAiFilled] = useState(false);
+
+  // Voice input state
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechSupported = typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const toggleVoiceInput = useCallback(() => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language?.startsWith("hi") ? "hi-IN" : "en-IN";
+    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          transcript += event.results[i][0].transcript;
+        }
+      }
+      if (transcript) {
+        setFormData((p) => ({
+          ...p,
+          description: p.description ? p.description + " " + transcript : transcript,
+        }));
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      // Trigger AI parse if transcript is long enough
+      setFormData((prev) => {
+        if (prev.description && prev.description.length > 20) {
+          parseWithAI(prev.description);
+        }
+        return prev;
+      });
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening]);
+
+  // Cleanup recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   const authHeaders = useCallback((): Record<string, string> => {
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }, [token]);
+
+  const parseWithAI = useCallback(async (transcript: string) => {
+    setAiParsing(true);
+    try {
+      const lang = navigator.language?.startsWith("hi") ? "hi" : navigator.language?.startsWith("pa") ? "pa" : "en";
+      const res = await fetch(`${apiBaseUrl}/api/v1/ai/parse-complaint`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript, language: lang }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.confidence > 0.3) {
+        setFormData((prev) => ({
+          ...prev,
+          violationType: data.violationType || prev.violationType,
+          subject: data.subject || prev.subject,
+          description: data.description || prev.description,
+          locationLocality: data.locationLocality || prev.locationLocality,
+          locationCity: data.locationCity || prev.locationCity,
+        }));
+        setAiFilled(true);
+      }
+    } catch {
+      // Non-blocking: AI parse failure doesn't affect form
+    } finally {
+      setAiParsing(false);
+    }
+  }, [authHeaders]);
 
   const loadComplaints = useCallback(async () => {
     if (isOffline || !token) return;
@@ -308,6 +407,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
               key={sf}
               type="button"
               className={`complaint-filter-chip ${statusFilter === sf ? "complaint-filter-chip--active" : ""}`}
+              aria-pressed={statusFilter === sf}
               onClick={() => setStatusFilter(sf)}
             >
               {sf === "ALL"
@@ -331,7 +431,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
               <div className="complaint-empty-icon">
                 <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
-              <h3>{t("complaints.empty_title")}</h3>
+              <h3><Bilingual tKey="complaints.empty_title" /></h3>
               <p>{t("complaints.empty_desc")}</p>
             </div>
           </Card>
@@ -394,7 +494,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
 
         <Card>
           <form className="complaint-form" onSubmit={handleSubmitComplaint}>
-            <Field label={t("complaints.violation_type")} required htmlFor="violation-type">
+            <Field label={<Bilingual tKey="complaints.violation_type" />} required htmlFor="violation-type">
               <Select
                 id="violation-type"
                 value={formData.violationType}
@@ -412,7 +512,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
               </Select>
             </Field>
 
-            <Field label={t("complaints.subject")} required htmlFor="subject">
+            <Field label={<Bilingual tKey="complaints.subject" />} required htmlFor="subject">
               <Input
                 id="subject"
                 value={formData.subject}
@@ -425,23 +525,51 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
               />
             </Field>
 
-            <Field label={t("complaints.description")} required htmlFor="description">
-              <textarea
-                id="description"
-                className="input"
-                rows={5}
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, description: e.target.value }))
-                }
-                placeholder={t("complaints.description_placeholder")}
-                maxLength={2000}
-                required
-                style={{ resize: "vertical" }}
-              />
+            <Field label={<Bilingual tKey="complaints.description" />} required htmlFor="description">
+              <div className="voice-input-wrap">
+                <textarea
+                  id="description"
+                  className="input"
+                  rows={5}
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, description: e.target.value }))
+                  }
+                  placeholder={t("complaints.description_placeholder")}
+                  maxLength={2000}
+                  required
+                  style={{ resize: "vertical" }}
+                />
+                {speechSupported && (
+                  <button
+                    type="button"
+                    className={`voice-input-btn${isListening ? " voice-input-btn--listening" : ""}`}
+                    onClick={toggleVoiceInput}
+                    aria-label={isListening ? t("complaints.voice_listening") : t("complaints.voice_input")}
+                    title={isListening ? t("complaints.voice_listening") : t("complaints.voice_input")}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                      <line x1="12" y1="19" x2="12" y2="23"/>
+                      <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
+                    {isListening && <span className="voice-input-btn__pulse" />}
+                  </button>
+                )}
+              </div>
+              {isListening && (
+                <p className="voice-input-hint">{t("complaints.voice_listening")}</p>
+              )}
+              {aiParsing && (
+                <p className="voice-input-hint" style={{ color: "var(--color-brand)" }}>{t("complaints.ai_parsing")}</p>
+              )}
+              {aiFilled && !aiParsing && (
+                <p className="voice-input-hint" style={{ color: "var(--color-success)" }}>{t("complaints.ai_filled")}</p>
+              )}
             </Field>
 
-            <Field label={t("complaints.location_address")} required htmlFor="location-address">
+            <Field label={<Bilingual tKey="complaints.location_address" />} required htmlFor="location-address">
               <Input
                 id="location-address"
                 value={formData.locationAddress}
@@ -454,7 +582,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
             </Field>
 
             <div className="complaint-form-grid">
-              <Field label={t("complaints.location_locality")} htmlFor="locality">
+              <Field label={<Bilingual tKey="complaints.location_locality" />} htmlFor="locality">
                 <Input
                   id="locality"
                   value={formData.locationLocality}
@@ -464,7 +592,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
                   placeholder={t("complaints.locality_placeholder")}
                 />
               </Field>
-              <Field label={t("complaints.location_pincode")} htmlFor="pincode">
+              <Field label={<Bilingual tKey="complaints.location_pincode" />} htmlFor="pincode">
                 <Input
                   id="pincode"
                   value={formData.locationPincode}
@@ -479,7 +607,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
             </div>
 
             <div className="complaint-form-grid">
-              <Field label={t("complaints.location_city")} htmlFor="city">
+              <Field label={<Bilingual tKey="complaints.location_city" />} htmlFor="city">
                 <Input
                   id="city"
                   value={formData.locationCity}
@@ -488,7 +616,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
                   }
                 />
               </Field>
-              <Field label={t("complaints.location_district")} htmlFor="district">
+              <Field label={<Bilingual tKey="complaints.location_district" />} htmlFor="district">
                 <Input
                   id="district"
                   value={formData.locationDistrict}
@@ -544,39 +672,39 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
           <div className="complaint-detail">
             <div className="complaint-detail-grid">
               <div className="complaint-detail-field">
-                <span className="complaint-detail-label">{t("complaints.complaint_number")}</span>
+                <span className="complaint-detail-label"><Bilingual tKey="complaints.complaint_number" /></span>
                 <span className="complaint-detail-value" style={{ fontFamily: "var(--font-mono, monospace)" }}>
                   {c.complaint_number}
                 </span>
               </div>
               <div className="complaint-detail-field">
-                <span className="complaint-detail-label">{t("complaints.current_status")}</span>
+                <span className="complaint-detail-label"><Bilingual tKey="complaints.current_status" /></span>
                 <span className={getStatusBadgeClass(c.status)} style={{ alignSelf: "flex-start" }}>
                   {t(getStatusKey(c.status))}
                 </span>
               </div>
               <div className="complaint-detail-field">
-                <span className="complaint-detail-label">{t("complaints.violation_type")}</span>
+                <span className="complaint-detail-label"><Bilingual tKey="complaints.violation_type" /></span>
                 <span className="complaint-detail-value">{t(getViolationTypeKey(c.violation_type))}</span>
               </div>
               <div className="complaint-detail-field">
-                <span className="complaint-detail-label">{t("complaints.date_filed")}</span>
+                <span className="complaint-detail-label"><Bilingual tKey="complaints.date_filed" /></span>
                 <span className="complaint-detail-value">{formatDate(c.created_at)}</span>
               </div>
             </div>
 
             <div className="complaint-detail-field">
-              <span className="complaint-detail-label">{t("complaints.subject")}</span>
+              <span className="complaint-detail-label"><Bilingual tKey="complaints.subject" /></span>
               <span className="complaint-detail-value">{c.subject}</span>
             </div>
 
             <div className="complaint-detail-field">
-              <span className="complaint-detail-label">{t("complaints.description")}</span>
+              <span className="complaint-detail-label"><Bilingual tKey="complaints.description" /></span>
               <span className="complaint-detail-value" style={{ whiteSpace: "pre-wrap" }}>{c.description}</span>
             </div>
 
             <div className="complaint-detail-field">
-              <span className="complaint-detail-label">{t("complaints.location")}</span>
+              <span className="complaint-detail-label"><Bilingual tKey="complaints.location" /></span>
               <span className="complaint-detail-value">
                 {c.location_address}
                 {c.location_locality && `, ${c.location_locality}`}
@@ -587,7 +715,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
 
             {c.officer_remarks && (
               <div className="complaint-detail-field">
-                <span className="complaint-detail-label">{t("complaints.officer_remarks")}</span>
+                <span className="complaint-detail-label"><Bilingual tKey="complaints.officer_remarks" /></span>
                 <span className="complaint-detail-value" style={{ whiteSpace: "pre-wrap" }}>{c.officer_remarks}</span>
               </div>
             )}
@@ -596,7 +724,7 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
 
         {/* Evidence Section */}
         <Card>
-          <h3 style={{ margin: "0 0 var(--space-2)", fontSize: "1rem" }}>{t("complaints.evidence")}</h3>
+          <h3 style={{ margin: "0 0 var(--space-2)", fontSize: "1rem" }}><Bilingual tKey="complaints.evidence" /></h3>
           <p style={{ color: "var(--color-text-muted)", fontSize: "0.85rem", margin: "0 0 var(--space-3)" }}>
             {t("complaints.evidence_hint")}
           </p>

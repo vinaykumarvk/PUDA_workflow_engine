@@ -350,6 +350,109 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
     return applications.getUserPendingActions(userId);
   });
 
+  // Proactive nudges: expiring docs, stalled apps, missing docs
+  app.get("/api/v1/applications/nudges", { schema: userScopedReadSchema }, async (request, reply) => {
+    const userId = getAuthUserId(request, "userId");
+    if (!userId) return send400(reply, "USER_ID_REQUIRED");
+    const { query: dbQuery } = await import("../db");
+
+    const [expiringDocs, stalledApps, pendingActions] = await Promise.all([
+      // Documents expiring within 30 days
+      dbQuery(
+        `SELECT citizen_doc_id, doc_type_id, original_filename, valid_until
+         FROM citizen_document
+         WHERE user_id = $1 AND is_current = true AND status = 'VALID'
+           AND valid_until IS NOT NULL
+           AND valid_until BETWEEN NOW() AND NOW() + INTERVAL '30 days'
+         ORDER BY valid_until ASC`,
+        [userId]
+      ),
+      // Applications where current task SLA has passed or is within 2 days
+      dbQuery(
+        `SELECT t.arn, a.public_arn, a.service_key, t.system_role_id, t.sla_due_at, t.created_at
+         FROM task t
+         JOIN application a ON t.arn = a.arn
+         WHERE a.applicant_user_id = $1
+           AND t.status IN ('PENDING', 'IN_PROGRESS')
+           AND t.sla_due_at IS NOT NULL
+           AND t.sla_due_at <= NOW() + INTERVAL '2 days'
+         ORDER BY t.sla_due_at ASC`,
+        [userId]
+      ),
+      applications.getUserPendingActions(userId),
+    ]);
+
+    return {
+      expiringDocuments: expiringDocs.rows,
+      stalledApplications: stalledApps.rows.map((r: any) => ({
+        ...r,
+        arn: r.public_arn || r.arn,
+      })),
+      queries: pendingActions.queries,
+      documentRequests: pendingActions.documentRequests,
+    };
+  });
+
+  // Processing stats: SLA transparency data
+  app.get("/api/v1/services/processing-stats", async (request, reply) => {
+    const { query: dbQuery } = await import("../db");
+
+    const SERVICE_DISPLAY_NAME: Record<string, string> = {
+      no_due_certificate: "No Due Certificate",
+      registration_of_architect: "Architect Registration",
+      sanction_of_water_supply: "Water Supply Connection",
+      sanction_of_sewerage_connection: "Sewerage Connection",
+    };
+    const SERVICE_SLA_DAYS: Record<string, number> = {
+      no_due_certificate: 5,
+      registration_of_architect: 4,
+      sanction_of_water_supply: 4,
+      sanction_of_sewerage_connection: 4,
+    };
+
+    const result = await dbQuery(
+      `SELECT
+        a.service_key,
+        COUNT(*)::int as total_completed,
+        COALESCE(AVG(EXTRACT(EPOCH FROM (a.disposed_at - a.submitted_at)) / 86400)::int, 0) as avg_days,
+        COALESCE((PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (a.disposed_at - a.submitted_at))) / 86400)::int, 0) as p90_days,
+        COUNT(*) FILTER (
+          WHERE EXTRACT(EPOCH FROM (a.disposed_at - a.submitted_at)) / 86400 <=
+            CASE a.service_key
+              WHEN 'no_due_certificate' THEN 5
+              WHEN 'registration_of_architect' THEN 4
+              WHEN 'sanction_of_water_supply' THEN 4
+              WHEN 'sanction_of_sewerage_connection' THEN 4
+              ELSE 30
+            END
+        )::int as on_time_count
+       FROM application a
+       WHERE a.disposed_at IS NOT NULL
+         AND a.submitted_at IS NOT NULL
+         AND a.disposed_at > NOW() - INTERVAL '6 months'
+       GROUP BY a.service_key`,
+      []
+    );
+
+    const services = result.rows.map((row: any) => {
+      const slaDays = SERVICE_SLA_DAYS[row.service_key] || 30;
+      const totalCompleted = parseInt(row.total_completed) || 0;
+      const onTimeCount = parseInt(row.on_time_count) || 0;
+      const complianceRate = totalCompleted > 0 ? Math.round((onTimeCount / totalCompleted) * 100) : 0;
+      return {
+        serviceKey: row.service_key,
+        serviceName: SERVICE_DISPLAY_NAME[row.service_key] || row.service_key.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        avgDays: parseInt(row.avg_days) || 0,
+        p90Days: parseInt(row.p90_days) || 0,
+        totalCompleted,
+        slaDays,
+        complianceRate,
+      };
+    });
+
+    return { services };
+  });
+
   app.post("/api/v1/applications/check-duplicate", {
     schema: {
       body: {
@@ -653,6 +756,58 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
       return { arn: application.public_arn || application.arn, paymentStatus: status };
     }
 
+    // Doc-suggestions: find matching locker documents for this application's requirements
+    if (raw.endsWith("/doc-suggestions")) {
+      const arn = raw.slice(0, -"/doc-suggestions".length);
+      const internalArn = await requireApplicationReadAccess(request, reply, arn, "You are not allowed to access this application");
+      if (!internalArn) return;
+      const application = await applications.getApplication(internalArn);
+      if (!application) return send404(reply, "APPLICATION_NOT_FOUND");
+
+      try {
+        const { query: docSugQuery } = await import("../db");
+        const configResult = await docSugQuery(
+          "SELECT config_jsonb FROM service_version WHERE service_key = $1 AND version = $2",
+          [application.service_key, application.service_version]
+        );
+        const config = configResult.rows[0]?.config_jsonb;
+        const requiredDocTypes: string[] = (config?.documents?.documentTypes || []).map((dt: any) => dt.docTypeId);
+        if (requiredDocTypes.length === 0) return { suggestions: [] };
+
+        const userId = (request as any).authUser?.user_id;
+        if (!userId) return { suggestions: [] };
+
+        // Find matching VALID current documents in citizen's locker
+        const locker = await docSugQuery(
+          `SELECT cd.citizen_doc_id, cd.doc_type_id, cd.original_filename, cd.status, cd.valid_until
+           FROM citizen_document cd
+           WHERE cd.user_id = $1 AND cd.is_current = true AND cd.status = 'VALID'
+             AND cd.doc_type_id = ANY($2)`,
+          [userId, requiredDocTypes]
+        );
+
+        // Check which are already attached
+        const attached = await docSugQuery(
+          `SELECT ad.citizen_doc_id FROM application_document ad WHERE ad.arn = $1 AND ad.is_current = true`,
+          [internalArn]
+        );
+        const attachedSet = new Set(attached.rows.map((r: any) => r.citizen_doc_id));
+
+        const suggestions = locker.rows.map((doc: any) => ({
+          doc_type_id: doc.doc_type_id,
+          citizen_doc_id: doc.citizen_doc_id,
+          original_filename: doc.original_filename,
+          status: doc.status,
+          valid_until: doc.valid_until,
+          already_attached: attachedSet.has(doc.citizen_doc_id),
+        }));
+
+        return { suggestions };
+      } catch {
+        return { suggestions: [] };
+      }
+    }
+
     if (raw.endsWith("/output/download")) {
       const arn = raw.slice(0, -"/output/download".length);
       const internalArn = await requireApplicationReadAccess(
@@ -737,15 +892,71 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
     const [docs, queriesResult, tasksResult, auditResult] = await Promise.all([
       documents.getApplicationDocuments(internalArn),
       dbQuery("SELECT query_id, query_number, message, status, raised_at, response_due_at, responded_at, response_remarks, unlocked_field_keys, unlocked_doc_type_ids FROM query WHERE arn = $1 ORDER BY query_number DESC", [internalArn]),
-      dbQuery("SELECT task_id, state_id, system_role_id, status, sla_due_at, created_at, completed_at, decision, remarks FROM task WHERE arn = $1 ORDER BY created_at DESC", [internalArn]),
-      dbQuery("SELECT event_type, actor_type, actor_id, payload_jsonb, created_at FROM audit_event WHERE arn = $1 ORDER BY created_at DESC LIMIT 50", [internalArn]),
+      dbQuery("SELECT task_id, state_id, system_role_id, status, assignee_user_id, sla_due_at, created_at, completed_at, decision, remarks FROM task WHERE arn = $1 ORDER BY created_at DESC", [internalArn]),
+      dbQuery("SELECT ae.event_type, ae.actor_type, ae.actor_id, u.name as actor_name, ae.payload_jsonb, ae.created_at FROM audit_event ae LEFT JOIN \"user\" u ON ae.actor_id = u.user_id WHERE ae.arn = $1 ORDER BY ae.created_at DESC LIMIT 50", [internalArn]),
     ]);
+
+    // Build workflow_stages for predictive timeline
+    let workflowStages: any[] = [];
+    let currentHandler: any = null;
+    try {
+      const configResult = await dbQuery(
+        "SELECT config_jsonb FROM service_version WHERE service_key = $1 AND version = $2",
+        [application.service_key, application.service_version]
+      );
+      if (configResult.rows.length > 0) {
+        const config = configResult.rows[0].config_jsonb;
+        const workflow = config?.workflow;
+        if (workflow?.states) {
+          const taskStates = workflow.states.filter((s: any) => s.type === "TASK" && s.taskRequired);
+          const tasks = tasksResult.rows;
+          workflowStages = taskStates.map((state: any) => {
+            const completedTask = tasks.find((t: any) => t.state_id === state.stateId && t.status === "COMPLETED");
+            const currentTask = tasks.find((t: any) => t.state_id === state.stateId && (t.status === "PENDING" || t.status === "IN_PROGRESS"));
+            let status: "completed" | "current" | "upcoming" = "upcoming";
+            if (completedTask) status = "completed";
+            else if (currentTask || application.state_id === state.stateId) status = "current";
+            return {
+              stateId: state.stateId,
+              systemRoleId: state.systemRoleId || null,
+              slaDays: state.slaDays || null,
+              status,
+              enteredAt: completedTask?.created_at || currentTask?.created_at || null,
+              completedAt: completedTask?.completed_at || null,
+            };
+          });
+        }
+      }
+
+      // Build current_handler from the current PENDING/IN_PROGRESS task
+      const currentTask = tasksResult.rows.find((t: any) => t.status === "PENDING" || t.status === "IN_PROGRESS");
+      if (currentTask) {
+        let officerName: string | undefined;
+        if (currentTask.assignee_user_id) {
+          const userResult = await dbQuery("SELECT name FROM \"user\" WHERE user_id = $1", [currentTask.assignee_user_id]);
+          officerName = userResult.rows[0]?.name;
+        }
+        const daysInStage = Math.floor((Date.now() - new Date(currentTask.created_at).getTime()) / (1000 * 60 * 60 * 24));
+        currentHandler = {
+          officer_name: officerName || undefined,
+          role_id: currentTask.system_role_id,
+          sla_due_at: currentTask.sla_due_at || null,
+          days_in_stage: daysInStage,
+          since: currentTask.created_at,
+        };
+      }
+    } catch {
+      // Non-blocking: continue without enrichment
+    }
+
     return {
       ...toClientApplication(application),
       documents: docs,
       queries: queriesResult.rows,
       tasks: tasksResult.rows,
       timeline: auditResult.rows,
+      workflow_stages: workflowStages,
+      current_handler: currentHandler,
     };
   });
 }

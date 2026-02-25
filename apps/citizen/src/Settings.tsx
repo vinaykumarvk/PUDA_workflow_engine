@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Field, Select } from "@puda/shared";
 import { SECONDARY_LANGUAGES } from "./i18n";
 import { Bilingual } from "./Bilingual";
+import { CUSTOM_THEMES } from "./theme";
 import type { UserPreferences } from "./preferences";
 import "./settings.css";
 
@@ -35,6 +36,9 @@ export default function Settings({ preferences, onUpdatePreference }: Props) {
                 <option value="light">{t("settings.theme_light")}</option>
                 <option value="dark">{t("settings.theme_dark")}</option>
                 <option value="system">{t("settings.theme_system")}</option>
+                {CUSTOM_THEMES.map((ct) => (
+                  <option key={ct} value={ct}>{t(`settings.theme_${ct}`)}</option>
+                ))}
               </Select>
             </Field>
 
@@ -57,6 +61,17 @@ export default function Settings({ preferences, onUpdatePreference }: Props) {
               >
                 <option value="off">{t("settings.reduce_off")}</option>
                 <option value="on">{t("settings.reduce_on")}</option>
+              </Select>
+            </Field>
+
+            <Field label={<Bilingual tKey="settings.contrast" />} htmlFor="pref-contrast">
+              <Select
+                id="pref-contrast"
+                value={preferences.contrastMode}
+                onChange={(e) => onUpdatePreference("contrastMode", e.target.value as "normal" | "high")}
+              >
+                <option value="normal">{t("settings.contrast_normal")}</option>
+                <option value="high">{t("settings.contrast_high")}</option>
               </Select>
             </Field>
           </div>
