@@ -1,0 +1,11 @@
+{
+  "rules": [
+    {
+      "ruleId": "PHYSICAL_VERIFICATION_REQUIRED_BEFORE_APPROVAL",
+      "description": "Physical verification must be completed before Estate Officer can approve",
+      "logic": {
+        "==": [{ "var": "data.physical_verification_completed" }, true]
+      }
+    }
+  ]
+}

@@ -15,7 +15,9 @@ import {
   getApplicationsForProperty,
   searchProperties,
   getCitizenProperties,
+  linkPropertyToCitizen,
 } from "../properties";
+import { query } from "../db";
 import { getAuthUserId, send400, send404 } from "../errors";
 import {
   buildNdcPaymentStatusFromProperty,
@@ -234,6 +236,73 @@ export async function registerPropertyRoutes(app: FastifyInstance) {
     const properties = await getCitizenProperties(userId);
     return { properties };
   });
+
+  // -----------------------------------------------------------------------
+  // GET /api/v1/citizens/me/property-lookup?upn=...
+  // Citizen-accessible: looks up a property by UPN across all authorities,
+  // returns property details, and auto-links to the citizen for future use.
+  // -----------------------------------------------------------------------
+  const citizenPropertyLookupSchema = {
+    querystring: {
+      type: "object" as const,
+      additionalProperties: false,
+      required: ["upn"],
+      properties: {
+        upn: { type: "string" as const, minLength: 1 },
+      },
+    },
+  };
+
+  app.get(
+    "/api/v1/citizens/me/property-lookup",
+    { schema: citizenPropertyLookupSchema },
+    async (request, reply) => {
+      const userId = getAuthUserId(request);
+      if (!userId) {
+        return send400(reply, "USER_ID_REQUIRED");
+      }
+      const qs = request.query as { upn: string };
+      const upn = qs.upn.trim();
+
+      // Search property by UPN across all authorities
+      const result = await query(
+        `SELECT property_id, authority_id, unique_property_number, property_number,
+                location, sector, scheme_name, usage_type, property_type,
+                area_sqyd, area_sqm, district
+         FROM property
+         WHERE unique_property_number = $1
+         LIMIT 1`,
+        [upn]
+      );
+
+      if (result.rows.length === 0) {
+        reply.code(404);
+        return { error: "PROPERTY_NOT_FOUND", message: "No property found with this UPN" };
+      }
+
+      const row = result.rows[0];
+
+      // Auto-link property to citizen for future UPN picker use (idempotent)
+      await linkPropertyToCitizen(userId, row.property_id);
+
+      return {
+        property: {
+          property_id: row.property_id,
+          authority_id: row.authority_id,
+          unique_property_number: row.unique_property_number,
+          property_number: row.property_number,
+          location: row.location,
+          sector: row.sector,
+          scheme_name: row.scheme_name,
+          usage_type: row.usage_type,
+          property_type: row.property_type,
+          area_sqyd: row.area_sqyd ? parseFloat(row.area_sqyd) : null,
+          area_sqm: row.area_sqm ? parseFloat(row.area_sqm) : null,
+          district: row.district,
+        },
+      };
+    }
+  );
 
   // -----------------------------------------------------------------------
   // GET /api/v1/properties/search?authorityId=...&schemeName=...&plotNo=...&upn=...

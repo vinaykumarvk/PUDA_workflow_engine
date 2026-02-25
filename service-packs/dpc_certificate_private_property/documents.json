@@ -1,0 +1,25 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_DPC_ARCHITECT_CERT",
+      "name": "DPC certificate issued by Empanelled Architect",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BUILDING_PLAN_APPROVAL",
+      "name": "Letter of Approval of Building Plan",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SUPPORTING",
+      "name": "Any other supporting documents",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

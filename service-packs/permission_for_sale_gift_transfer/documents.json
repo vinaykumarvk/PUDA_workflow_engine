@@ -1,0 +1,67 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_SELLER_AFFIDAVIT",
+      "name": "Affidavit from all Sellers (property free from encumbrances/litigation)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PURCHASER_LIABILITY_AFFIDAVIT",
+      "name": "Liability affidavit of all Purchasers/Donees/Transferees",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_GPA_SUB_ATTORNEY",
+      "name": "Certified copy of GPA and Sub Attorney (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_CONVEYANCE_DEED_COPY",
+      "name": "Certified copy of conveyance deed (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LOAN_CLEARANCE",
+      "name": "Clearance against loan/mortgage (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SEWERAGE_OC_COPY",
+      "name": "Self-attested copy of sanction of Sewerage Connection / Occupation Certificate (if obtained)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PURCHASER_ID_PROOF",
+      "name": "Photo identity proof of all Purchasers",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SELLER_ID_PROOF",
+      "name": "Photo identity proof of all Sellers",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_FEE_RECEIPT",
+      "name": "Fee receipt including GST",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

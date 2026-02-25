@@ -1,0 +1,11 @@
+{
+  "rules": [
+    {
+      "ruleId": "DWG_PDF_REVISION_MATCH",
+      "description": "DWG and PDF building plan documents must correspond to the same revision",
+      "logic": {
+        "==": [{ "var": "data.dwg_revision" }, { "var": "data.pdf_revision" }]
+      }
+    }
+  ]
+}

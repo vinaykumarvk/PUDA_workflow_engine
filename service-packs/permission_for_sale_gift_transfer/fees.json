@@ -1,0 +1,14 @@
+{
+  "default": [
+    {
+      "feeType": "SALE_TRANSFER_RESIDENTIAL_FEE",
+      "amount": 10300,
+      "description": "Permission for Sale/Gift/Transfer - Residential plot (incl. GST)"
+    },
+    {
+      "feeType": "SALE_TRANSFER_COMMERCIAL_FEE",
+      "amount": 20600,
+      "description": "Permission for Sale/Gift/Transfer - Commercial plot (incl. GST)"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_SELLER_AFFIDAVIT",
+      "name": "Affidavit from Seller(s) (LOI free from encumbrances/litigation)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SELLER_ID_PROOF",
+      "name": "Photo identity proof of seller(s)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LOAN_CLEARANCE",
+      "name": "Clearance against loan/mortgage (if any)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PURCHASER_LIABILITY_AFFIDAVIT",
+      "name": "Liability affidavit of Purchaser(s)/Donee(s)/Transferee(s)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LOI_SCAN",
+      "name": "Scan of original LOI (if issued manually)",
+      "mandatory": false,
+      "requiredWhenRuleId": "LOI_REQUIRED_WHEN_MANUAL",
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PURCHASER_ID_PROOF",
+      "name": "Photo identity proof of Purchaser(s)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_GPA_COPY",
+      "name": "Certified copy of GPA (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

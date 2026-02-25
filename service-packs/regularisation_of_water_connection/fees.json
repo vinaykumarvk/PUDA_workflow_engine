@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "WATER_REG_PROCESSING_FEE",
+      "amount": 500,
+      "description": "Regularisation of Water Connection processing fee"
+    }
+  ]
+}

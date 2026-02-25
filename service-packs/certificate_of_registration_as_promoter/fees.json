@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "PROMOTER_REGISTRATION_FEE",
+      "amount": 5900,
+      "description": "Promoter Registration fee (Rs. 5,000 + 18% GST)"
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "formId": "FORM_CONVEYANCE_DEED_EXTENDED_AREA",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_APPLICATION",
+      "title": "Application Details",
+      "title_hi": "आवेदन विवरण",
+      "title_pa": "ਅਰਜ਼ੀ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_AUTHORITY",
+          "title": "Authority",
+          "title_hi": "प्राधिकरण",
+          "title_pa": "ਅਥਾਰਟੀ",
+          "fields": [
+            {
+              "key": "authority_id",
+              "label": "Select Authority",
+              "label_hi": "प्राधिकरण चुनें",
+              "label_pa": "ਅਥਾਰਟੀ ਚੁਣੋ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "PUDA", "label": "PUDA" },
+                  { "value": "GMADA", "label": "GMADA" },
+                  { "value": "GLADA", "label": "GLADA" },
+                  { "value": "BDA", "label": "BDA" }
+                ],
+                "fillFromProperty": "authority_id"
+              }
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_APPLICANT",
+          "title": "Applicant Details",
+          "title_hi": "आवेदक विवरण",
+          "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਵੇਰਵੇ",
+          "fields": [
+            { "sharedSection": "applicant" }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_PROPERTY",
+      "title": "Property Details",
+      "title_hi": "संपत्ति विवरण",
+      "title_pa": "ਜਾਇਦਾਦ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_PROPERTY",
+          "title": "Property Information",
+          "title_hi": "संपत्ति जानकारी",
+          "title_pa": "ਜਾਇਦਾਦ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "property.upn",
+              "label": "Unique Property Number (UPN / Bhu-Aadhar)",
+              "label_hi": "विशिष्ट संपत्ति संख्या (यूपीएन / भू-आधार)",
+              "label_pa": "ਵਿਲੱਖਣ ਜਾਇਦਾਦ ਨੰਬਰ (ਯੂਪੀਐਨ / ਭੂ-ਆਧਾਰ)",
+              "type": "string",
+              "required": true,
+              "ui": { "widget": "upn-picker" }
+            },
+            {
+              "key": "property.area_sqyd",
+              "label": "Area (Sq. Yards)",
+              "label_hi": "क्षेत्रफल (वर्ग गज)",
+              "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)",
+              "type": "number",
+              "required": false,
+              "ui": { "fillFromProperty": "area_sqyd" }
+            },
+            {
+              "key": "property.authority_name",
+              "label": "Authority Name",
+              "label_hi": "प्राधिकरण का नाम",
+              "label_pa": "ਅਥਾਰਟੀ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": false,
+              "ui": { "fillFromProperty": "authority_id" }
+            },
+            {
+              "key": "property.plot_no",
+              "label": "Plot Number",
+              "label_hi": "प्लॉट नंबर",
+              "label_pa": "ਪਲਾਟ ਨੰਬਰ",
+              "type": "string",
+              "required": false,
+              "ui": { "fillFromProperty": "property_number" }
+            },
+            {
+              "key": "property.type",
+              "label": "Property Type",
+              "label_hi": "संपत्ति का प्रकार",
+              "label_pa": "ਜਾਇਦਾਦ ਦੀ ਕਿਸਮ",
+              "type": "enum",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "usage_type",
+                "options": [
+                  { "value": "RESIDENTIAL", "label": "Residential" },
+                  { "value": "COMMERCIAL", "label": "Commercial" },
+                  { "value": "INDUSTRIAL", "label": "Industrial" }
+                ]
+              }
+            },
+            {
+              "key": "property.scheme_name",
+              "label": "Scheme Name",
+              "label_hi": "योजना का नाम",
+              "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": false,
+              "ui": { "fillFromProperty": "scheme_name" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_CONVEYANCE_DEED",
+      "title": "Conveyance Deed Details",
+      "title_hi": "हस्तांतरण विलेख विवरण",
+      "title_pa": "ਕਨਵੇਅੰਸ ਡੀਡ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_CONVEYANCE_DEED",
+          "title": "Conveyance Deed Information",
+          "title_hi": "हस्तांतरण विलेख जानकारी",
+          "title_pa": "ਕਨਵੇਅੰਸ ਡੀਡ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "applying_through_representative",
+              "label": "Are you applying through GPA/Sub Attorney?",
+              "label_hi": "क्या आप जीपीए/सब एटॉर्नी के माध्यम से आवेदन कर रहे हैं?",
+              "label_pa": "ਕੀ ਤੁਸੀਂ ਜੀਪੀਏ/ਸਬ ਅਟਾਰਨੀ ਰਾਹੀਂ ਅਰਜ਼ੀ ਦੇ ਰਹੇ ਹੋ?",
+              "type": "boolean",
+              "required": true
+            },
+            {
+              "key": "ndc_issued_online",
+              "label": "Was your No Due Certificate issued online?",
+              "label_hi": "क्या आपका बकाया रहित प्रमाण पत्र ऑनलाइन जारी किया गया था?",
+              "label_pa": "ਕੀ ਤੁਹਾਡਾ ਬਕਾਇਆ ਰਹਿਤ ਸਰਟੀਫਿਕੇਟ ਔਨਲਾਈਨ ਜਾਰੀ ਕੀਤਾ ਗਿਆ ਸੀ?",
+              "type": "boolean",
+              "required": true
+            },
+            {
+              "key": "ndc_reference",
+              "label": "NDC Reference Number",
+              "label_hi": "बकाया रहित प्रमाण पत्र संदर्भ संख्या",
+              "label_pa": "ਬਕਾਇਆ ਰਹਿਤ ਸਰਟੀਫਿਕੇਟ ਹਵਾਲਾ ਨੰਬਰ",
+              "type": "string",
+              "required": false
+            },
+            {
+              "key": "extended_area_details",
+              "label": "Extended Area Details",
+              "label_hi": "विस्तारित क्षेत्र विवरण",
+              "label_pa": "ਵਧਾਏ ਗਏ ਖੇਤਰ ਦੇ ਵੇਰਵੇ",
+              "type": "textarea",
+              "required": true
+            },
+            {
+              "key": "remark",
+              "label": "Remarks",
+              "label_hi": "टिप्पणी",
+              "label_pa": "ਟਿੱਪਣੀ",
+              "type": "textarea",
+              "required": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

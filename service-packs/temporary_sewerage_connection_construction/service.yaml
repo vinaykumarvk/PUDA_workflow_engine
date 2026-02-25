@@ -1,0 +1,25 @@
+serviceKey: temporary_sewerage_connection_construction
+displayName: Issuance of Temporary Sewerage Connection (Construction Purpose)
+category: WATER_SEWERAGE_SERVICES
+description: Issuance of temporary sewerage connection for construction purpose
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: false
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: warn

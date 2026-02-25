@@ -1,0 +1,32 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_REGISTERED_WILL",
+      "name": "Certified copy of the Registered Will",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_DEATH_CERTIFICATE",
+      "name": "Original Death Certificate of the deceased owner",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_MORTGAGE_CLEARANCE",
+      "name": "Clearance of previous mortgage/Loan/Redemption deed (with translated copy if will is not in English/Hindi/Punjabi)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LIABILITY_AFFIDAVIT",
+      "name": "Liability Affidavit of beneficiaries of the Will",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

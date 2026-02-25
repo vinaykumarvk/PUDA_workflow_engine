@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "CD_EXTENDED_PROCESSING_FEE",
+      "amount": 1500,
+      "description": "Conveyance Deed for Extended Area processing fee"
+    }
+  ]
+}

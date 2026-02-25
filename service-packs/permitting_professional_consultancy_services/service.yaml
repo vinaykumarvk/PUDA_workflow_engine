@@ -1,0 +1,25 @@
+serviceKey: permitting_professional_consultancy_services
+displayName: Permitting Professional Consultancy Services
+category: PROPERTY_SERVICES
+description: Permission for use of property for professional consultancy services
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 10
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

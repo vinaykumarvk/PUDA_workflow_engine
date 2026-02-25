@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "COO_DEATH_REGWILL_PROCESSING_FEE",
+      "amount": 500,
+      "description": "Change of Ownership (Death - Registered Will) processing fee"
+    }
+  ]
+}

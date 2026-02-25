@@ -1,0 +1,18 @@
+{
+  "rules": [
+    {
+      "ruleId": "NDC_REQUIRED_WHEN_NOT_ONLINE",
+      "description": "NDC copy is required when the No Due Certificate was not issued online",
+      "logic": {
+        "==": [{ "var": "data.ndc_issued_online" }, false]
+      }
+    },
+    {
+      "ruleId": "GPA_REQUIRED_WHEN_REPRESENTATIVE",
+      "description": "GPA / Sub Attorney document is required when applying through a representative",
+      "logic": {
+        "==": [{ "var": "data.applying_through_representative" }, true]
+      }
+    }
+  ]
+}

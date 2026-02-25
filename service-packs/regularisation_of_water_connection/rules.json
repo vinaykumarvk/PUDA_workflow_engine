@@ -1,0 +1,11 @@
+{
+  "rules": [
+    {
+      "ruleId": "SEWERAGE_REQUIRED_WHEN_NOT_ONLINE",
+      "description": "Sewerage connection letter required when not issued online",
+      "logic": {
+        "==": [{ "var": "data.sewerage_issued_online" }, false]
+      }
+    }
+  ]
+}

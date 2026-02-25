@@ -1,0 +1,25 @@
+serviceKey: certificate_of_registration_as_estate_agent
+displayName: Certificate of Registration as Estate Agent
+category: DEVELOPER_SERVICES
+description: Registration/renewal of certificate as estate agent under the applicable Authority
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 15
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: true
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: false
+  enforcementMode: warn

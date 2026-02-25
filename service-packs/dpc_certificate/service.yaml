@@ -1,0 +1,25 @@
+serviceKey: dpc_certificate
+displayName: Issue of DPC Certificate
+category: ENGINEERING_SERVICES
+description: Issue of DPC (Damp Proof Course) Certificate for properties under PUDA authorities
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

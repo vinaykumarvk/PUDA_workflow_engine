@@ -1355,6 +1355,65 @@ textarea.error {
   color: var(--color-text);
 }
 
+.upn-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.upn-manual-toggle {
+  background: none;
+  border: none;
+  color: var(--color-brand);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: var(--space-1) 0;
+  text-align: left;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.upn-manual-toggle:hover,
+.upn-manual-toggle:active {
+  text-decoration: underline;
+}
+
+.upn-picker-input-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.upn-picker-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.upn-fetch-btn {
+  white-space: nowrap;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+.upn-fetch-btn:hover,
+.upn-fetch-btn:active {
+  background: var(--color-brand-hover, var(--color-brand));
+  opacity: 0.9;
+}
+
+.upn-fetch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Shared DropZone component */
 .ui-dropzone {
   border: 2px dashed var(--color-border);

@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "CONSULTANCY_PROCESSING_FEE",
+      "amount": 1000,
+      "description": "Professional Consultancy Services processing fee"
+    }
+  ]
+}

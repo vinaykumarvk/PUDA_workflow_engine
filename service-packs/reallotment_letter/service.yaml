@@ -1,0 +1,25 @@
+serviceKey: reallotment_letter
+displayName: Issue of Re-allotment Letter
+category: PROPERTY_SERVICES
+description: Issue of re-allotment letter after transfer of property
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 10
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: true
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

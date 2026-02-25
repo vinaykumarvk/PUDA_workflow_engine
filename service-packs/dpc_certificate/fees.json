@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "DPC_PROCESSING_FEE",
+      "amount": 500,
+      "description": "DPC Certificate processing fee"
+    }
+  ]
+}

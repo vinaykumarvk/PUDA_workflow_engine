@@ -1,0 +1,11 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_TRANSFER_PERMISSION",
+      "name": "Transfer permission before Conveyance Deed (original to be submitted at Authority if issued manually)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

@@ -1,0 +1,354 @@
+{
+  "formId": "FORM_REGISTRATION_AS_PROMOTER",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_APPLICATION",
+      "title": "Application Details",
+      "title_hi": "आवेदन विवरण",
+      "title_pa": "ਅਰਜ਼ੀ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_AUTHORITY",
+          "title": "Authority",
+          "title_hi": "प्राधिकरण",
+          "title_pa": "ਅਥਾਰਟੀ",
+          "fields": [
+            {
+              "key": "authority_id",
+              "label": "Select Authority",
+              "label_hi": "प्राधिकरण चुनें",
+              "label_pa": "ਅਥਾਰਟੀ ਚੁਣੋ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "PUDA", "label": "PUDA" },
+                  { "value": "GMADA", "label": "GMADA" },
+                  { "value": "GLADA", "label": "GLADA" },
+                  { "value": "BDA", "label": "BDA" }
+                ]
+              }
+            },
+            {
+              "key": "applicant_type",
+              "label": "Applicant Type",
+              "label_hi": "आवेदक प्रकार",
+              "label_pa": "ਅਰਜ਼ੀਕਰਤਾ ਦੀ ਕਿਸਮ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "INDIVIDUAL", "label": "Individual" },
+                  { "value": "FIRM", "label": "Firm" },
+                  { "value": "COMPANY", "label": "Company" },
+                  { "value": "COOPERATIVE_SOCIETY", "label": "Co-operative Society" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_PERSONAL",
+      "title": "Personal Details",
+      "title_hi": "व्यक्तिगत विवरण",
+      "title_pa": "ਨਿੱਜੀ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_PERSONAL",
+          "title": "Personal Information",
+          "title_hi": "व्यक्तिगत जानकारी",
+          "title_pa": "ਨਿੱਜੀ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "personal.salutation",
+              "label": "Salutation",
+              "label_hi": "संबोधन",
+              "label_pa": "ਸੰਬੋਧਨ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "MR", "label": "Mr." },
+                  { "value": "MRS", "label": "Mrs." },
+                  { "value": "MS", "label": "Ms." },
+                  { "value": "DR", "label": "Dr." }
+                ]
+              }
+            },
+            {
+              "key": "personal.first_name",
+              "label": "First Name",
+              "label_hi": "पहला नाम",
+              "label_pa": "ਪਹਿਲਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "personal.last_name",
+              "label": "Last Name",
+              "label_hi": "अंतिम नाम",
+              "label_pa": "ਆਖਰੀ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "personal.father_name",
+              "label": "Father's / Husband's Name",
+              "label_hi": "पिता / पति का नाम",
+              "label_pa": "ਪਿਤਾ / ਪਤੀ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "personal.gender",
+              "label": "Gender",
+              "label_hi": "लिंग",
+              "label_pa": "ਲਿੰਗ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "MALE", "label": "Male" },
+                  { "value": "FEMALE", "label": "Female" },
+                  { "value": "OTHER", "label": "Other" }
+                ]
+              }
+            },
+            {
+              "key": "personal.marital_status",
+              "label": "Marital Status",
+              "label_hi": "वैवाहिक स्थिति",
+              "label_pa": "ਵਿਆਹੁਤਾ ਸਥਿਤੀ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "SINGLE", "label": "Single" },
+                  { "value": "MARRIED", "label": "Married" },
+                  { "value": "DIVORCED", "label": "Divorced" },
+                  { "value": "WIDOWED", "label": "Widowed" }
+                ]
+              }
+            },
+            {
+              "key": "personal.date_of_birth",
+              "label": "Date of Birth",
+              "label_hi": "जन्म तिथि",
+              "label_pa": "ਜਨਮ ਮਿਤੀ",
+              "type": "date",
+              "required": true
+            },
+            {
+              "key": "personal.aadhaar",
+              "label": "Aadhaar Number",
+              "label_hi": "आधार नंबर",
+              "label_pa": "ਆਧਾਰ ਨੰਬਰ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "personal.pan",
+              "label": "PAN Number",
+              "label_hi": "पैन नंबर",
+              "label_pa": "ਪੈਨ ਨੰਬਰ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "personal.email",
+              "label": "Email Address",
+              "label_hi": "ईमेल पता",
+              "label_pa": "ਈਮੇਲ ਪਤਾ",
+              "type": "email",
+              "required": true
+            },
+            {
+              "key": "personal.mobile",
+              "label": "Mobile Number",
+              "label_hi": "मोबाइल नंबर",
+              "label_pa": "ਮੋਬਾਈਲ ਨੰਬਰ",
+              "type": "phone",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_ADDRESS",
+      "title": "Address Details",
+      "title_hi": "पता विवरण",
+      "title_pa": "ਪਤਾ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_PERMANENT_ADDRESS",
+          "title": "Permanent Address",
+          "title_hi": "स्थायी पता",
+          "title_pa": "ਸਥਾਈ ਪਤਾ",
+          "fields": [
+            {
+              "key": "address.permanent",
+              "label": "Permanent Address",
+              "label_hi": "स्थायी पता",
+              "label_pa": "ਸਥਾਈ ਪਤਾ",
+              "type": "textarea",
+              "required": true
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_CORRESPONDENCE_ADDRESS",
+          "title": "Correspondence Address",
+          "title_hi": "पत्राचार पता",
+          "title_pa": "ਪੱਤਰ ਵਿਹਾਰ ਪਤਾ",
+          "fields": [
+            {
+              "key": "address.correspondence",
+              "label": "Correspondence Address",
+              "label_hi": "पत्राचार पता",
+              "label_pa": "ਪੱਤਰ ਵਿਹਾਰ ਪਤਾ",
+              "type": "textarea",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_DD_BG",
+      "title": "DD & BG Details",
+      "title_hi": "डीडी और बीजी विवरण",
+      "title_pa": "ਡੀਡੀ ਅਤੇ ਬੀਜੀ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_DD",
+          "title": "Demand Draft Details",
+          "title_hi": "डिमांड ड्राफ्ट विवरण",
+          "title_pa": "ਡਿਮਾਂਡ ਡਰਾਫਟ ਵੇਰਵੇ",
+          "fields": [
+            {
+              "key": "dd.number",
+              "label": "DD Number",
+              "label_hi": "डीडी नंबर",
+              "label_pa": "ਡੀਡੀ ਨੰਬਰ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "dd.date",
+              "label": "DD Date",
+              "label_hi": "डीडी तिथि",
+              "label_pa": "ਡੀਡੀ ਮਿਤੀ",
+              "type": "date",
+              "required": true
+            },
+            {
+              "key": "dd.bank",
+              "label": "DD Bank Name",
+              "label_hi": "डीडी बैंक का नाम",
+              "label_pa": "ਡੀਡੀ ਬੈਂਕ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "dd.amount",
+              "label": "DD Amount (Rs.)",
+              "label_hi": "डीडी राशि (रु.)",
+              "label_pa": "ਡੀਡੀ ਰਕਮ (ਰੁ.)",
+              "type": "number",
+              "required": true
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_BG",
+          "title": "Bank Guarantee Details",
+          "title_hi": "बैंक गारंटी विवरण",
+          "title_pa": "ਬੈਂਕ ਗਾਰੰਟੀ ਵੇਰਵੇ",
+          "fields": [
+            {
+              "key": "bg.number",
+              "label": "BG Number",
+              "label_hi": "बीजी नंबर",
+              "label_pa": "ਬੀਜੀ ਨੰਬਰ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "bg.date",
+              "label": "BG Date",
+              "label_hi": "बीजी तिथि",
+              "label_pa": "ਬੀਜੀ ਮਿਤੀ",
+              "type": "date",
+              "required": true
+            },
+            {
+              "key": "bg.bank",
+              "label": "BG Bank Name",
+              "label_hi": "बीजी बैंक का नाम",
+              "label_pa": "ਬੀਜੀ ਬੈਂਕ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "bg.amount",
+              "label": "BG Amount (Rs.)",
+              "label_hi": "बीजी राशि (रु.)",
+              "label_pa": "ਬੀਜੀ ਰਕਮ (ਰੁ.)",
+              "type": "number",
+              "required": true
+            },
+            {
+              "key": "bg.validity_date",
+              "label": "BG Validity Date",
+              "label_hi": "बीजी वैधता तिथि",
+              "label_pa": "ਬੀਜੀ ਵੈਧਤਾ ਮਿਤੀ",
+              "type": "date",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_ADDITIONAL",
+      "title": "Additional Details",
+      "title_hi": "अतिरिक्त विवरण",
+      "title_pa": "ਵਾਧੂ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_ADDITIONAL",
+          "title": "Additional Information",
+          "title_hi": "अतिरिक्त जानकारी",
+          "title_pa": "ਵਾਧੂ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "additional.is_renewal",
+              "label": "Is this a renewal application?",
+              "label_hi": "क्या यह नवीनीकरण आवेदन है?",
+              "label_pa": "ਕੀ ਇਹ ਨਵੀਨੀਕਰਨ ਅਰਜ਼ੀ ਹੈ?",
+              "type": "boolean",
+              "required": false
+            },
+            {
+              "key": "additional.remark",
+              "label": "Remark",
+              "label_hi": "टिप्पणी",
+              "label_pa": "ਟਿੱਪਣੀ",
+              "type": "textarea",
+              "required": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

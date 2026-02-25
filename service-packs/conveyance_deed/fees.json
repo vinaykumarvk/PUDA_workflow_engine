@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "CD_PROCESSING_FEE",
+      "amount": 1000,
+      "description": "Conveyance Deed processing fee"
+    }
+  ]
+}

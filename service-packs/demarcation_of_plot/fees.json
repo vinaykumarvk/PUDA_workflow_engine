@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "DEMARCATION_PROCESSING_FEE",
+      "amount": 500,
+      "description": "Demarcation of plot processing fee"
+    }
+  ]
+}

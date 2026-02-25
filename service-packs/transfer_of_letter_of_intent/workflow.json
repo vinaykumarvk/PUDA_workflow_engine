@@ -1,0 +1,82 @@
+{
+  "workflowId": "WF_TRANSFER_OF_LOI",
+  "version": "1.0.0",
+  "states": [
+    { "stateId": "DRAFT", "type": "DRAFT", "taskRequired": false },
+    { "stateId": "SUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "PENDING_AT_CLERK", "type": "TASK", "taskRequired": true, "systemRoleId": "CLERK", "slaDays": 2 },
+    { "stateId": "QUERY_PENDING", "type": "QUERY", "taskRequired": false },
+    { "stateId": "RESUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    {
+      "stateId": "PENDING_AT_SENIOR_ASSISTANT",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "SENIOR_ASSISTANT",
+      "slaDays": 3,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "documents_verified", "label": "Documents verified", "type": "boolean", "required": true },
+          { "key": "seller_details_verified", "label": "Seller details verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    {
+      "stateId": "PENDING_AT_ASSISTANT_ESTATE_OFFICER",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "ASSISTANT_ESTATE_OFFICER",
+      "slaDays": 2,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "physical_verification_completed", "label": "Physical verification completed", "type": "boolean", "required": true },
+          { "key": "loi_verified", "label": "LOI verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    {
+      "stateId": "PENDING_AT_ESTATE_OFFICER",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "ESTATE_OFFICER",
+      "slaDays": 3,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "all_verifications_reviewed", "label": "All verifications reviewed", "type": "boolean", "required": true },
+          { "key": "transfer_recommended", "label": "Transfer recommended", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    { "stateId": "APPROVED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "REJECTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "CLOSED", "type": "END", "taskRequired": false }
+  ],
+  "transitions": [
+    { "transitionId": "SUBMIT", "fromStateId": "DRAFT", "toStateId": "SUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "ASSIGN_CLERK", "fromStateId": "SUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "CLERK_FORWARD", "fromStateId": "PENDING_AT_CLERK", "toStateId": "PENDING_AT_SENIOR_ASSISTANT", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "CLERK_QUERY", "fromStateId": "PENDING_AT_CLERK", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "CLERK_REJECT", "fromStateId": "PENDING_AT_CLERK", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "QUERY_RESPOND", "fromStateId": "QUERY_PENDING", "toStateId": "RESUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "RESUBMIT_ROUTE", "fromStateId": "RESUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "SR_ASSISTANT_FORWARD", "fromStateId": "PENDING_AT_SENIOR_ASSISTANT", "toStateId": "PENDING_AT_ASSISTANT_ESTATE_OFFICER", "trigger": "manual", "allowedSystemRoleIds": ["SENIOR_ASSISTANT"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "SR_ASSISTANT_QUERY", "fromStateId": "PENDING_AT_SENIOR_ASSISTANT", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["SENIOR_ASSISTANT"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "SR_ASSISTANT_REJECT", "fromStateId": "PENDING_AT_SENIOR_ASSISTANT", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["SENIOR_ASSISTANT"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "ASST_ESTATE_OFFICER_FORWARD", "fromStateId": "PENDING_AT_ASSISTANT_ESTATE_OFFICER", "toStateId": "PENDING_AT_ESTATE_OFFICER", "trigger": "manual", "allowedSystemRoleIds": ["ASSISTANT_ESTATE_OFFICER"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "ASST_ESTATE_OFFICER_QUERY", "fromStateId": "PENDING_AT_ASSISTANT_ESTATE_OFFICER", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["ASSISTANT_ESTATE_OFFICER"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "ASST_ESTATE_OFFICER_REJECT", "fromStateId": "PENDING_AT_ASSISTANT_ESTATE_OFFICER", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["ASSISTANT_ESTATE_OFFICER"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "ESTATE_OFFICER_APPROVE", "fromStateId": "PENDING_AT_ESTATE_OFFICER", "toStateId": "APPROVED", "trigger": "manual", "allowedSystemRoleIds": ["ESTATE_OFFICER"], "actions": ["RECORD_DECISION"] },
+    { "transitionId": "ESTATE_OFFICER_QUERY", "fromStateId": "PENDING_AT_ESTATE_OFFICER", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["ESTATE_OFFICER"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "ESTATE_OFFICER_REJECT", "fromStateId": "PENDING_AT_ESTATE_OFFICER", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["ESTATE_OFFICER"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "CLOSE_APPROVED", "fromStateId": "APPROVED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_LOI_TRANSFER_APPROVAL"] },
+    { "transitionId": "CLOSE_REJECTED", "fromStateId": "REJECTED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_LOI_TRANSFER_REJECTION"] }
+  ]
+}

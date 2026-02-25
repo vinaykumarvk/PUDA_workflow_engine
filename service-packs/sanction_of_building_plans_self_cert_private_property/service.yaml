@@ -1,0 +1,25 @@
+serviceKey: sanction_of_building_plans_self_cert_private_property
+displayName: Sanction of Building Plans (Self Certification - Private Property)
+category: ENGINEERING_SERVICES
+description: Sanction of building plans under the self certification scheme for private property
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: false
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

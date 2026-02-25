@@ -1,0 +1,25 @@
+serviceKey: permission_for_sale_gift_transfer
+displayName: Permission for Sale / Gift / Transfer
+category: PROPERTY_SERVICES
+description: Permission for Sale, Gift or Transfer of property under the applicable Authority
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 10
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "MORTGAGE_PROCESSING_FEE",
+      "amount": 500,
+      "description": "Permission to Mortgage processing fee"
+    }
+  ]
+}

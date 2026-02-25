@@ -1,0 +1,88 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_FORM_A",
+      "name": "Form-A",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_FORM_B",
+      "name": "Form-B",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_FORM_C",
+      "name": "Form-C",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_INDEMNITY_BOND",
+      "name": "Indemnity Bond",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_OWNERSHIP_PROOF",
+      "name": "Proof of Ownership (Allotment Letter / Change of Ownership)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_ZONING_PLAN",
+      "name": "Zoning Plan",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_UNDERTAKING_AFFIDAVIT",
+      "name": "Undertaking / Affidavit by Applicant",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BUILDING_PLAN_DWG",
+      "name": "Sanction of Building Plans DWG file",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/octet-stream", "application/acad"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PUBLIC_HEALTH_UNDERTAKING",
+      "name": "Undertaking for Public Health Component",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SUPPORTING",
+      "name": "Any other supporting document",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BUILDING_PLAN_PDF",
+      "name": "Sanction of Building Plans PDF file",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_MINING_FEE_RECEIPT",
+      "name": "Mining Charges Fee Receipt (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

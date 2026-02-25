@@ -1,0 +1,27 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_NDC_COPY",
+      "name": "Self-attested copy of No Due Certificate",
+      "mandatory": false,
+      "requiredWhenRuleId": "NDC_REQUIRED_WHEN_NOT_ONLINE",
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_GPA_SUB_ATTORNEY",
+      "name": "Certified copy of GPA / Sub Attorney",
+      "mandatory": false,
+      "requiredWhenRuleId": "GPA_REQUIRED_WHEN_REPRESENTATIVE",
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_CD_STAMP_PAPER",
+      "name": "Copies of Conveyance Deed including one on stamp paper",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

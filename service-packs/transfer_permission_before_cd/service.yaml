@@ -1,0 +1,25 @@
+serviceKey: transfer_permission_before_cd
+displayName: Transfer Permission (Before Conveyance Deed)
+category: PROPERTY_SERVICES
+description: Permission for transfer of property before execution of Conveyance Deed
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 10
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: true
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "TEMP_SEWERAGE_PROCESSING_FEE",
+      "amount": 1500,
+      "description": "Temporary sewerage connection (construction purpose) processing fee"
+    }
+  ]
+}

@@ -528,10 +528,8 @@ async function seedCitizenApplications() {
   );
   await query(`DELETE FROM task WHERE arn IN ${testCitizenArnSubquery}`);
   await query(`DELETE FROM application_property WHERE arn IN ${testCitizenArnSubquery}`);
-  // Also clean up citizen_property links so seedProperties can delete property rows
-  await query(`DELETE FROM citizen_property WHERE user_id LIKE 'test-citizen%'`);
-  // Delete properties owned only by test citizens (use the ULPIN format seeded below)
-  await query(`DELETE FROM property WHERE unique_property_number LIKE 'PB-%' AND NOT EXISTS (SELECT 1 FROM application_property ap WHERE ap.property_id = property.property_id)`);
+  // Note: citizen_property and property cleanup is handled by seedProperties() which runs first.
+  // Do NOT delete citizen_property or property rows here — seedProperties() already populated them.
   await query("DELETE FROM application WHERE applicant_user_id LIKE 'test-citizen%'");
   console.log("Existing test citizen data cleaned up.");
   

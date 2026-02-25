@@ -1,0 +1,18 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_BUILDING_PLAN_LETTER",
+      "name": "Photocopy of forwarding letter regarding sanction of building plan by empanelled architect or issued by Estate Officer",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SUPPORTING",
+      "name": "Any other supporting document",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

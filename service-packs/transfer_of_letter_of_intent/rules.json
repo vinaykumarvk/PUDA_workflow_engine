@@ -1,0 +1,11 @@
+{
+  "rules": [
+    {
+      "ruleId": "LOI_REQUIRED_WHEN_MANUAL",
+      "description": "LOI scan required when LOI was issued manually",
+      "logic": {
+        "==": [{ "var": "data.loi_issued_online" }, false]
+      }
+    }
+  ]
+}

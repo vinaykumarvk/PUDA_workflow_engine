@@ -1,0 +1,25 @@
+serviceKey: conveyance_deed
+displayName: Issuance of Conveyance Deed
+category: PROPERTY_SERVICES
+description: Issuance of Conveyance Deed for PUDA property
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 15
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

@@ -1,0 +1,25 @@
+serviceKey: change_of_ownership
+displayName: Change of Ownership (Sale / Transfer / Gift Deed)
+category: PROPERTY_SERVICES
+description: Change of ownership of PUDA property after execution of Sale Deed, Transfer Deed, or Gift Deed
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 5
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

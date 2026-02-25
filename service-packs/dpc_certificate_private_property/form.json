@@ -1,0 +1,159 @@
+{
+  "formId": "FORM_DPC_CERTIFICATE_PRIVATE_PROPERTY",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_APPLICATION",
+      "title": "Application Details",
+      "title_hi": "आवेदन विवरण",
+      "title_pa": "ਅਰਜ਼ੀ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_AUTHORITY",
+          "title": "Authority",
+          "title_hi": "प्राधिकरण",
+          "title_pa": "ਅਥਾਰਟੀ",
+          "fields": [
+            {
+              "key": "authority_id",
+              "label": "Select Authority",
+              "label_hi": "प्राधिकरण चुनें",
+              "label_pa": "ਅਥਾਰਟੀ ਚੁਣੋ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "PUDA", "label": "PUDA" },
+                  { "value": "GMADA", "label": "GMADA" },
+                  { "value": "GLADA", "label": "GLADA" },
+                  { "value": "BDA", "label": "BDA" }
+                ],
+                "fillFromProperty": "authority_id"
+              }
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_APPLICANT",
+          "title": "Applicant Details",
+          "title_hi": "आवेदक विवरण",
+          "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਵੇਰਵੇ",
+          "fields": [
+            { "sharedSection": "applicant" }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_PROPERTY",
+      "title": "Property Details",
+      "title_hi": "संपत्ति विवरण",
+      "title_pa": "ਜਾਇਦਾਦ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_PROPERTY",
+          "title": "Property Information",
+          "title_hi": "संपत्ति जानकारी",
+          "title_pa": "ਜਾਇਦਾਦ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "property.scheme_name",
+              "label": "Scheme Name",
+              "label_hi": "योजना का नाम",
+              "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": []
+              }
+            },
+            {
+              "key": "property.plot_no",
+              "label": "Plot / Property Number",
+              "label_hi": "प्लॉट / संपत्ति नंबर",
+              "label_pa": "ਪਲਾਟ / ਜਾਇਦਾਦ ਨੰਬਰ",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_OWNER",
+          "title": "Owner Details",
+          "title_hi": "मालिक विवरण",
+          "title_pa": "ਮਾਲਕ ਵੇਰਵੇ",
+          "fields": [
+            {
+              "key": "owner.name",
+              "label": "Owner Name",
+              "label_hi": "मालिक का नाम",
+              "label_pa": "ਮਾਲਕ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "owner.father_name",
+              "label": "Father's Name",
+              "label_hi": "पिता का नाम",
+              "label_pa": "ਪਿਤਾ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "owner.address",
+              "label": "Owner Address",
+              "label_hi": "मालिक का पता",
+              "label_pa": "ਮਾਲਕ ਦਾ ਪਤਾ",
+              "type": "textarea",
+              "required": true
+            },
+            {
+              "key": "owner.mobile",
+              "label": "Mobile Number",
+              "label_hi": "मोबाइल नंबर",
+              "label_pa": "ਮੋਬਾਈਲ ਨੰਬਰ",
+              "type": "string",
+              "required": true,
+              "ui": { "widget": "phone" }
+            },
+            {
+              "key": "owner.email",
+              "label": "Email Address",
+              "label_hi": "ईमेल पता",
+              "label_pa": "ਈਮੇਲ ਪਤਾ",
+              "type": "string",
+              "required": false,
+              "ui": { "widget": "email" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_REMARKS",
+      "title": "Remarks",
+      "title_hi": "टिप्पणी",
+      "title_pa": "ਟਿੱਪਣੀ",
+      "sections": [
+        {
+          "sectionId": "SEC_REMARKS",
+          "title": "Additional Remarks",
+          "title_hi": "अतिरिक्त टिप्पणी",
+          "title_pa": "ਵਾਧੂ ਟਿੱਪਣੀ",
+          "fields": [
+            {
+              "key": "remark",
+              "label": "Remark",
+              "label_hi": "टिप्पणी",
+              "label_pa": "ਟਿੱਪਣੀ",
+              "type": "textarea",
+              "required": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

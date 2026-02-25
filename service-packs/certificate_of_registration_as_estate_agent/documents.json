@@ -1,0 +1,88 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_APR_XI_FORM",
+      "name": "Application form APR-XI (attested by Oath Commissioner/Magistrate First Class)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_EDUCATION_PROOF",
+      "name": "Proof of educational qualification (not less than Matric)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_AGE_PROOF",
+      "name": "Proof of age (at least 18 years)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SHOP_RENT_AGREEMENT",
+      "name": "Certified copy of rent agreement / property of shop",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_DD_RECEIPT",
+      "name": "Demand Draft of Rs. 2,500 + 18% GST",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BANK_GUARANTEE",
+      "name": "Bank Guarantee of Rs. 10,000",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PAN_PROOF",
+      "name": "Income Tax PAN number",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_EXPERIENCE_CERT",
+      "name": "Five years experience certificate from GMADA-approved agent/promoter",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_NON_CONVICTION_AFFIDAVIT",
+      "name": "Affidavit (not employed in Govt/Semi-Govt and non-conviction by court in last 5 years)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_APR_XXII_FORM",
+      "name": "Form APR-XXII (in case of renewal only)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_RESIDENT_PROOF",
+      "name": "Copy of Resident proof (Aadhaar, Voter card, Ration card, Passport)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PHOTOGRAPH",
+      "name": "Upload Recent Photograph",
+      "mandatory": true,
+      "allowedMimeTypes": ["image/jpeg", "image/png"],
+      "maxSizeMB": 5
+    }
+  ]
+}

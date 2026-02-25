@@ -1,0 +1,25 @@
+serviceKey: conveyance_deed_extended_area
+displayName: Issuance of Conveyance Deed for Extended Area
+category: PROPERTY_SERVICES
+description: Issuance of Conveyance Deed for extended area of PUDA property
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 15
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

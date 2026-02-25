@@ -1,0 +1,26 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_WATER_RECEIPTS",
+      "name": "Water connection Receipts",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SEWERAGE_LETTER",
+      "name": "Copy of Sewerage connection letter",
+      "mandatory": false,
+      "requiredWhenRuleId": "SEWERAGE_REQUIRED_WHEN_NOT_ONLINE",
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_METER_GUARANTEE",
+      "name": "Meter Guarantee Card copy",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

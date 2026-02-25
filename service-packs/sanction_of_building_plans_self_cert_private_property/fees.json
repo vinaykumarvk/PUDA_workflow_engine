@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "BUILDING_PLAN_PP_PROCESSING_FEE",
+      "amount": 2000,
+      "description": "Sanction of Building Plans (Private Property) processing fee"
+    }
+  ]
+}

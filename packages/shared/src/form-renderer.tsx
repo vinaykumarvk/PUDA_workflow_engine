@@ -63,6 +63,8 @@ interface FormRendererProps {
   unlockedFields?: string[];
   /** Citizen-owned properties for UPN picker auto-population */
   citizenProperties?: CitizenProperty[];
+  /** Lookup a property by UPN — returns property details or null if not found */
+  onLookupUpn?: (upn: string) => Promise<CitizenProperty | null>;
   pageActions?: Array<{
     pageId: string;
     label: string;
@@ -89,6 +91,7 @@ export function FormRenderer({
   readOnly = false,
   unlockedFields = [],
   citizenProperties = [],
+  onLookupUpn,
   pageActions = [],
   pageSupplements = {},
   submitLabel = "Submit",
@@ -100,6 +103,12 @@ export function FormRenderer({
   const [currentPage, setCurrentPage] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [upnLookupLoading, setUpnLookupLoading] = useState(false);
+  const [upnLookupError, setUpnLookupError] = useState<string | null>(null);
+  /** Properties discovered via lookup (merged with citizenProperties for display) */
+  const [discoveredProperties, setDiscoveredProperties] = useState<CitizenProperty[]>([]);
+  /** Whether the user has toggled to manual UPN entry mode */
+  const [upnManualMode, setUpnManualMode] = useState(false);
 
   useEffect(() => {
     setData(initialData);
@@ -170,7 +179,8 @@ export function FormRenderer({
    * property.* fields that declare `ui.fillFromProperty`.
    */
   const handleUpnSelect = useCallback((selectedUpn: string) => {
-    const property = citizenProperties.find(
+    // Search allProperties (citizenProperties + discovered) so manual-lookup results also auto-fill
+    const property = allProperties.find(
       (p) => p.unique_property_number === selectedUpn
     );
 
@@ -204,7 +214,68 @@ export function FormRenderer({
 
     setData(newData);
     onChange?.(newData);
-  }, [citizenProperties, data, config?.pages, onChange]);
+  }, [allProperties, data, config?.pages, onChange]);
+
+  // Merge citizenProperties + discoveredProperties (deduplicate by property_id)
+  const allProperties = React.useMemo(() => {
+    const map = new Map<string, CitizenProperty>();
+    for (const p of citizenProperties) map.set(p.property_id, p);
+    for (const p of discoveredProperties) map.set(p.property_id, p);
+    return Array.from(map.values());
+  }, [citizenProperties, discoveredProperties]);
+
+  /**
+   * Handle UPN lookup: call the API, auto-fill form fields, store discovered property.
+   */
+  const handleUpnLookup = useCallback(async (upn: string) => {
+    if (!onLookupUpn || !upn.trim()) return;
+    setUpnLookupLoading(true);
+    setUpnLookupError(null);
+    try {
+      const property = await onLookupUpn(upn.trim());
+      if (!property) {
+        setUpnLookupError("No property found with this UPN");
+        return;
+      }
+      // Store discovered property for summary display
+      setDiscoveredProperties((prev) => {
+        if (prev.some((p) => p.property_id === property.property_id)) return prev;
+        return [...prev, property];
+      });
+      // Auto-fill form fields via the same handleUpnSelect logic but using the looked-up property
+      const newData = { ...data };
+      const setNested = (key: string, value: any) => {
+        const parts = key.split(".");
+        let obj = newData;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj[parts[i]]) obj[parts[i]] = {};
+          obj = obj[parts[i]];
+        }
+        obj[parts[parts.length - 1]] = value;
+      };
+      setNested("property.upn", upn.trim());
+      if (config?.pages) {
+        for (const page of config.pages) {
+          for (const section of page.sections) {
+            for (const f of section.fields) {
+              const fillKey = f.ui?.fillFromProperty;
+              if (!fillKey) continue;
+              const propValue = (property as any)[fillKey];
+              if (propValue !== undefined && propValue !== null) {
+                setNested(f.key, propValue);
+              }
+            }
+          }
+        }
+      }
+      setData(newData);
+      onChange?.(newData);
+    } catch {
+      setUpnLookupError("Failed to look up property. Please try again.");
+    } finally {
+      setUpnLookupLoading(false);
+    }
+  }, [onLookupUpn, data, config?.pages, onChange]);
 
   // Guard: config must have at least one page
   if (!config?.pages?.length) {
@@ -255,49 +326,112 @@ export function FormRenderer({
     switch (field.type) {
       case "string":
       case "text":
-        if (field.type === "string" && field.ui?.widget === "upn-picker" && citizenProperties.length > 0) {
+        if (field.type === "string" && field.ui?.widget === "upn-picker") {
+          const knownProps = allProperties.filter((p) => p.unique_property_number);
+          const selectedProp = allProperties.find((x) => x.unique_property_number === value);
+          const showDropdown = knownProps.length > 0 && !upnManualMode;
+          const showManualInput = knownProps.length === 0 || upnManualMode;
           return (
-            <div key={field.key} className="field">
+            <div key={field.key} className="field upn-picker-field">
               <label htmlFor={fieldId}>
                 {bilingualText(field.label, field.label_hi, field.label_pa)}
                 {field.required && <span className="required">*</span>}
               </label>
-              <select
-                {...ariaProps}
-                value={value || ""}
-                onChange={(e) => handleUpnSelect(e.target.value)}
-                onBlur={blurHandler}
-                disabled={!editable}
-                className={`upn-picker-select${error ? " error" : ""}`}
-              >
-                <option value="">— Select your property (UPN) —</option>
-                {citizenProperties.map((p) => {
-                  const upn = p.unique_property_number || "";
-                  const label = [
-                    upn,
-                    p.scheme_name,
-                    p.property_type,
-                    p.area_sqyd ? `${p.area_sqyd} sq.yd` : null,
-                  ].filter(Boolean).join(" · ");
-                  return <option key={upn} value={upn}>{label}</option>;
-                })}
-              </select>
-              {error && <span id={errorId} className="error-message" role="alert">{error}</span>}
-              {value && (() => {
-                const p = citizenProperties.find((x) => x.unique_property_number === value);
-                if (!p) return null;
-                return (
-                  <div className="upn-selected-summary">
-                    <dl className="property-summary">
-                      {p.scheme_name && <><dt>Scheme</dt><dd>{p.scheme_name}</dd></>}
-                      {p.property_number && <><dt>Plot No.</dt><dd>{p.property_number}</dd></>}
-                      {p.area_sqyd && <><dt>Area</dt><dd>{p.area_sqyd} sq.yd</dd></>}
-                      {p.usage_type && <><dt>Type</dt><dd>{p.usage_type}</dd></>}
-                      {p.district && <><dt>District</dt><dd>{p.district}</dd></>}
-                    </dl>
+              {showDropdown && (
+                <>
+                  <select
+                    {...ariaProps}
+                    value={value || ""}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleUpnSelect(e.target.value);
+                        setUpnLookupError(null);
+                      }
+                    }}
+                    onBlur={blurHandler}
+                    disabled={!editable}
+                    className={`upn-picker-select${error ? " error" : ""}`}
+                  >
+                    <option value="">— Select your property (UPN) —</option>
+                    {knownProps.map((p) => {
+                      const upn = p.unique_property_number || "";
+                      const label = [
+                        upn,
+                        p.scheme_name,
+                        p.property_type,
+                        p.area_sqyd ? `${p.area_sqyd} sq.yd` : null,
+                      ].filter(Boolean).join(" · ");
+                      return <option key={upn} value={upn}>{label}</option>;
+                    })}
+                  </select>
+                  {onLookupUpn && (
+                    <button
+                      type="button"
+                      className="upn-manual-toggle"
+                      onClick={() => setUpnManualMode(true)}
+                    >
+                      Property not listed? Enter UPN manually
+                    </button>
+                  )}
+                </>
+              )}
+              {showManualInput && (
+                <>
+                  {knownProps.length > 0 && (
+                    <button
+                      type="button"
+                      className="upn-manual-toggle"
+                      onClick={() => { setUpnManualMode(false); setUpnLookupError(null); }}
+                    >
+                      ← Back to property list
+                    </button>
+                  )}
+                  <div className="upn-picker-input-row">
+                    <input
+                      {...ariaProps}
+                      type="text"
+                      value={value || ""}
+                      onChange={(e) => {
+                        updateField(field.key, e.target.value);
+                        if (upnLookupError) setUpnLookupError(null);
+                      }}
+                      onBlur={blurHandler}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (value && !selectedProp) handleUpnLookup(value);
+                        }
+                      }}
+                      placeholder="e.g. PB-140-001-003-002301"
+                      disabled={!editable}
+                      className={error ? "error" : ""}
+                    />
+                    {onLookupUpn && (
+                      <button
+                        type="button"
+                        className="upn-fetch-btn"
+                        disabled={!editable || !value || upnLookupLoading}
+                        onClick={() => value && handleUpnLookup(value)}
+                      >
+                        {upnLookupLoading ? "Fetching..." : "Fetch Details"}
+                      </button>
+                    )}
                   </div>
-                );
-              })()}
+                  {upnLookupError && <span className="error-message" role="alert">{upnLookupError}</span>}
+                </>
+              )}
+              {error && <span id={errorId} className="error-message" role="alert">{error}</span>}
+              {selectedProp && (
+                <div className="upn-selected-summary">
+                  <dl className="property-summary">
+                    {selectedProp.scheme_name && <><dt>Scheme</dt><dd>{selectedProp.scheme_name}</dd></>}
+                    {selectedProp.property_number && <><dt>Plot No.</dt><dd>{selectedProp.property_number}</dd></>}
+                    {selectedProp.area_sqyd && <><dt>Area</dt><dd>{selectedProp.area_sqyd} sq.yd</dd></>}
+                    {selectedProp.usage_type && <><dt>Type</dt><dd>{selectedProp.usage_type}</dd></>}
+                    {selectedProp.district && <><dt>District</dt><dd>{selectedProp.district}</dd></>}
+                  </dl>
+                </div>
+              )}
             </div>
           );
         }

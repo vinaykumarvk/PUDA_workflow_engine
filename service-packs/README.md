@@ -2,14 +2,45 @@
 
 A **service pack** is a declarative configuration bundle that defines an end-to-end government service — its application form, workflow, fees, document requirements, business rules, notification triggers, and output templates. Adding a new service type requires only configuration files; no application code changes are needed.
 
-## Available Service Packs
+## Available Service Packs (30 services)
 
-| Directory | Service |
+| # | Directory | Service | Category | SLA |
+|---|-----------|---------|----------|-----|
+| 1 | `no_due_certificate/` | Issue of No Due Certificate | PROPERTY_SERVICES | 5d |
+| 2 | `sanction_of_water_supply/` | Sanction of Water Supply Connection | WATER_SEWERAGE_SERVICES | 7d |
+| 3 | `sanction_of_sewerage_connection/` | Sanction of Sewerage Connection | WATER_SEWERAGE_SERVICES | 7d |
+| 4 | `registration_of_architect/` | Registration of Architect | DEVELOPER_SERVICES | 15d |
+| 5 | `change_of_ownership/` | Change of Ownership (Sale/Transfer/Gift Deed) | PROPERTY_SERVICES | 5d |
+| 6 | `change_of_ownership_death_all_heirs/` | Change of Ownership — Death Case (All Legal Heirs) | PROPERTY_SERVICES | 30d |
+| 7 | `change_of_ownership_death_registered_will/` | Change of Ownership — Death Case (Registered Will) | PROPERTY_SERVICES | 30d |
+| 8 | `change_of_ownership_death_unregistered_will/` | Change of Ownership — Death Case (Unregistered Will) | PROPERTY_SERVICES | 30d |
+| 9 | `completion_certificate_above_1000/` | Completion Certificate (Plot > 1000 sq.yd) | ENGINEERING_SERVICES | 14d |
+| 10 | `completion_certificate_above_1000_private_property/` | Completion Certificate (Plot > 1000 sq.yd, Private Property) | ENGINEERING_SERVICES | 14d |
+| 11 | `completion_certificate_up_to_1000/` | Completion Certificate (Plot ≤ 1000 sq.yd) | ENGINEERING_SERVICES | 14d |
+| 12 | `completion_certificate_up_to_1000_private_property/` | Completion Certificate (Plot ≤ 1000 sq.yd, Private Property) | ENGINEERING_SERVICES | 14d |
+| 13 | `conveyance_deed/` | Issuance of Conveyance Deed | PROPERTY_SERVICES | 15d |
+| 14 | `conveyance_deed_extended_area/` | Issuance of Conveyance Deed (Extended Area) | PROPERTY_SERVICES | 15d |
+| 15 | `copies_of_documents/` | Providing Copies of Documents | PROPERTY_SERVICES | 3d |
+| 16 | `demarcation_of_plot/` | Demarcation of Plot | ENGINEERING_SERVICES | 5d |
+| 17 | `dpc_certificate/` | DPC Level Certificate | ENGINEERING_SERVICES | 7d |
+| 18 | `dpc_certificate_private_property/` | DPC Level Certificate (Private Property) | ENGINEERING_SERVICES | 7d |
+| 19 | `temporary_sewerage_connection_construction/` | Temporary Sewerage Connection (During Construction) | WATER_SEWERAGE_SERVICES | 7d |
+| 20 | `permission_for_sale_gift_transfer/` | Permission for Sale/Gift/Transfer | PROPERTY_SERVICES | 10d |
+| 21 | `permission_to_mortgage/` | Permission to Mortgage | PROPERTY_SERVICES | 7d |
+| 22 | `transfer_permission_before_cd/` | Transfer Permission Before Conveyance Deed | PROPERTY_SERVICES | 10d |
+| 23 | `transfer_of_letter_of_intent/` | Transfer of Letter of Intent | PROPERTY_SERVICES | 21d |
+| 24 | `permitting_professional_consultancy_services/` | Permitting Professional Consultancy Services | PROPERTY_SERVICES | 10d |
+| 25 | `reallotment_letter/` | Issuance of Re-allotment Letter | PROPERTY_SERVICES | 10d |
+| 26 | `regularisation_of_water_connection/` | Regularisation of Water Connection | WATER_SEWERAGE_SERVICES | 7d |
+| 27 | `certificate_of_registration_as_estate_agent/` | Certificate of Registration as Estate Agent | DEVELOPER_SERVICES | 15d |
+| 28 | `certificate_of_registration_as_promoter/` | Certificate of Registration as Promoter | DEVELOPER_SERVICES | 15d |
+| 29 | `sanction_of_building_plans_self_cert/` | Sanction of Building Plans (Self Certification) | ENGINEERING_SERVICES | 7d |
+| 30 | `sanction_of_building_plans_self_cert_private_property/` | Sanction of Building Plans (Self Cert, Private Property) | ENGINEERING_SERVICES | 7d |
+
+**Shared resources:**
+
+| Directory | Purpose |
 |-----------|---------|
-| `no_due_certificate/` | Issue of No Due Certificate |
-| `sanction_of_water_supply/` | Sanction of Water Supply Connection |
-| `sanction_of_sewerage_connection/` | Sanction of Sewerage Connection |
-| `registration_of_architect/` | Registration of Architect |
 | `_shared/` | Shared form sections (reusable across packs) |
 
 ## Directory Structure

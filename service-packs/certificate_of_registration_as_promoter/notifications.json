@@ -1,0 +1,24 @@
+{
+  "events": [
+    {
+      "event": "APPLICATION_SUBMITTED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "QUERY_RAISED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "APPLICATION_APPROVED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "APPLICATION_REJECTED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "workflowId": "WF_SANCTION_OF_BUILDING_PLANS_SELF_CERT_PRIVATE_PROPERTY",
+  "version": "1.0.0",
+  "states": [
+    { "stateId": "DRAFT", "type": "DRAFT", "taskRequired": false },
+    { "stateId": "SUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "PENDING_AT_CLERK", "type": "TASK", "taskRequired": true, "systemRoleId": "CLERK", "slaDays": 1 },
+    { "stateId": "QUERY_PENDING", "type": "QUERY", "taskRequired": false },
+    { "stateId": "RESUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    {
+      "stateId": "PENDING_AT_SENIOR_ASSISTANT",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "SENIOR_ASSISTANT",
+      "slaDays": 1,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "documents_verified", "label": "Documents verified", "type": "boolean", "required": true },
+          { "key": "forms_verified", "label": "Forms verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    {
+      "stateId": "PENDING_AT_DRAFTSMAN",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "DRAFTSMAN",
+      "slaDays": 2,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "building_plan_reviewed", "label": "Building plan reviewed", "type": "boolean", "required": true },
+          { "key": "dwg_pdf_match_verified", "label": "DWG and PDF match verified", "type": "boolean", "required": true },
+          { "key": "zoning_compliance_verified", "label": "Zoning compliance verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    {
+      "stateId": "PENDING_AT_SDO",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "SDO",
+      "slaDays": 3,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "draftsman_review_verified", "label": "Draftsman review verified", "type": "boolean", "required": true },
+          { "key": "building_plan_sanctioned", "label": "Building plan sanctioned", "type": "boolean", "required": true },
+          { "key": "all_documents_verified", "label": "All documents verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    { "stateId": "APPROVED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "REJECTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "CLOSED", "type": "END", "taskRequired": false }
+  ],
+  "transitions": [
+    { "transitionId": "SUBMIT", "fromStateId": "DRAFT", "toStateId": "SUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "ASSIGN_CLERK", "fromStateId": "SUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "CLERK_FORWARD", "fromStateId": "PENDING_AT_CLERK", "toStateId": "PENDING_AT_SENIOR_ASSISTANT", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "CLERK_QUERY", "fromStateId": "PENDING_AT_CLERK", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "CLERK_REJECT", "fromStateId": "PENDING_AT_CLERK", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "QUERY_RESPOND", "fromStateId": "QUERY_PENDING", "toStateId": "RESUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "RESUBMIT_ROUTE", "fromStateId": "RESUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "SR_ASSISTANT_FORWARD", "fromStateId": "PENDING_AT_SENIOR_ASSISTANT", "toStateId": "PENDING_AT_DRAFTSMAN", "trigger": "manual", "allowedSystemRoleIds": ["SENIOR_ASSISTANT"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "SR_ASSISTANT_QUERY", "fromStateId": "PENDING_AT_SENIOR_ASSISTANT", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["SENIOR_ASSISTANT"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "SR_ASSISTANT_REJECT", "fromStateId": "PENDING_AT_SENIOR_ASSISTANT", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["SENIOR_ASSISTANT"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "DRAFTSMAN_FORWARD", "fromStateId": "PENDING_AT_DRAFTSMAN", "toStateId": "PENDING_AT_SDO", "trigger": "manual", "allowedSystemRoleIds": ["DRAFTSMAN"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "DRAFTSMAN_QUERY", "fromStateId": "PENDING_AT_DRAFTSMAN", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["DRAFTSMAN"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "DRAFTSMAN_REJECT", "fromStateId": "PENDING_AT_DRAFTSMAN", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["DRAFTSMAN"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "SDO_APPROVE", "fromStateId": "PENDING_AT_SDO", "toStateId": "APPROVED", "trigger": "manual", "allowedSystemRoleIds": ["SDO"], "actions": ["RECORD_DECISION"] },
+    { "transitionId": "SDO_QUERY", "fromStateId": "PENDING_AT_SDO", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["SDO"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "SDO_REJECT", "fromStateId": "PENDING_AT_SDO", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["SDO"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "CLOSE_APPROVED", "fromStateId": "APPROVED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_BUILDING_PLAN_PP_APPROVAL"] },
+    { "transitionId": "CLOSE_REJECTED", "fromStateId": "REJECTED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_BUILDING_PLAN_PP_REJECTION"] }
+  ]
+}

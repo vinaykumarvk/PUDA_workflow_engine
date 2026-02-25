@@ -1,0 +1,25 @@
+serviceKey: completion_certificate_up_to_1000_private_property
+displayName: Completion Certificate / Occupation Certificate (Up to 1000 Sq Yards - Private Property)
+category: ENGINEERING_SERVICES
+description: Completion Certificate / Occupation Certificate for private properties up to 1000 square yards
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 14
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

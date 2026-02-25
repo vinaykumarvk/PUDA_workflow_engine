@@ -1,0 +1,11 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_SALE_TRANSFER_GIFT_DEED",
+      "name": "Certified copy of Sale Deed / Transfer Deed / Gift Deed issued by Sub-Registrar",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

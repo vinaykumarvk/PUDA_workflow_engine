@@ -1,0 +1,18 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_BANK_CONSENT",
+      "name": "Consent of bank from which loan is being raised in prescribed format",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_OWNERSHIP_PROOF",
+      "name": "Self-attested Proof of Ownership",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

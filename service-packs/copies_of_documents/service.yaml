@@ -1,0 +1,25 @@
+serviceKey: copies_of_documents
+displayName: Copies of Documents
+category: PROPERTY_SERVICES
+description: Issuance of certified copies of property-related documents
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 3
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: false
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

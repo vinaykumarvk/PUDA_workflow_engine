@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "LOI_TRANSFER_FEE",
+      "amount": 1000,
+      "description": "Transfer of Letter of Intent processing fee"
+    }
+  ]
+}

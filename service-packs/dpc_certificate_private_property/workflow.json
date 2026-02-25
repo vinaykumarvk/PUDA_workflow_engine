@@ -1,0 +1,47 @@
+{
+  "workflowId": "WF_DPC_CERTIFICATE_PRIVATE_PROPERTY",
+  "version": "1.0.0",
+  "states": [
+    { "stateId": "DRAFT", "type": "DRAFT", "taskRequired": false },
+    { "stateId": "SUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "PENDING_AT_CLERK", "type": "TASK", "taskRequired": true, "systemRoleId": "CLERK", "slaDays": 3 },
+    { "stateId": "QUERY_PENDING", "type": "QUERY", "taskRequired": false },
+    { "stateId": "RESUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    {
+      "stateId": "PENDING_AT_JUNIOR_ENGINEER",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "JUNIOR_ENGINEER",
+      "slaDays": 4,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "site_inspection_completed", "label": "Site inspection completed", "type": "boolean", "required": true },
+          { "key": "dpc_level_verified", "label": "DPC level verified", "type": "boolean", "required": true },
+          { "key": "building_plan_approval_verified", "label": "Building plan approval verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    { "stateId": "APPROVED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "REJECTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "CLOSED", "type": "END", "taskRequired": false }
+  ],
+  "transitions": [
+    { "transitionId": "SUBMIT", "fromStateId": "DRAFT", "toStateId": "SUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "ASSIGN_CLERK", "fromStateId": "SUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system" },
+
+    { "transitionId": "CLERK_FORWARD", "fromStateId": "PENDING_AT_CLERK", "toStateId": "PENDING_AT_JUNIOR_ENGINEER", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "CLERK_QUERY", "fromStateId": "PENDING_AT_CLERK", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "CLERK_REJECT", "fromStateId": "PENDING_AT_CLERK", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "QUERY_RESPOND", "fromStateId": "QUERY_PENDING", "toStateId": "RESUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "RESUBMIT_ROUTE", "fromStateId": "RESUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "JE_APPROVE", "fromStateId": "PENDING_AT_JUNIOR_ENGINEER", "toStateId": "APPROVED", "trigger": "manual", "allowedSystemRoleIds": ["JUNIOR_ENGINEER"], "actions": ["RECORD_DECISION"] },
+    { "transitionId": "JE_QUERY", "fromStateId": "PENDING_AT_JUNIOR_ENGINEER", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["JUNIOR_ENGINEER"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "JE_REJECT", "fromStateId": "PENDING_AT_JUNIOR_ENGINEER", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["JUNIOR_ENGINEER"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "CLOSE_APPROVED", "fromStateId": "APPROVED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_DPC_PP_APPROVAL"] },
+    { "transitionId": "CLOSE_REJECTED", "fromStateId": "REJECTED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_DPC_PP_REJECTION"] }
+  ]
+}

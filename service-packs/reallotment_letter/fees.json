@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "REALLOTMENT_PROCESSING_FEE",
+      "amount": 500,
+      "description": "Re-allotment Letter processing fee"
+    }
+  ]
+}

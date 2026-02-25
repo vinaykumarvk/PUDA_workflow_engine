@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "CC_UPTO1000_PP_PROCESSING_FEE",
+      "amount": 750,
+      "description": "Completion Certificate (Up to 1000 Sq Yards - Private Property) processing fee"
+    }
+  ]
+}

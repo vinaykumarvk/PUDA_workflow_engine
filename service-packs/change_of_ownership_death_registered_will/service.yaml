@@ -1,0 +1,25 @@
+serviceKey: change_of_ownership_death_registered_will
+displayName: Change of Ownership (Death Case - Registered Will)
+category: PROPERTY_SERVICES
+description: Change of ownership for PUDA property in case of death of owner based on registered will
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 30
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: true
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

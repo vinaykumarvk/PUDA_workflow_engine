@@ -1,0 +1,34 @@
+{
+  "events": [
+    {
+      "event": "APPLICATION_SUBMITTED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "QUERY_RAISED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "APPLICATION_RESUBMITTED",
+      "channels": ["in_app", "email"],
+      "recipients": ["applicant", "assigned_officer"]
+    },
+    {
+      "event": "APPLICATION_APPROVED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "APPLICATION_REJECTED",
+      "channels": ["sms", "email", "in_app"],
+      "recipients": ["applicant"]
+    },
+    {
+      "event": "SLA_BREACH",
+      "channels": ["email", "in_app"],
+      "recipients": ["supervisor"]
+    }
+  ]
+}

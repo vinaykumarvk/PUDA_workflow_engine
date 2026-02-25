@@ -1,0 +1,11 @@
+{
+  "rules": [
+    {
+      "ruleId": "PHYSICAL_VERIFICATION_REQUIRED_BEFORE_APPROVAL",
+      "description": "Physical verification must be completed before SDO can approve",
+      "logic": {
+        "==": [{ "var": "data.all_documents_verified" }, true]
+      }
+    }
+  ]
+}

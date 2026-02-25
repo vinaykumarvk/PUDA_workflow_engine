@@ -1,0 +1,88 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_EDUCATION_PROOF",
+      "name": "Proof of educational qualification (not less than Matric)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_AGE_PROOF",
+      "name": "Proof of age (at least 18 years)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_EXPERIENCE_AFFIDAVIT",
+      "name": "Proof of experience of at least 5 years as estate agent/property dealer (affidavit)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_DD_RECEIPT",
+      "name": "Demand Draft of Rs. 5,000 + 18% GST",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BANK_GUARANTEE",
+      "name": "Bank Guarantee of Rs. 50,000",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_INCOME_TAX_CLEARANCE",
+      "name": "Up-to-date Income Tax clearance certificate",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_FIRM_REGISTRATION",
+      "name": "Proof of registration in case of Firm/Company/Co-operative Society",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_AUTHORIZATION_LETTER",
+      "name": "Authorization letter from Firm/Company/Co-operative Society",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_APR_X_FORM",
+      "name": "Application form APR-X (attested by Oath Commissioner/Magistrate First Class)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_NON_CONVICTION_AFFIDAVIT",
+      "name": "Affidavit for non-conviction by any court in last 5 years",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PHOTOGRAPH",
+      "name": "Upload Recent Photograph",
+      "mandatory": true,
+      "allowedMimeTypes": ["image/jpeg", "image/png"],
+      "maxSizeMB": 5
+    },
+    {
+      "docTypeId": "DOC_APR_XXI_FORM",
+      "name": "Form APR-XXI (required in case of renewal only)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

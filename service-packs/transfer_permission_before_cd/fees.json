@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "TRANSFER_BEFORE_CD_FEE",
+      "amount": 1000,
+      "description": "Transfer Permission (Before CD) processing fee"
+    }
+  ]
+}

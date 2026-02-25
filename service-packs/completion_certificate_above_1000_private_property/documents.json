@@ -1,0 +1,46 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_UNDERTAKING_OWNER_PHOTO",
+      "name": "Undertaking by owner with photograph",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_STRUCTURE_STABILITY",
+      "name": "Structure stability certificate",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BUILDING_PHOTOS",
+      "name": "Photographs of completed building attested by empanelled architects",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_COMPLETION_NOTICE",
+      "name": "Notice of completion",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_ARCHITECT_COMPLETION_CERT",
+      "name": "Certificate of completion by empanelled Architect",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SUPPORTING",
+      "name": "Any other supporting document",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

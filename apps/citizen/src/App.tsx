@@ -287,6 +287,7 @@ export default function App() {
   const [draftConflictArn, setDraftConflictArn] = useState<string | null>(null);
   const [resolvingDraftConflict, setResolvingDraftConflict] = useState(false);
   const [appSearchQuery, setAppSearchQuery] = useState("");
+  const [catalogSearch, setCatalogSearch] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState("");
   const [submissionConfirmation, setSubmissionConfirmation] = useState<{
     arn: string;
@@ -2036,6 +2037,20 @@ export default function App() {
                   }
                   readOnly={isOffline}
                   citizenProperties={citizenProperties}
+                  onLookupUpn={async (upn: string) => {
+                    const res = await fetch(
+                      `${apiBaseUrl}/api/v1/citizens/me/property-lookup?upn=${encodeURIComponent(upn)}`,
+                      { headers: authHeaders() }
+                    );
+                    if (!res.ok) return null;
+                    const json = await res.json();
+                    if (json.property) {
+                      // Refresh citizenProperties so future forms also see it
+                      loadCitizenProperties();
+                      return json.property;
+                    }
+                    return null;
+                  }}
                   secondaryLanguage={preferences.language}
                   pageActions={[
                     {
@@ -2641,14 +2656,55 @@ export default function App() {
             <p>{t("catalog.no_services_desc")}</p>
           </div>
         )}
+        {!loading && services.length > 0 && (
+          <div className="catalog-search-bar">
+            <svg className="catalog-search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <Input
+              placeholder={t("catalog.search_placeholder")}
+              value={catalogSearch}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCatalogSearch(e.target.value)}
+              aria-label={t("catalog.search_placeholder")}
+              className="catalog-search-input"
+            />
+            {catalogSearch && (
+              <button type="button" className="catalog-search-clear" onClick={() => setCatalogSearch("")} aria-label={t("common.clear_filters")}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            )}
+          </div>
+        )}
+        {(() => {
+          const q = catalogSearch.trim().toLowerCase();
+          const filtered = q
+            ? services.filter((s) => {
+                const tKey = `service.${s.serviceKey}`;
+                const en = t(tKey, { lng: "en" }).toLowerCase();
+                const hi = t(tKey, { lng: "hi" }).toLowerCase();
+                const pa = t(tKey, { lng: "pa" }).toLowerCase();
+                return en.includes(q) || hi.includes(q) || pa.includes(q) ||
+                  s.displayName.toLowerCase().includes(q) ||
+                  s.category.toLowerCase().includes(q) ||
+                  s.serviceKey.toLowerCase().includes(q);
+              })
+            : services;
+          if (!loading && services.length > 0 && filtered.length === 0) {
+            return (
+              <div className="empty-state">
+                <div className="empty-icon">
+                  <svg viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <h3>{t("catalog.no_results")}</h3>
+                <p>{t("catalog.no_results_desc")}</p>
+              </div>
+            );
+          }
+          return (
         <ul className="service-list">
-          {services.map((service) => (
+          {filtered.map((service) => (
             <li key={service.serviceKey} className="service-card-group">
               <div className="service-card">
                 <div>
-                  <h2>{service.displayName}</h2>
-                  <p className="service-key">{service.serviceKey}</p>
-                  <p className="service-desc">{service.description || t("catalog.no_description")}</p>
+                  <h2><Bilingual tKey={`service.${service.serviceKey}`} /></h2>
                 </div>
                 <div className="service-actions">
                   <Button onClick={() => handleStartApplication(service)} className="action-button" disabled={isOffline}>
@@ -2701,6 +2757,8 @@ export default function App() {
             </li>
           ))}
         </ul>
+          );
+        })()}
       </main>
     </div>
   );

@@ -1,0 +1,39 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_APPROVED_BUILDING_PLAN",
+      "name": "Copy of approved building plan with area for consultancy duly marked",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_AFFIDAVIT",
+      "name": "Affidavit",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_BUILDING_PLAN",
+      "name": "Building Plan",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_QUALIFICATION_CERT",
+      "name": "Certificate of Qualification",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_FEE_RECEIPT",
+      "name": "Receipt of Fee (Copy)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

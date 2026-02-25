@@ -1,0 +1,66 @@
+{
+  "workflowId": "WF_REGISTRATION_AS_PROMOTER",
+  "version": "1.0.0",
+  "states": [
+    { "stateId": "DRAFT", "type": "DRAFT", "taskRequired": false },
+    { "stateId": "SUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "PENDING_AT_CLERK", "type": "TASK", "taskRequired": true, "systemRoleId": "CLERK", "slaDays": 2 },
+    { "stateId": "QUERY_PENDING", "type": "QUERY", "taskRequired": false },
+    { "stateId": "RESUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    {
+      "stateId": "PENDING_AT_VERIFICATION_OFFICER",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "VERIFICATION_OFFICER",
+      "slaDays": 2,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "documents_verified", "label": "Documents verified", "type": "boolean", "required": true },
+          { "key": "dd_bg_verified", "label": "DD & BG verified", "type": "boolean", "required": true },
+          { "key": "experience_verified", "label": "Experience verified", "type": "boolean", "required": true },
+          { "key": "income_tax_clearance_verified", "label": "Income tax clearance verified", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    {
+      "stateId": "PENDING_AT_COMPETENT_AUTHORITY",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "COMPETENT_AUTHORITY",
+      "slaDays": 1,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "all_verifications_reviewed", "label": "All verifications reviewed", "type": "boolean", "required": true },
+          { "key": "registration_recommended", "label": "Registration recommended", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    { "stateId": "APPROVED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "REJECTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "CLOSED", "type": "END", "taskRequired": false }
+  ],
+  "transitions": [
+    { "transitionId": "SUBMIT", "fromStateId": "DRAFT", "toStateId": "SUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "ASSIGN_CLERK", "fromStateId": "SUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "CLERK_FORWARD", "fromStateId": "PENDING_AT_CLERK", "toStateId": "PENDING_AT_VERIFICATION_OFFICER", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "CLERK_QUERY", "fromStateId": "PENDING_AT_CLERK", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "CLERK_REJECT", "fromStateId": "PENDING_AT_CLERK", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "QUERY_RESPOND", "fromStateId": "QUERY_PENDING", "toStateId": "RESUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "RESUBMIT_ROUTE", "fromStateId": "RESUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "VO_FORWARD", "fromStateId": "PENDING_AT_VERIFICATION_OFFICER", "toStateId": "PENDING_AT_COMPETENT_AUTHORITY", "trigger": "manual", "allowedSystemRoleIds": ["VERIFICATION_OFFICER"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "VO_QUERY", "fromStateId": "PENDING_AT_VERIFICATION_OFFICER", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["VERIFICATION_OFFICER"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "VO_REJECT", "fromStateId": "PENDING_AT_VERIFICATION_OFFICER", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["VERIFICATION_OFFICER"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "CA_APPROVE", "fromStateId": "PENDING_AT_COMPETENT_AUTHORITY", "toStateId": "APPROVED", "trigger": "manual", "allowedSystemRoleIds": ["COMPETENT_AUTHORITY"], "actions": ["RECORD_DECISION"] },
+    { "transitionId": "CA_QUERY", "fromStateId": "PENDING_AT_COMPETENT_AUTHORITY", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["COMPETENT_AUTHORITY"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "CA_REJECT", "fromStateId": "PENDING_AT_COMPETENT_AUTHORITY", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["COMPETENT_AUTHORITY"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "CLOSE_APPROVED", "fromStateId": "APPROVED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_PROMOTER_CERT"] },
+    { "transitionId": "CLOSE_REJECTED", "fromStateId": "REJECTED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_PROMOTER_REJECTION"] }
+  ]
+}

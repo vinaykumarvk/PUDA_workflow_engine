@@ -1,0 +1,25 @@
+serviceKey: permission_to_mortgage
+displayName: Permission to Mortgage
+category: PROPERTY_SERVICES
+description: Permission to mortgage property with a bank or financial institution
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

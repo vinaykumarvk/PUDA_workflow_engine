@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "COPIES_PROCESSING_FEE",
+      "amount": 100,
+      "description": "Copies of documents processing fee"
+    }
+  ]
+}

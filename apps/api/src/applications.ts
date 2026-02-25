@@ -289,7 +289,7 @@ export async function createApplication(
   const propertyData = dataPayload?.property;
   if (propertyData && typeof propertyData === "object" && Object.keys(propertyData).length > 0) {
     try {
-      await upsertPropertyFromApplication(arn, authorityId, propertyData);
+      await upsertPropertyFromApplication(arn, authorityId, propertyData, undefined, applicantUserId || undefined);
     } catch (propErr: any) {
       logWarn("Property upsert failed during application create", {
         arn,
@@ -441,7 +441,7 @@ export async function submitApplication(
     const propertyData = app.data_jsonb?.property;
     if (propertyData && typeof propertyData === "object" && Object.keys(propertyData).length > 0) {
       try {
-        await upsertPropertyFromApplication(app.arn, app.authority_id, propertyData, client);
+        await upsertPropertyFromApplication(app.arn, app.authority_id, propertyData, client, app.applicant_user_id || undefined);
       } catch (propErr: any) {
         logWarn("Property upsert failed during submit", {
           arn,

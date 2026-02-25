@@ -1,0 +1,46 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_DEATH_CERTIFICATE",
+      "name": "Original Death Certificate of the deceased owner",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_UNREGISTERED_WILL",
+      "name": "Attested Copy of unregistered will (with translated copy if not in English/Hindi/Punjabi)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_NOC_AFFIDAVIT_LEGAL_HEIRS",
+      "name": "No objection Affidavits from all left-out legal heirs",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_MORTGAGE_CLEARANCE",
+      "name": "Clearance of previous mortgage/Loan/Redemption Deed",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LIABILITY_AFFIDAVIT",
+      "name": "Liability Affidavit of beneficiaries of the Will",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_WITNESS_AFFIDAVITS",
+      "name": "Affidavits of attesting witnesses in prescribed format",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

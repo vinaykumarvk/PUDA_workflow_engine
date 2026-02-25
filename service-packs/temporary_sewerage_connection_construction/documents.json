@@ -1,0 +1,60 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_BUILDING_PLAN",
+      "name": "Copy of Building Plan",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_PLUMBER_CERTIFICATE",
+      "name": "Certificate from a plumber registered with the Authority",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_APPROVED_PLANS_LETTER",
+      "name": "Copy of approved building plans letter issued by architect",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_CONSTRUCTION_ESTIMATE",
+      "name": "Estimate for construction work issued by Architect",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_ILLEGAL_CONSTRUCTION_UNDERTAKING",
+      "name": "Undertaking regarding illegal construction / illegal water connection at site",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_OWNER_PHOTOS",
+      "name": "Self attested photographs of all owners",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_OWNER_ID_PROOF",
+      "name": "Self attested Photo ID proofs of all owners",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_GPA_COPY",
+      "name": "Attested copy of GPA (if applicable)",
+      "mandatory": false,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

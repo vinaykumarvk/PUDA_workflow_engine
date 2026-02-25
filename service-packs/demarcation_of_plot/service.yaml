@@ -1,0 +1,25 @@
+serviceKey: demarcation_of_plot
+displayName: Demarcation of Plot
+category: ENGINEERING_SERVICES
+description: Demarcation of plot boundaries by the authority
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 5
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce

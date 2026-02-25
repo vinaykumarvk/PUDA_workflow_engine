@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "ESTATE_AGENT_REGISTRATION_FEE",
+      "amount": 2950,
+      "description": "Estate Agent Registration fee (Rs. 2,500 + 18% GST)"
+    }
+  ]
+}

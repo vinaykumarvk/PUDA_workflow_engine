@@ -1,0 +1,25 @@
+serviceKey: regularisation_of_water_connection
+displayName: Regularisation of Water Connection
+category: WATER_SEWERAGE_SERVICES
+description: Regularisation of existing water connection
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 7
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: false
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: warn

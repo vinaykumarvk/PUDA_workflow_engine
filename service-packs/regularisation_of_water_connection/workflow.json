@@ -1,0 +1,47 @@
+{
+  "workflowId": "WF_REGULARISATION_OF_WATER_CONNECTION",
+  "version": "1.0.0",
+  "states": [
+    { "stateId": "DRAFT", "type": "DRAFT", "taskRequired": false },
+    { "stateId": "SUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "PENDING_AT_CLERK", "type": "TASK", "taskRequired": true, "systemRoleId": "CLERK", "slaDays": 2 },
+    { "stateId": "QUERY_PENDING", "type": "QUERY", "taskRequired": false },
+    { "stateId": "RESUBMITTED", "type": "SYSTEM", "taskRequired": false },
+    {
+      "stateId": "PENDING_AT_SUPERINTENDENT",
+      "type": "TASK",
+      "taskRequired": true,
+      "systemRoleId": "SUPERINTENDENT",
+      "slaDays": 1,
+      "taskUi": {
+        "remarksRequired": true,
+        "checklist": [
+          { "key": "meter_details_verified", "label": "Meter details verified", "type": "boolean", "required": true },
+          { "key": "receipts_verified", "label": "Receipts verified", "type": "boolean", "required": true },
+          { "key": "regularisation_recommended", "label": "Regularisation recommended", "type": "boolean", "required": true }
+        ]
+      }
+    },
+    { "stateId": "APPROVED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "REJECTED", "type": "SYSTEM", "taskRequired": false },
+    { "stateId": "CLOSED", "type": "END", "taskRequired": false }
+  ],
+  "transitions": [
+    { "transitionId": "SUBMIT", "fromStateId": "DRAFT", "toStateId": "SUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "ASSIGN_CLERK", "fromStateId": "SUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "CLERK_FORWARD", "fromStateId": "PENDING_AT_CLERK", "toStateId": "PENDING_AT_SUPERINTENDENT", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["ASSIGN_NEXT_TASK"] },
+    { "transitionId": "CLERK_QUERY", "fromStateId": "PENDING_AT_CLERK", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "CLERK_REJECT", "fromStateId": "PENDING_AT_CLERK", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["CLERK"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "QUERY_RESPOND", "fromStateId": "QUERY_PENDING", "toStateId": "RESUBMITTED", "trigger": "manual", "allowedActorTypes": ["CITIZEN"] },
+    { "transitionId": "RESUBMIT_ROUTE", "fromStateId": "RESUBMITTED", "toStateId": "PENDING_AT_CLERK", "trigger": "system", "actions": ["ASSIGN_NEXT_TASK"] },
+
+    { "transitionId": "SUPERINTENDENT_APPROVE", "fromStateId": "PENDING_AT_SUPERINTENDENT", "toStateId": "APPROVED", "trigger": "manual", "allowedSystemRoleIds": ["SUPERINTENDENT"], "actions": ["RECORD_DECISION"] },
+    { "transitionId": "SUPERINTENDENT_QUERY", "fromStateId": "PENDING_AT_SUPERINTENDENT", "toStateId": "QUERY_PENDING", "trigger": "manual", "allowedSystemRoleIds": ["SUPERINTENDENT"], "actions": ["RAISE_QUERY"] },
+    { "transitionId": "SUPERINTENDENT_REJECT", "fromStateId": "PENDING_AT_SUPERINTENDENT", "toStateId": "REJECTED", "trigger": "manual", "allowedSystemRoleIds": ["SUPERINTENDENT"], "actions": ["RECORD_DECISION"] },
+
+    { "transitionId": "CLOSE_APPROVED", "fromStateId": "APPROVED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_WATER_REG_APPROVAL"] },
+    { "transitionId": "CLOSE_REJECTED", "fromStateId": "REJECTED", "toStateId": "CLOSED", "trigger": "system", "actions": ["GENERATE_OUTPUT_WATER_REG_REJECTION"] }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_FIR_DDR",
+      "name": "Self attested copy of FIR / Report in Daily Diary Register (DDR)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_APPLICATION_DECLARATION",
+      "name": "Application form / Self Declaration",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

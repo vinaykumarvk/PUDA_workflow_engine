@@ -1,0 +1,9 @@
+{
+  "default": [
+    {
+      "feeType": "CC_ABOVE1000_PROCESSING_FEE",
+      "amount": 1000,
+      "description": "Completion Certificate (Above 1000 Sq Yards) processing fee"
+    }
+  ]
+}

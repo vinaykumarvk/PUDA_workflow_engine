@@ -1,0 +1,276 @@
+{
+  "formId": "FORM_TRANSFER_OF_LOI",
+  "version": "1.0.0",
+  "pages": [
+    {
+      "pageId": "PAGE_APPLICATION",
+      "title": "Application Details",
+      "title_hi": "आवेदन विवरण",
+      "title_pa": "ਅਰਜ਼ੀ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_AUTHORITY",
+          "title": "Authority",
+          "title_hi": "प्राधिकरण",
+          "title_pa": "ਅਥਾਰਟੀ",
+          "fields": [
+            {
+              "key": "authority_id",
+              "label": "Select Authority",
+              "label_hi": "प्राधिकरण चुनें",
+              "label_pa": "ਅਥਾਰਟੀ ਚੁਣੋ",
+              "type": "enum",
+              "required": true,
+              "ui": {
+                "widget": "select",
+                "options": [
+                  { "value": "PUDA", "label": "PUDA" },
+                  { "value": "GMADA", "label": "GMADA" },
+                  { "value": "GLADA", "label": "GLADA" },
+                  { "value": "BDA", "label": "BDA" }
+                ],
+                "fillFromProperty": "authority_id"
+              }
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_APPLICANT",
+          "title": "Applicant Details",
+          "title_hi": "आवेदक विवरण",
+          "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਵੇਰਵੇ",
+          "fields": [
+            { "sharedSection": "applicant" }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_PROPERTY",
+      "title": "Property Details",
+      "title_hi": "संपत्ति विवरण",
+      "title_pa": "ਜਾਇਦਾਦ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_PROPERTY",
+          "title": "Property Information",
+          "title_hi": "संपत्ति जानकारी",
+          "title_pa": "ਜਾਇਦਾਦ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "property.upn",
+              "label": "Unique Property Number (UPN / Bhu-Aadhar)",
+              "label_hi": "विशिष्ट संपत्ति संख्या (यूपीएन / भू-आधार)",
+              "label_pa": "ਵਿਲੱਖਣ ਜਾਇਦਾਦ ਨੰਬਰ (ਯੂਪੀਐਨ / ਭੂ-ਆਧਾਰ)",
+              "type": "string",
+              "required": true,
+              "ui": { "widget": "upn-picker" }
+            },
+            {
+              "key": "property.area_sqyd",
+              "label": "Area (Sq. Yards)",
+              "label_hi": "क्षेत्रफल (वर्ग गज)",
+              "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)",
+              "type": "number",
+              "required": false,
+              "ui": { "fillFromProperty": "area_sqyd" }
+            },
+            {
+              "key": "property.authority_name",
+              "label": "Authority Name",
+              "label_hi": "प्राधिकरण का नाम",
+              "label_pa": "ਅਥਾਰਟੀ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": false,
+              "ui": { "fillFromProperty": "authority_id" }
+            },
+            {
+              "key": "property.plot_no",
+              "label": "Plot Number",
+              "label_hi": "प्लॉट नंबर",
+              "label_pa": "ਪਲਾਟ ਨੰਬਰ",
+              "type": "string",
+              "required": false,
+              "ui": { "fillFromProperty": "property_number" }
+            },
+            {
+              "key": "property.type",
+              "label": "Property Type",
+              "label_hi": "संपत्ति का प्रकार",
+              "label_pa": "ਜਾਇਦਾਦ ਦੀ ਕਿਸਮ",
+              "type": "enum",
+              "required": false,
+              "ui": {
+                "fillFromProperty": "usage_type",
+                "options": [
+                  { "value": "RESIDENTIAL", "label": "Residential" },
+                  { "value": "COMMERCIAL", "label": "Commercial" },
+                  { "value": "INDUSTRIAL", "label": "Industrial" }
+                ]
+              }
+            },
+            {
+              "key": "property.scheme_name",
+              "label": "Scheme Name",
+              "label_hi": "योजना का नाम",
+              "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": false,
+              "ui": { "fillFromProperty": "scheme_name" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pageId": "PAGE_TRANSFER_DETAILS",
+      "title": "Transfer Details",
+      "title_hi": "हस्तांतरण विवरण",
+      "title_pa": "ਟ੍ਰਾਂਸਫਰ ਵੇਰਵੇ",
+      "sections": [
+        {
+          "sectionId": "SEC_LOI_INFO",
+          "title": "LOI Information",
+          "title_hi": "एलओआई जानकारी",
+          "title_pa": "ਐਲਓਆਈ ਜਾਣਕਾਰੀ",
+          "fields": [
+            {
+              "key": "loi_issued_online",
+              "label": "Was LOI issued online?",
+              "label_hi": "क्या एलओआई ऑनलाइन जारी किया गया था?",
+              "label_pa": "ਕੀ ਐਲਓਆਈ ਔਨਲਾਈਨ ਜਾਰੀ ਕੀਤਾ ਗਿਆ ਸੀ?",
+              "type": "boolean",
+              "required": true
+            },
+            {
+              "key": "loi_reference",
+              "label": "LOI Reference Number",
+              "label_hi": "एलओआई संदर्भ संख्या",
+              "label_pa": "ਐਲਓਆਈ ਹਵਾਲਾ ਨੰਬਰ",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_SELLERS",
+          "title": "Seller Details",
+          "title_hi": "विक्रेता विवरण",
+          "title_pa": "ਵਿਕਰੇਤਾ ਵੇਰਵੇ",
+          "repeatable": true,
+          "minEntries": 1,
+          "maxEntries": 10,
+          "fields": [
+            {
+              "key": "seller.name",
+              "label": "Seller's Name",
+              "label_hi": "विक्रेता का नाम",
+              "label_pa": "ਵਿਕਰੇਤਾ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "seller.father_name",
+              "label": "Father's / Husband's Name",
+              "label_hi": "पिता / पति का नाम",
+              "label_pa": "ਪਿਤਾ / ਪਤੀ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "seller.address",
+              "label": "Address",
+              "label_hi": "पता",
+              "label_pa": "ਪਤਾ",
+              "type": "textarea",
+              "required": true
+            },
+            {
+              "key": "seller.mobile",
+              "label": "Mobile Number",
+              "label_hi": "मोबाइल नंबर",
+              "label_pa": "ਮੋਬਾਈਲ ਨੰਬਰ",
+              "type": "phone",
+              "required": true
+            },
+            {
+              "key": "seller.email",
+              "label": "Email Address",
+              "label_hi": "ईमेल पता",
+              "label_pa": "ਈਮੇਲ ਪਤਾ",
+              "type": "email",
+              "required": false
+            },
+            {
+              "key": "seller.share_percentage",
+              "label": "Share to be Transferred (%)",
+              "label_hi": "हस्तांतरित होने वाला हिस्सा (%)",
+              "label_pa": "ਟ੍ਰਾਂਸਫਰ ਕੀਤਾ ਜਾਣ ਵਾਲਾ ਹਿੱਸਾ (%)",
+              "type": "number",
+              "required": true
+            }
+          ]
+        },
+        {
+          "sectionId": "SEC_PURCHASERS",
+          "title": "Purchaser Details",
+          "title_hi": "क्रेता विवरण",
+          "title_pa": "ਖਰੀਦਦਾਰ ਵੇਰਵੇ",
+          "repeatable": true,
+          "minEntries": 1,
+          "maxEntries": 10,
+          "fields": [
+            {
+              "key": "purchaser.name",
+              "label": "Purchaser's Name",
+              "label_hi": "क्रेता का नाम",
+              "label_pa": "ਖਰੀਦਦਾਰ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "purchaser.father_name",
+              "label": "Father's / Husband's Name",
+              "label_hi": "पिता / पति का नाम",
+              "label_pa": "ਪਿਤਾ / ਪਤੀ ਦਾ ਨਾਮ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "key": "purchaser.address",
+              "label": "Address",
+              "label_hi": "पता",
+              "label_pa": "ਪਤਾ",
+              "type": "textarea",
+              "required": true
+            },
+            {
+              "key": "purchaser.mobile",
+              "label": "Mobile Number",
+              "label_hi": "मोबाइल नंबर",
+              "label_pa": "ਮੋਬਾਈਲ ਨੰਬਰ",
+              "type": "phone",
+              "required": true
+            },
+            {
+              "key": "purchaser.email",
+              "label": "Email Address",
+              "label_hi": "ईमेल पता",
+              "label_pa": "ਈਮੇਲ ਪਤਾ",
+              "type": "email",
+              "required": false
+            },
+            {
+              "key": "purchaser.share_percentage",
+              "label": "Share to be Transferred (%)",
+              "label_hi": "हस्तांतरित होने वाला हिस्सा (%)",
+              "label_pa": "ਟ੍ਰਾਂਸਫਰ ਕੀਤਾ ਜਾਣ ਵਾਲਾ ਹਿੱਸਾ (%)",
+              "type": "number",
+              "required": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

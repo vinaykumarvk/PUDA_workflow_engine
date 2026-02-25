@@ -1,0 +1,53 @@
+{
+  "documentTypes": [
+    {
+      "docTypeId": "DOC_DEATH_CERTIFICATE",
+      "name": "Death Certificate (original to be submitted at authority)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_MORTGAGE_LOAN_CLEARANCE",
+      "name": "Clearance of previous Mortgage / Loan / Redemption Deed",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LEGAL_HEIR_CERTIFICATE",
+      "name": "Legal Heir Certificate (issued by SDM / Tehsildar)",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_AFFIDAVIT_COUNCILOR_SARPANCH",
+      "name": "Affidavit from Area Councilor / Sarpanch",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_SUCCESSION_CERTIFICATE",
+      "name": "Additional document for Succession Certificate issued by Court",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_COURT_DECREE_COPY",
+      "name": "Certified copy of Court Decree",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    },
+    {
+      "docTypeId": "DOC_LIABILITY_AFFIDAVIT_ALL_HEIRS",
+      "name": "Liability Affidavit from all Legal Heirs",
+      "mandatory": true,
+      "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
+      "maxSizeMB": 10
+    }
+  ]
+}

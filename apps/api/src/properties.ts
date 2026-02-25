@@ -144,7 +144,9 @@ export async function upsertPropertyFromApplication(
   arn: string,
   authorityId: string,
   propertyData: PropertyInput,
-  client?: PoolClient
+  client?: PoolClient,
+  /** If provided, auto-link the property to this citizen for future UPN picker use */
+  applicantUserId?: string
 ): Promise<string> {
   const run = client
     ? (text: string, params?: unknown[]) => client.query(text, params)
@@ -274,6 +276,15 @@ export async function upsertPropertyFromApplication(
      ON CONFLICT (arn, property_id) DO NOTHING`,
     [arn, propertyId]
   );
+
+  // Auto-link property to citizen for future UPN picker use (idempotent)
+  if (applicantUserId && propertyId) {
+    try {
+      await linkPropertyToCitizen(applicantUserId, propertyId, client ?? undefined);
+    } catch {
+      // non-fatal — property link is a convenience, not critical
+    }
+  }
 
   return propertyId;
 }

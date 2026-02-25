@@ -1,0 +1,25 @@
+serviceKey: transfer_of_letter_of_intent
+displayName: Transfer of Letter of Intent
+category: PROPERTY_SERVICES
+description: Transfer of Letter of Intent (LOI) from existing allottee to new purchaser/transferee
+
+applicableAuthorities:
+  - PUDA
+  - GMADA
+  - GLADA
+  - BDA
+
+sla:
+  totalDays: 21
+  calendarType: WORKING_DAYS
+  workingCalendar: PUNJAB_GOVT
+
+applicantTypes:
+  - INDIVIDUAL
+
+physicalDocumentRequired: true
+physicalVerificationRequired: true
+
+submissionValidation:
+  propertyRequired: true
+  enforcementMode: enforce
