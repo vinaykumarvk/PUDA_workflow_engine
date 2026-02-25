@@ -326,6 +326,7 @@ export function FormRenderer({
     switch (field.type) {
       case "string":
       case "text":
+      case "textarea":
         if (field.type === "string" && field.ui?.widget === "upn-picker") {
           const knownProps = allProperties.filter((p) => p.unique_property_number);
           const selectedProp = allProperties.find((x) => x.unique_property_number === value);
@@ -441,7 +442,7 @@ export function FormRenderer({
               {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
-            {field.type === "text" ? (
+            {(field.type === "text" || field.type === "textarea") ? (
               <textarea
                 {...ariaProps}
                 value={value || ""}

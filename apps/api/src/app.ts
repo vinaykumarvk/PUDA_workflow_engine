@@ -10,6 +10,7 @@ import {
   isServicePackNotFoundError,
   loadServiceConfig,
   loadServicePacks,
+  validateAllServicePackForms,
 } from "./service-packs";
 import { isPublicRoutePath, registerAuthMiddleware } from "./middleware/auth";
 import { registerAuthRoutes } from "./routes/auth.routes";
@@ -250,6 +251,9 @@ async function runServicePackPreflight(): Promise<void> {
   if (services.length === 0) {
     throw new Error("No service packs found under service-packs/");
   }
+  // Validate all form.json field types against the FormRenderer's supported types.
+  // This catches "field type X is not renderable" errors at boot, not at runtime.
+  await validateAllServicePackForms();
 }
 
 /** Build and return the Fastify app with all routes (no listen). Used by server and tests. */

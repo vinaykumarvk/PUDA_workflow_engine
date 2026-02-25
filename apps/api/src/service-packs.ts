@@ -42,6 +42,54 @@ async function readOptionalJson(filePath: string): Promise<unknown | undefined> 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Form field type validation — must stay in sync with FormRenderer switch cases
+// ---------------------------------------------------------------------------
+const SUPPORTED_FIELD_TYPES = new Set([
+  "string", "text", "textarea", "number", "date",
+  "email", "phone", "aadhaar", "boolean", "enum",
+]);
+
+function validateFormFieldTypes(form: any, serviceKey: string): void {
+  if (!form?.pages || !Array.isArray(form.pages)) return;
+  const errors: string[] = [];
+  for (const page of form.pages) {
+    if (!Array.isArray(page?.sections)) continue;
+    for (const section of page.sections) {
+      if (!Array.isArray(section?.fields)) continue;
+      for (const field of section.fields) {
+        if (field?.type && !SUPPORTED_FIELD_TYPES.has(field.type)) {
+          errors.push(`field "${field.key || "?"}" has unsupported type "${field.type}"`);
+        }
+      }
+    }
+  }
+  if (errors.length > 0) {
+    throw new Error(
+      `[SERVICE_PACK_INVALID] ${serviceKey}/form.json: ${errors.join("; ")}`
+    );
+  }
+}
+
+/**
+ * Validate all form.json files across every service pack.
+ * Called at boot-time preflight to catch schema errors before serving traffic.
+ */
+export async function validateAllServicePackForms(): Promise<void> {
+  const entries = await fs.readdir(servicePackRoot, { withFileTypes: true });
+  const packs = entries
+    .filter((e) => e.isDirectory() && !IGNORED_SERVICE_PACK_DIRECTORIES.has(e.name))
+    .map((e) => e.name);
+
+  for (const pack of packs) {
+    const formPath = path.join(servicePackRoot, pack, "form.json");
+    let form = await readOptionalJson(formPath);
+    if (form === undefined) continue;
+    form = await applySharedFormSections(form);
+    validateFormFieldTypes(form, pack);
+  }
+}
+
 export async function loadServicePacks(): Promise<ServiceSummary[]> {
   const entries = await fs.readdir(servicePackRoot, { withFileTypes: true });
   const packs = entries
