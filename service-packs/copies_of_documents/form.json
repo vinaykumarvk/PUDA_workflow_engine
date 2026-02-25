@@ -172,22 +172,16 @@
               "label": "Details of Documents Requested",
               "label_hi": "अनुरोधित दस्तावेज़ों का विवरण",
               "label_pa": "ਬੇਨਤੀ ਕੀਤੇ ਦਸਤਾਵੇਜ਼ਾਂ ਦਾ ਵੇਰਵਾ",
-              "type": "string",
-              "required": true,
-              "ui": {
-                "widget": "textarea"
-              }
+              "type": "textarea",
+              "required": true
             },
             {
               "key": "request.reason_for_request",
               "label": "Reason for Request",
               "label_hi": "अनुरोध का कारण",
               "label_pa": "ਬੇਨਤੀ ਦਾ ਕਾਰਨ",
-              "type": "string",
-              "required": true,
-              "ui": {
-                "widget": "textarea"
-              }
+              "type": "textarea",
+              "required": true
             },
             {
               "key": "request.fir_ddr_number",
@@ -210,11 +204,8 @@
               "label": "Remark",
               "label_hi": "टिप्पणी",
               "label_pa": "ਟਿੱਪਣੀ",
-              "type": "string",
-              "required": false,
-              "ui": {
-                "widget": "textarea"
-              }
+              "type": "textarea",
+              "required": false
             }
           ]
         }

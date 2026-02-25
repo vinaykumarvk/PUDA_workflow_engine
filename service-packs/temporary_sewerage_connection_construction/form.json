@@ -172,11 +172,8 @@
               "label": "Remark",
               "label_hi": "टिप्पणी",
               "label_pa": "ਟਿੱਪਣੀ",
-              "type": "string",
-              "required": false,
-              "ui": {
-                "widget": "textarea"
-              }
+              "type": "textarea",
+              "required": false
             }
           ]
         }

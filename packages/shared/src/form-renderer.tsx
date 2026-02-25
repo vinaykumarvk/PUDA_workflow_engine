@@ -174,6 +174,15 @@ export function FormRenderer({
     }
   }, [getFieldValue, validateField]);
 
+  // Merge citizenProperties + discoveredProperties (deduplicate by property_id)
+  // NOTE: must be defined before handleUpnSelect which depends on it
+  const allProperties = React.useMemo(() => {
+    const map = new Map<string, CitizenProperty>();
+    for (const p of citizenProperties) map.set(p.property_id, p);
+    for (const p of discoveredProperties) map.set(p.property_id, p);
+    return Array.from(map.values());
+  }, [citizenProperties, discoveredProperties]);
+
   /**
    * When a UPN is selected from the picker, auto-populate all sibling
    * property.* fields that declare `ui.fillFromProperty`.
@@ -215,14 +224,6 @@ export function FormRenderer({
     setData(newData);
     onChange?.(newData);
   }, [allProperties, data, config?.pages, onChange]);
-
-  // Merge citizenProperties + discoveredProperties (deduplicate by property_id)
-  const allProperties = React.useMemo(() => {
-    const map = new Map<string, CitizenProperty>();
-    for (const p of citizenProperties) map.set(p.property_id, p);
-    for (const p of discoveredProperties) map.set(p.property_id, p);
-    return Array.from(map.values());
-  }, [citizenProperties, discoveredProperties]);
 
   /**
    * Handle UPN lookup: call the API, auto-fill form fields, store discovered property.

@@ -66,7 +66,13 @@
               "required": true,
               "ui": {
                 "widget": "select",
-                "options": []
+                "options": [
+                  { "value": "URBAN_ESTATE", "label": "Urban Estate" },
+                  { "value": "HOUSING_COMPLEX", "label": "Housing Complex" },
+                  { "value": "INDUSTRIAL_AREA", "label": "Industrial Area" },
+                  { "value": "COMMERCIAL_COMPLEX", "label": "Commercial Complex" },
+                  { "value": "OTHER", "label": "Other" }
+                ]
               }
             },
             {
@@ -114,18 +120,16 @@
               "label": "Mobile Number",
               "label_hi": "मोबाइल नंबर",
               "label_pa": "ਮੋਬਾਈਲ ਨੰਬਰ",
-              "type": "string",
-              "required": true,
-              "ui": { "widget": "phone" }
+              "type": "phone",
+              "required": true
             },
             {
               "key": "owner.email",
               "label": "Email Address",
               "label_hi": "ईमेल पता",
               "label_pa": "ਈਮੇਲ ਪਤਾ",
-              "type": "string",
-              "required": false,
-              "ui": { "widget": "email" }
+              "type": "email",
+              "required": false
             }
           ]
         }
