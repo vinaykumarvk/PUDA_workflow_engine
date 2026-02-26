@@ -23,13 +23,14 @@ function getJwtSecret(): string {
 const JWT_SECRET = getJwtSecret();
 const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || "24h";
 
+/** Routes available only outside production (API docs, metrics, OpenAPI spec) */
+const DEV_ONLY_ROUTES = ["/metrics", "/docs", "/api/v1/openapi.json"];
+const DEV_ONLY_PREFIXES = ["/docs/"];
+
 /** Routes that do NOT require authentication */
 export const PUBLIC_ROUTES = [
   "/health",
   "/ready",
-  "/metrics",
-  "/docs",
-  "/api/v1/openapi.json",
   "/api/v1/auth/login",
   "/api/v1/auth/register",
   "/api/v1/auth/aadhar/send-otp",
@@ -37,11 +38,12 @@ export const PUBLIC_ROUTES = [
   "/api/v1/auth/forgot-password",
   "/api/v1/auth/reset-password",
   "/api/v1/payments/callback",
+  ...(process.env.NODE_ENV !== "production" ? DEV_ONLY_ROUTES : []),
 ];
 
 const PUBLIC_ROUTE_PREFIXES = [
-  "/docs/",
   "/api/v1/config/",
+  ...(process.env.NODE_ENV !== "production" ? DEV_ONLY_PREFIXES : []),
 ];
 
 export function isPublicRoutePath(url: string): boolean {

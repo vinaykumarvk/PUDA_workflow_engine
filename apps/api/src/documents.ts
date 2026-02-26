@@ -1,7 +1,8 @@
-import { query } from "./db";
+import { query, getClient } from "./db";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
-import { getStorage } from "./storage";
+import { Readable } from "stream";
+import { getStorage, streamToStorageWithValidation } from "./storage";
 import path from "path";
 
 export interface Document {
@@ -36,11 +37,11 @@ export async function uploadDocument(
   docTypeId: string,
   filename: string,
   mimeType: string,
-  fileBuffer: Buffer,
+  fileBufferOrStream: Buffer | Readable,
   userId: string
 ): Promise<Document> {
   // Step 1: Store file in citizen locker (single write, single storage path)
-  const citizenDoc = await uploadCitizenDocument(userId, docTypeId, filename, mimeType, fileBuffer);
+  const citizenDoc = await uploadCitizenDocument(userId, docTypeId, filename, mimeType, fileBufferOrStream);
 
   // Step 2: Create junction reference linking locker doc to this application
   const { app_doc_id: appDocId } = await reuseDocumentForApplication(userId, citizenDoc.citizen_doc_id, arn, docTypeId);
@@ -202,7 +203,7 @@ export async function uploadCitizenDocument(
   docTypeId: string,
   filename: string,
   mimeType: string,
-  fileBuffer: Buffer,
+  fileBufferOrStream: Buffer | Readable,
   options?: { validFrom?: string; validUntil?: string }
 ): Promise<CitizenDocument> {
   const existingResult = await query(
@@ -211,13 +212,23 @@ export async function uploadCitizenDocument(
   );
   const citizenVersion = existingResult.rows.length > 0 ? existingResult.rows[0].citizen_version + 1 : 1;
 
-  const checksum = crypto.createHash("sha256").update(fileBuffer).digest("hex");
   const safeUserId = sanitizeStorageSegment(userId, "user");
   const safeDocTypeId = sanitizeStorageSegment(docTypeId, "doc");
   const safeFilename = sanitizeStorageSegment(filename, "file");
-
   const storageKey = `citizen/${safeUserId}/${safeDocTypeId}/v${citizenVersion}/${safeFilename}`;
-  await getStorage().write(storageKey, fileBuffer);
+
+  let sizeBytes: number;
+  let checksum: string;
+
+  if (Buffer.isBuffer(fileBufferOrStream)) {
+    checksum = crypto.createHash("sha256").update(fileBufferOrStream).digest("hex");
+    sizeBytes = fileBufferOrStream.length;
+    await getStorage().write(storageKey, fileBufferOrStream);
+  } else {
+    const result = await streamToStorageWithValidation(fileBufferOrStream, storageKey, mimeType);
+    sizeBytes = result.bytesWritten;
+    checksum = result.checksum;
+  }
 
   // Mark previous versions as not current
   await query(
@@ -230,7 +241,7 @@ export async function uploadCitizenDocument(
   const validUntil = options?.validUntil || null;
   await query(
     "INSERT INTO citizen_document (citizen_doc_id, user_id, doc_type_id, citizen_version, storage_key, original_filename, mime_type, size_bytes, checksum, is_current, valid_from, valid_until) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10, $11)",
-    [citizenDocId, userId, docTypeId, citizenVersion, storageKey, filename, mimeType, fileBuffer.length, checksum, validFrom, validUntil]
+    [citizenDocId, userId, docTypeId, citizenVersion, storageKey, filename, mimeType, sizeBytes, checksum, validFrom, validUntil]
   );
 
   return {
@@ -241,7 +252,7 @@ export async function uploadCitizenDocument(
     storage_key: storageKey,
     original_filename: filename,
     mime_type: mimeType,
-    size_bytes: fileBuffer.length,
+    size_bytes: sizeBytes,
     checksum,
     uploaded_at: new Date(),
     is_current: true,
@@ -440,8 +451,23 @@ export async function batchUpdateDocumentVerifications(
   updates: Array<{ appDocId: string; status: string; remarks?: string }>,
   verifiedByUserId: string
 ): Promise<void> {
-  for (const update of updates) {
-    await updateDocumentVerification(update.appDocId, update.status, verifiedByUserId, update.remarks);
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    for (const update of updates) {
+      await client.query(
+        `UPDATE application_document
+         SET verification_status = $1, verified_by_user_id = $2, verified_at = NOW(), verification_remarks = $3
+         WHERE app_doc_id = $4`,
+        [update.status, verifiedByUserId, update.remarks || null, update.appDocId]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
 }
 

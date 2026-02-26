@@ -141,7 +141,6 @@ export async function registerComplaintRoutes(app: FastifyInstance) {
       if (!data) return send400(reply, "NO_FILE");
 
       const safeFilename = sanitizeFilename(data.filename);
-      const buffer = await data.toBuffer();
 
       try {
         const evidence = await complaints.addComplaintEvidence(
@@ -149,7 +148,7 @@ export async function registerComplaintRoutes(app: FastifyInstance) {
           userId,
           safeFilename,
           data.mimetype,
-          buffer
+          data.file
         );
         reply.code(201);
         return evidence;
@@ -162,6 +161,9 @@ export async function registerComplaintRoutes(app: FastifyInstance) {
         }
         if (error.message === "MAX_EVIDENCE_REACHED") {
           return send400(reply, "MAX_EVIDENCE_REACHED", "Maximum 5 evidence files per complaint.");
+        }
+        if (error.message === "MIME_MISMATCH") {
+          return send400(reply, "MIME_MISMATCH", "File content does not match declared MIME type.");
         }
         return send400(reply, error.message);
       }
@@ -193,7 +195,7 @@ export async function registerComplaintRoutes(app: FastifyInstance) {
       if (!complaint) return send404(reply, "COMPLAINT_NOT_FOUND");
       if (complaint.user_id !== userId) return send403(reply, "FORBIDDEN");
 
-      const file = await complaints.getEvidenceFile(params.evidenceId);
+      const file = await complaints.getEvidenceFile(complaint.complaint_id, params.evidenceId);
       if (!file) return send404(reply, "EVIDENCE_NOT_FOUND");
 
       reply.type(file.mimeType);
@@ -353,7 +355,7 @@ export async function registerComplaintRoutes(app: FastifyInstance) {
       const complaint = await complaints.getComplaintByNumber(params.complaintNumber);
       if (!complaint) return send404(reply, "COMPLAINT_NOT_FOUND");
 
-      const file = await complaints.getEvidenceFile(params.evidenceId);
+      const file = await complaints.getEvidenceFile(complaint.complaint_id, params.evidenceId);
       if (!file) return send404(reply, "EVIDENCE_NOT_FOUND");
 
       reply.type(file.mimeType);

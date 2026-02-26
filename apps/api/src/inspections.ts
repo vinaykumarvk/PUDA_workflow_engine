@@ -150,10 +150,11 @@ export async function assignInspection(
   return getInspectionById(inspectionId);
 }
 
-/** Record findings and complete an inspection. */
+/** Record findings and complete an inspection. Defense-in-depth: WHERE clause enforces assignee at data layer. */
 export async function completeInspection(
   inspectionId: string,
-  input: CompleteInspectionInput
+  input: CompleteInspectionInput,
+  completedByUserId?: string
 ): Promise<InspectionRow | null> {
   const actualAt = input.actualAt ? new Date(input.actualAt) : new Date();
 
@@ -168,7 +169,8 @@ export async function completeInspection(
        outcome = $7,
        outcome_remarks = COALESCE($8, outcome_remarks),
        updated_at = NOW()
-     WHERE inspection_id = $1 AND status IN ('SCHEDULED', 'IN_PROGRESS')`,
+     WHERE inspection_id = $1 AND status IN ('SCHEDULED', 'IN_PROGRESS')
+       AND (officer_user_id IS NULL OR officer_user_id = $9)`,
     [
       inspectionId,
       actualAt,
@@ -178,6 +180,7 @@ export async function completeInspection(
       JSON.stringify(input.photos || []),
       input.outcome,
       input.outcomeRemarks || null,
+      completedByUserId || null,
     ]
   );
   return getInspectionById(inspectionId);

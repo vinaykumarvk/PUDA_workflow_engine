@@ -1,5 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { parseComplaint, summarizeTimeline, isAIConfigured } from "../ai";
+import { requireApplicationReadAccess } from "../route-access";
+import { send404 } from "../errors";
+import * as applications from "../applications";
+import { query } from "../db";
 
 export async function registerAIRoutes(app: FastifyInstance) {
   // Parse complaint from voice transcript
@@ -30,28 +34,15 @@ export async function registerAIRoutes(app: FastifyInstance) {
     return result;
   });
 
-  // Summarize application timeline
+  // Summarize application timeline — accepts ARN, fetches data server-side with authz
   app.post("/api/v1/ai/summarize-timeline", {
     schema: {
       body: {
         type: "object",
-        required: ["timeline", "currentState", "serviceKey"],
+        required: ["arn"],
         additionalProperties: false,
         properties: {
-          timeline: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                event_type: { type: "string" },
-                actor_name: { type: "string" },
-                created_at: { type: "string" },
-                payload: {},
-              },
-            },
-          },
-          currentState: { type: "string" },
-          serviceKey: { type: "string" },
+          arn: { type: "string", minLength: 1 },
         },
       },
     },
@@ -61,13 +52,29 @@ export async function registerAIRoutes(app: FastifyInstance) {
       return { error: "AI_NOT_CONFIGURED", message: "AI features are not available" };
     }
 
-    const { timeline, currentState, serviceKey } = request.body as {
-      timeline: Array<{ event_type: string; actor_name?: string; created_at: string; payload?: any }>;
-      currentState: string;
-      serviceKey: string;
-    };
+    const { arn } = request.body as { arn: string };
 
-    const summary = await summarizeTimeline(timeline, currentState, serviceKey);
+    const internalArn = await requireApplicationReadAccess(request, reply, arn, "You are not allowed to access this application");
+    if (!internalArn) return;
+
+    const application = await applications.getApplication(internalArn);
+    if (!application) return send404(reply, "APPLICATION_NOT_FOUND");
+
+    const auditResult = await query(
+      `SELECT ae.event_type, ae.actor_type, ae.actor_id, u.name as actor_name, ae.payload_jsonb, ae.created_at
+       FROM audit_event ae LEFT JOIN "user" u ON ae.actor_id = u.user_id
+       WHERE ae.arn = $1 ORDER BY ae.created_at DESC LIMIT 50`,
+      [internalArn]
+    );
+
+    const timeline = auditResult.rows.map((r: any) => ({
+      event_type: r.event_type,
+      actor_name: r.actor_name,
+      created_at: r.created_at,
+      payload: r.payload_jsonb,
+    }));
+
+    const summary = await summarizeTimeline(timeline, application.state_id, application.service_key);
     return { summary };
   });
 }

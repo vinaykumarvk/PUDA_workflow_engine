@@ -19,6 +19,7 @@
     "check:frontend-budgets": "node scripts/check-frontend-budgets.mjs",
     "test:api:load": "npm --workspace apps/api run test:load",
     "test:api:dast:local": "bash scripts/run-local-dast-smoke.sh",
+    "test:e2e": "npm run test:e2e:a11y && npm run test:e2e:resilience",
     "test:e2e:a11y": "playwright test --config=e2e/playwright.a11y.config.ts",
     "test:e2e:resilience": "npm run build:citizen && playwright test --config=e2e/playwright.resilience.config.ts",
     "check:observability": "node scripts/check-observability-artifacts.mjs",

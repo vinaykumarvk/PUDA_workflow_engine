@@ -37,7 +37,8 @@ import { verifyAuditChainIntegrity } from "./audit-chain";
 import { cleanupExpiredMfaChallenges } from "./mfa-stepup";
 import { cleanupExpiredRevocations } from "./token-security";
 import { evaluateRuntimeAdapterPreflight, runRuntimeAdapterPreflightOrThrow } from "./runtime-adapter-preflight";
-import { send400 } from "./errors";
+import { send400, sendError } from "./errors";
+import { logError } from "./logger";
 import { setLogContext } from "./log-context";
 import {
   getMetricsContentType,
@@ -408,7 +409,19 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
         )
       );
     }
-    return reply.send(error);
+    // Never expose internal error details to clients
+    const err = error as Error & { statusCode?: number; code?: string };
+    logError("Unhandled request error", {
+      message: err.message,
+      stack: err.stack,
+      statusCode: err.statusCode,
+    });
+    const statusCode = err.statusCode || 500;
+    if (statusCode >= 500) {
+      return reply.send(sendError(reply, 500, "INTERNAL_ERROR", "An unexpected error occurred"));
+    }
+    // For 4xx errors from Fastify itself (e.g. 404, 413), return a clean message
+    return reply.send(sendError(reply, statusCode, err.code || "ERROR", err.message));
   });
 
   // Fail app boot early if service metadata is malformed/missing.
@@ -770,10 +783,12 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
   await registerTelemetryRoutes(app);
   await registerAIRoutes(app);
 
-  app.get("/api/v1/openapi.json", async (_request, reply) => {
-    reply.header("cache-control", "no-store");
-    return app.swagger();
-  });
+  if (docsEnabled) {
+    app.get("/api/v1/openapi.json", async (_request, reply) => {
+      reply.header("cache-control", "no-store");
+      return app.swagger();
+    });
+  }
 
   // C4: Register runtime-configured notification transports (stub/smtp/sms providers)
   if (process.env.NODE_ENV !== "test") {

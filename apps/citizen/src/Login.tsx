@@ -518,9 +518,11 @@ export default function Login() {
           </div>
         )}
 
-        <div className="login-footer">
-          <p>{t("login.test_credentials")}</p>
-        </div>
+        {import.meta.env.DEV && (
+          <div className="login-footer">
+            <p>{t("login.test_credentials")}</p>
+          </div>
+        )}
       </div>
     </div>
   );

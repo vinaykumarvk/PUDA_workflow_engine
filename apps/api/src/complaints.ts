@@ -1,6 +1,7 @@
 import { query } from "./db";
 import { v4 as uuidv4 } from "uuid";
-import { getStorage } from "./storage";
+import { Readable } from "stream";
+import { getStorage, streamToStorageWithValidation } from "./storage";
 import path from "path";
 
 export interface Complaint {
@@ -192,16 +193,18 @@ export async function addComplaintEvidence(
   userId: string,
   filename: string,
   mimeType: string,
-  buffer: Buffer
+  bufferOrStream: Buffer | Readable
 ): Promise<ComplaintEvidence> {
   if (!ALLOWED_EVIDENCE_TYPES.includes(mimeType)) {
     throw new Error("INVALID_FILE_TYPE");
   }
-  if (buffer.length > MAX_EVIDENCE_SIZE_BYTES) {
-    throw new Error("FILE_TOO_LARGE");
-  }
 
-  // Check existing evidence count
+  // Lock the complaint row to prevent concurrent evidence uploads from exceeding the limit
+  await query(
+    "SELECT complaint_id FROM complaint WHERE complaint_id = $1 FOR UPDATE",
+    [complaintId]
+  );
+
   const countResult = await query(
     "SELECT COUNT(*) AS cnt FROM complaint_evidence WHERE complaint_id = $1",
     [complaintId]
@@ -214,14 +217,24 @@ export async function addComplaintEvidence(
   const safeComplaintId = sanitizeStorageSegment(complaintId, "complaint");
   const safeEvidenceId = sanitizeStorageSegment(evidenceId, "evidence");
   const safeFilename = sanitizeStorageSegment(filename, "file");
-
   const storageKey = `complaints/${safeComplaintId}/${safeEvidenceId}/${safeFilename}`;
-  await getStorage().write(storageKey, buffer);
+
+  let sizeBytes: number;
+  if (Buffer.isBuffer(bufferOrStream)) {
+    if (bufferOrStream.length > MAX_EVIDENCE_SIZE_BYTES) {
+      throw new Error("FILE_TOO_LARGE");
+    }
+    sizeBytes = bufferOrStream.length;
+    await getStorage().write(storageKey, bufferOrStream);
+  } else {
+    const result = await streamToStorageWithValidation(bufferOrStream, storageKey, mimeType, MAX_EVIDENCE_SIZE_BYTES);
+    sizeBytes = result.bytesWritten;
+  }
 
   await query(
     `INSERT INTO complaint_evidence (evidence_id, complaint_id, storage_key, original_filename, mime_type, size_bytes, uploaded_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [evidenceId, complaintId, storageKey, filename, mimeType, buffer.length, userId]
+    [evidenceId, complaintId, storageKey, filename, mimeType, sizeBytes, userId]
   );
 
   return {
@@ -230,16 +243,16 @@ export async function addComplaintEvidence(
     storage_key: storageKey,
     original_filename: filename,
     mime_type: mimeType,
-    size_bytes: buffer.length,
+    size_bytes: sizeBytes,
     uploaded_at: new Date().toISOString(),
     uploaded_by: userId,
   };
 }
 
-export async function getEvidenceFile(evidenceId: string): Promise<{ buffer: Buffer; mimeType: string; filename: string } | null> {
+export async function getEvidenceFile(complaintId: string, evidenceId: string): Promise<{ buffer: Buffer; mimeType: string; filename: string } | null> {
   const result = await query(
-    "SELECT storage_key, mime_type, original_filename FROM complaint_evidence WHERE evidence_id = $1",
-    [evidenceId]
+    "SELECT storage_key, mime_type, original_filename FROM complaint_evidence WHERE complaint_id = $1 AND evidence_id = $2",
+    [complaintId, evidenceId]
   );
   if (result.rows.length === 0) return null;
   const row = result.rows[0];

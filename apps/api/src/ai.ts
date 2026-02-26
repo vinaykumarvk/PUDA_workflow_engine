@@ -2,6 +2,7 @@
  * AI utilities for the PUDA workflow engine.
  * Proxies requests to OpenAI GPT API for complaint parsing and timeline summaries.
  */
+import { resilientFetch } from "./http-client";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -15,7 +16,7 @@ async function callOpenAI(
     throw new Error("OPENAI_API_KEY is not configured");
   }
 
-  const res = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+  const res = await resilientFetch(`${OPENAI_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -30,6 +31,8 @@ async function callOpenAI(
       temperature: 0.3,
       max_tokens: 1024,
     }),
+    timeoutMs: 30_000,
+    maxRetries: 2,
   });
 
   if (!res.ok) {

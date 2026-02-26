@@ -6,6 +6,7 @@ import { query } from "../db";
 import { getAuthUserId, send400, send404 } from "../errors";
 import {
   requireApplicationReadAccess,
+  requireApplicationStaffMutationAccess,
   requireCitizenOwnedApplicationAccess,
 } from "../route-access";
 
@@ -130,9 +131,8 @@ export async function registerDocumentRoutes(app: FastifyInstance) {
       return send400(reply, "DOCUMENT_UPLOAD_NOT_ALLOWED");
     }
     const safeFilename = sanitizeFilename(data.filename);
-    const buffer = await data.toBuffer();
     try {
-      return await documents.uploadDocument(internalArn, docTypeId, safeFilename, data.mimetype, buffer, effectiveUserId);
+      return await documents.uploadDocument(internalArn, docTypeId, safeFilename, data.mimetype, data.file, effectiveUserId);
     } catch (error: any) {
       return send400(reply, error.message);
     }
@@ -185,6 +185,9 @@ export async function registerDocumentRoutes(app: FastifyInstance) {
     const appDoc = await documents.getApplicationDocumentById(params.appDocId);
     if (!appDoc) return send404(reply, "APP_DOC_NOT_FOUND");
 
+    const internalArn = await requireApplicationStaffMutationAccess(request, reply, appDoc.arn, "You are not allowed to verify documents for this application");
+    if (!internalArn) return;
+
     await documents.updateDocumentVerification(params.appDocId, body.status, userId, body.remarks);
     return { success: true, appDocId: params.appDocId, status: body.status };
   });
@@ -195,6 +198,19 @@ export async function registerDocumentRoutes(app: FastifyInstance) {
     if (!userId) return send400(reply, "USER_ID_REQUIRED");
 
     const body = request.body as { verifications: Array<{ appDocId: string; status: string; remarks?: string }> };
+
+    // Verify staff mutation access for all documents in the batch
+    const arnSet = new Set<string>();
+    for (const v of body.verifications) {
+      const appDoc = await documents.getApplicationDocumentById(v.appDocId);
+      if (!appDoc) return send404(reply, "APP_DOC_NOT_FOUND");
+      arnSet.add(appDoc.arn);
+    }
+    for (const arn of arnSet) {
+      const internalArn = await requireApplicationStaffMutationAccess(request, reply, arn, "You are not allowed to verify documents for this application");
+      if (!internalArn) return;
+    }
+
     await documents.batchUpdateDocumentVerifications(body.verifications, userId);
     return { success: true, count: body.verifications.length };
   });

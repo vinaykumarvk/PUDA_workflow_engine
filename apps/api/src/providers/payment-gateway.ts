@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { logWarn } from "../logger";
+import { resilientFetch } from "../http-client";
 
 export type PaymentGatewayVerificationErrorCode =
   | "INVALID_GATEWAY_SIGNATURE"
@@ -102,13 +103,15 @@ class RazorpayPaymentGatewayAdapter implements PaymentGatewayAdapter {
     });
 
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-    const response = await fetch("https://api.razorpay.com/v1/orders", {
+    const response = await resilientFetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Basic ${auth}`,
       },
       body,
+      timeoutMs: 15_000,
+      maxRetries: 2,
     });
 
     if (!response.ok) {

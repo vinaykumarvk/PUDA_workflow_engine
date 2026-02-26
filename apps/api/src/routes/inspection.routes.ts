@@ -380,7 +380,11 @@ export async function registerInspectionRoutes(app: FastifyInstance) {
     );
     if (!arn) return;
 
-    const inspection = await completeInspection(inspectionId, input);
+    if (existing.officer_user_id && existing.officer_user_id !== userId) {
+      return send403(reply, "Only the assigned inspector can complete this inspection");
+    }
+
+    const inspection = await completeInspection(inspectionId, input, userId);
     if (!inspection) {
       return send404(reply, "Inspection not found or already completed/cancelled");
     }

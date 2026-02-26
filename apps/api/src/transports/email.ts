@@ -19,6 +19,16 @@ import { NotificationTransport } from "../notifications";
 import { query } from "../db";
 import { logError, logInfo, logWarn } from "../logger";
 
+/** Escape user-controlled strings before interpolation into HTML email body. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 let transporter: Transporter | null = null;
 
 function getTransporter(): Transporter {
@@ -101,9 +111,9 @@ const smtpEmailTransport: NotificationTransport = {
     <h1 style="color: white; margin: 0; font-size: 1.25rem;">PUDA - Punjab Urban Development Authority</h1>
   </div>
   <div style="background: white; padding: 24px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-    <h2 style="margin-top: 0; color: #1e40af;">${title}</h2>
-    <p style="line-height: 1.6;">${message}</p>
-    ${arn ? `<p style="font-size: 0.9rem; color: #666;">Application Reference: <strong>${arn}</strong></p>` : ""}
+    <h2 style="margin-top: 0; color: #1e40af;">${escapeHtml(title)}</h2>
+    <p style="line-height: 1.6;">${escapeHtml(message)}</p>
+    ${arn ? `<p style="font-size: 0.9rem; color: #666;">Application Reference: <strong>${escapeHtml(arn)}</strong></p>` : ""}
     <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
     <p style="font-size: 0.8rem; color: #999;">
       This is an automated notification from the PUDA Online Services Portal.

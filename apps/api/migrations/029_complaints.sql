@@ -1,4 +1,4 @@
-CREATE TABLE complaint (
+CREATE TABLE IF NOT EXISTS complaint (
   complaint_id      TEXT PRIMARY KEY,
   complaint_number  TEXT UNIQUE NOT NULL,
   user_id           TEXT NOT NULL REFERENCES "user"(user_id),
@@ -24,13 +24,17 @@ CREATE TABLE complaint (
   officer_remarks   TEXT
 );
 
-CREATE SEQUENCE complaint_number_seq START 1;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'complaint_number_seq') THEN
+    CREATE SEQUENCE complaint_number_seq START 1;
+  END IF;
+END $$;
 
-CREATE INDEX idx_complaint_user ON complaint(user_id, created_at DESC);
-CREATE INDEX idx_complaint_status ON complaint(status)
+CREATE INDEX IF NOT EXISTS idx_complaint_user ON complaint(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_complaint_status ON complaint(status)
   WHERE status NOT IN ('RESOLVED','CLOSED','REJECTED');
 
-CREATE TABLE complaint_evidence (
+CREATE TABLE IF NOT EXISTS complaint_evidence (
   evidence_id       TEXT PRIMARY KEY,
   complaint_id      TEXT NOT NULL REFERENCES complaint(complaint_id),
   storage_key       TEXT NOT NULL,
@@ -41,4 +45,4 @@ CREATE TABLE complaint_evidence (
   uploaded_by       TEXT NOT NULL REFERENCES "user"(user_id)
 );
 
-CREATE INDEX idx_complaint_evidence ON complaint_evidence(complaint_id);
+CREATE INDEX IF NOT EXISTS idx_complaint_evidence ON complaint_evidence(complaint_id);

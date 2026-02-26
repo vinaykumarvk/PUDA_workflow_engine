@@ -150,7 +150,7 @@ export default function App() {
     try {
       const authorityParam = authorities.length > 0 ? `&authorityId=${authorities[0]}` : "";
       const res = await fetch(
-        `${apiBaseUrl}/api/v1/tasks/inbox?userId=${officerUserId}&status=PENDING${authorityParam}`,
+        `${apiBaseUrl}/api/v1/tasks/inbox?status=PENDING${authorityParam}`,
         { headers: authHeaders() }
       );
       if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -200,7 +200,7 @@ export default function App() {
       await fetch(`${apiBaseUrl}/api/v1/tasks/${task.task_id}/assign`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ userId: officerUserId }),
+        body: JSON.stringify({}),
       }).catch(() => {});
     }
     setView("task");

@@ -81,15 +81,17 @@ export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
           >
             {t(loginLoading ? "login.loading" : "login.submit")}
           </Button>
-          <div className="test-credentials">
-            <p className="test-credentials__title">Test Credentials (password: password123)</p>
-            <p>officer1 = Clerk (all services, first stage)</p>
-            <p>officer2 = Sr. Assistant (NDC, second stage)</p>
-            <p>officer3 = Account Officer (NDC, final approval)</p>
-            <p>officer4 = Junior Engineer (Water/Sewerage)</p>
-            <p>officer5 = SDO (Water/Sewerage, final approval)</p>
-            <p>officer6 = Draftsman (Architect, final approval)</p>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="test-credentials">
+              <p className="test-credentials__title">Test Credentials (password: password123)</p>
+              <p>officer1 = Clerk (all services, first stage)</p>
+              <p>officer2 = Sr. Assistant (NDC, second stage)</p>
+              <p>officer3 = Account Officer (NDC, final approval)</p>
+              <p>officer4 = Junior Engineer (Water/Sewerage)</p>
+              <p>officer5 = SDO (Water/Sewerage, final approval)</p>
+              <p>officer6 = Draftsman (Architect, final approval)</p>
+            </div>
+          )}
         </form>
       </main>
     </div>

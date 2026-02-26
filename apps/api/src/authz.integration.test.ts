@@ -1973,4 +1973,75 @@ describe("Authorization Integration - Hardened Routes", () => {
     );
     expect(insertedHoliday).toBeUndefined();
   });
+
+  // ── ARC-034: Authz contract tests for Phase 1/2 security fixes ──
+
+  it("ARC-001: citizen gets 403 on document verify (officer-only route)", async () => {
+    if (!dbReady) return;
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/documents/fake-doc-id/verify",
+      headers: authHeader(citizen1Token),
+      payload: { status: "VERIFIED" },
+    });
+    // Should get 403 or 404 (not 200) — citizen cannot verify
+    expect([403, 404]).toContain(res.statusCode);
+  });
+
+  it("ARC-002: mismatched complaint/evidence ID returns 404", async () => {
+    if (!dbReady) return;
+    // Use a non-existent evidence ID with a valid-looking complaint number
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/complaints/NONEXISTENT-001/evidence/fake-evidence-id/file",
+      headers: authHeader(citizen1Token),
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("ARC-004: citizen gets 403 on inspection completion", async () => {
+    if (!dbReady) return;
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/inspections/fake-inspection-id/complete",
+      headers: authHeader(citizen1Token),
+      payload: { outcome: "COMPLIANT" },
+    });
+    // Citizen should not be able to complete inspections
+    expect([400, 403, 404]).toContain(res.statusCode);
+    expect(res.statusCode).not.toBe(200);
+  });
+
+  it("ARC-009: AI summarize-timeline with unauthorized ARN returns 403", async () => {
+    if (!dbReady || !gmadaArn) return;
+    // citizen1 owns PUDA app; try to summarize GMADA app owned by someone else
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/ai/summarize-timeline",
+      headers: authHeader(citizen2Token),
+      payload: { arn: pudaArn },
+    });
+    // citizen2 does not own pudaArn → should be denied
+    expect([403, 503]).toContain(res.statusCode);
+  });
+
+  it("ARC-023: officer inbox fetch works without userId query param", async () => {
+    if (!dbReady) return;
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/tasks/inbox?status=PENDING",
+      headers: authHeader(officer1Token),
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("citizen gets 403 on officer-only complaint list route", async () => {
+    if (!dbReady) return;
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/officer/complaints",
+      headers: authHeader(citizen1Token),
+    });
+    expect(res.statusCode).toBe(403);
+  });
 });

@@ -133,11 +133,10 @@ export async function registerCitizenDocumentRoutes(app: FastifyInstance) {
       }
 
       const safeFilename = sanitizeFilename(data.filename);
-      const buffer = await data.toBuffer();
 
       try {
         const citizenDoc = await documents.uploadCitizenDocument(
-          userId, docTypeId, safeFilename, data.mimetype, buffer,
+          userId, docTypeId, safeFilename, data.mimetype, data.file,
           { validFrom, validUntil }
         );
         return citizenDoc;
