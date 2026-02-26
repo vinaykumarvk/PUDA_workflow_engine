@@ -81,6 +81,14 @@ interface FormRendererProps {
   submitOverride?: React.ReactNode;
   /** Secondary language code for bilingual labels ("hi", "pa", or "none"/undefined) */
   secondaryLanguage?: string;
+  /** Extra step tabs appended after form pages (managed externally, e.g. documents step) */
+  appendSteps?: Array<{
+    id: string;
+    title: string;
+    title_hi?: string;
+    title_pa?: string;
+    onClick: () => void;
+  }>;
 }
 
 export function FormRenderer({
@@ -98,6 +106,7 @@ export function FormRenderer({
   submitDisabled = false,
   submitOverride,
   secondaryLanguage,
+  appendSteps = [],
 }: FormRendererProps) {
   const [data, setData] = useState<any>(initialData);
   const [currentPage, setCurrentPage] = useState(0);
@@ -329,7 +338,7 @@ export function FormRenderer({
       case "text":
       case "textarea":
         if (field.type === "string" && field.ui?.widget === "upn-picker") {
-          const knownProps = allProperties.filter((p) => p.unique_property_number);
+          const knownProps = allProperties.filter((p) => p.unique_property_number && p.scheme_name);
           const selectedProp = allProperties.find((x) => x.unique_property_number === value);
           const showDropdown = knownProps.length > 0 && !upnManualMode;
           const showManualInput = knownProps.length === 0 || upnManualMode;
@@ -638,7 +647,7 @@ export function FormRenderer({
   const isLastPage = currentPage === config.pages.length - 1;
   const currentPageAction = pageActions.find((action) => action.pageId === currentPageConfig.pageId);
 
-  const totalPages = config.pages.length;
+  const totalPages = config.pages.length + appendSteps.length;
 
   return (
     <div className="form-renderer">
@@ -661,6 +670,16 @@ export function FormRenderer({
           >
             {idx < currentPage && <span aria-hidden="true">&#10003; </span>}
             {bilingualText(page.title, page.title_hi, page.title_pa)}
+          </button>
+        ))}
+        {appendSteps.map((step) => (
+          <button
+            key={step.id}
+            type="button"
+            onClick={step.onClick}
+            className=""
+          >
+            {bilingualText(step.title, step.title_hi, step.title_pa)}
           </button>
         ))}
       </div>

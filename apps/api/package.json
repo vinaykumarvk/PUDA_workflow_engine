@@ -23,6 +23,9 @@
     "test:feature-flags": "vitest run src/feature-flags.integration.test.ts",
     "test:load": "tsx scripts/load-smoke.ts",
     "test:rest": "vitest run --exclude src/authz.integration.test.ts --exclude src/brd-test-cases.test.ts",
+    "test:workflow:smoke": "vitest run src/workflow.path-walker.integration.test.ts",
+    "test:workflow:combinatorial": "vitest run src/workflow.combinatorial.integration.test.ts",
+    "test:workflow:all": "vitest run src/workflow.*.integration.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -309,37 +309,6 @@
   min-height: 7rem;
 }
 
-.upload-title {
-  font-size: 1.05rem;
-  margin-bottom: var(--space-3);
-}
-
-.document-upload-section {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-  padding: var(--space-4);
-}
-
-.upload-row {
-  display: grid;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.upload-row .ui-field {
-  gap: var(--space-2);
-}
-
-.upload-row .ui-field__label {
-  font-weight: 700;
-}
-
-.upload-input {
-  padding: var(--space-2);
-  min-height: 2.75rem;
-}
-
 .query-response-actions {
   margin-top: var(--space-2);
 }
@@ -362,10 +331,6 @@
 @media (min-width: 48rem) {
   .data-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .upload-row {
-    margin-bottom: var(--space-2);
   }
 }
 
@@ -397,36 +362,6 @@
   .checkbox-field {
     width: 100%;
   }
-}
-
-.upload-progress {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.upload-progress__track {
-  flex: 1;
-  height: 0.375rem;
-  background: var(--color-bg-elevated);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.upload-progress__fill {
-  height: 100%;
-  background: var(--color-brand);
-  border-radius: 999px;
-  transition: width 150ms ease;
-}
-
-.upload-progress__label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  min-width: 3rem;
-  text-align: right;
 }
 
 .ndc-summary-grid {
@@ -588,16 +523,6 @@
   color: var(--color-warning, #946200);
 }
 
-.doc-action-required {
-  border-left: 3px solid var(--color-danger, #b42318);
-}
-
-.doc-remarks-alert {
-  font-size: 0.85rem;
-  padding: var(--space-2) var(--space-3);
-  margin-top: var(--space-1);
-}
-
 .doc-download-row {
   margin-top: var(--space-2);
 }
@@ -658,62 +583,6 @@
 .app-upload-confirm-actions {
   display: flex;
   gap: var(--space-2);
-}
-
-/* Reuse card */
-.reuse-card {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  margin-bottom: var(--space-2);
-}
-
-.reuse-card-thumb {
-  width: 3rem;
-  height: 3rem;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.reuse-card-icon {
-  width: 3rem;
-  height: 3rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-size: 0.7rem;
-}
-
-.reuse-card-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.reuse-card-name {
-  font-weight: 600;
-  font-size: 0.88rem;
-  word-break: break-word;
-}
-
-.reuse-card-meta {
-  font-size: 0.78rem;
-  color: var(--color-text-muted);
-}
-
-.reuse-card-social {
-  font-size: 0.8rem;
-  color: var(--color-success, #157347);
 }
 
 /* ─── Milestone Banners ─── */

@@ -28,6 +28,7 @@ import { Bilingual } from "./Bilingual";
 const Dashboard = lazy(() => import("./Dashboard"));
 const ApplicationDetail = lazy(() => import("./ApplicationDetail"));
 const DocumentLocker = lazy(() => import("./DocumentLocker"));
+const DocumentUploadPanel = lazy(() => import("./DocumentUploadPanel"));
 const Settings = lazy(() => import("./Settings"));
 const ReportComplaint = lazy(() => import("./ReportComplaint"));
 const Onboarding = lazy(() => import("./Onboarding"));
@@ -242,7 +243,7 @@ export default function App() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  type ViewId = "catalog" | "create" | "track" | "applications" | "locker" | "settings" | "profile" | "guide" | "complaints";
+  type ViewId = "catalog" | "create" | "track" | "applications" | "locker" | "settings" | "profile" | "profile-update" | "guide" | "complaints";
   type ViewSnapshot = { view: ViewId; showDashboard: boolean };
   const [view, setView] = useState<ViewId>("catalog");
   const navStackRef = useRef<ViewSnapshot[]>([]);
@@ -255,6 +256,7 @@ export default function App() {
   const [applicationDetail, setApplicationDetail] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [formStep, setFormStep] = useState<"form" | "documents">("form");
   const [configLoading, setConfigLoading] = useState(false);
   const [showDashboard, setShowDashboard] = useState(true);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
@@ -272,6 +274,7 @@ export default function App() {
   const [profileDraft, setProfileDraft] = useState<Record<string, any>>({});
   const [profileVerification, setProfileVerification] = useState<any>({});
   const [profileCompleteness, setProfileCompleteness] = useState<any>(null);
+  const [profileUpdateSection, setProfileUpdateSection] = useState<string | null>(null);
   const onboardingRedirectDone = useRef(false);
   const [ndcPaymentStatus, setNdcPaymentStatus] = useState<NdcPaymentStatus | null>(null);
   const [ndcPaymentStatusLoading, setNdcPaymentStatusLoading] = useState(false);
@@ -334,6 +337,7 @@ export default function App() {
   const navigateTo = useCallback((nextView: ViewId, nextDashboard: boolean) => {
     if (!confirmNavigation()) return;
     setFormDirty(false);
+    setFormStep("form");
     setAvatarMenuOpen(false);
     navStackRef.current.push({ view, showDashboard });
     setView(nextView);
@@ -457,6 +461,11 @@ export default function App() {
       setProfileLoading(false);
     }
   }, [user, authHeaders, isOffline, markStaleData, markSync]);
+
+  const handleProfileUpdate = useCallback((section: string) => {
+    setProfileUpdateSection(section);
+    navigateTo("profile-update", false);
+  }, [navigateTo]);
 
   const loadCitizenProperties = useCallback(async () => {
     if (!user) return;
@@ -1783,6 +1792,46 @@ export default function App() {
     }
   };
 
+  // Upload directly to Document Locker (no ARN needed — used in create view)
+  const handleLockerUpload = async (docTypeId: string, file: File) => {
+    if (!user) return;
+    if (isOffline) {
+      showToast("warning", "You are offline. Document upload is unavailable.");
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const form = new FormData();
+      form.append("docTypeId", docTypeId);
+      form.append("file", file);
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${apiBaseUrl}/api/v1/citizens/me/documents/upload`);
+        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        });
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error("Upload failed"));
+        });
+        xhr.addEventListener("error", () => reject(new Error("Upload failed")));
+        xhr.send(form);
+      });
+
+      await loadCitizenDocuments();
+      showToast("success", `Document uploaded to your locker for ${docTypeId}.`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      showToast("error", msg);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleReuseDocument = async (citizenDocId: string, docTypeId: string) => {
     if (!currentApplication || !user) return;
     if (isOffline) {
@@ -1874,6 +1923,44 @@ export default function App() {
       setFeedback(null);
     }
   }
+
+  const hasDocumentTypes = !!(serviceConfig?.documents?.documentTypes?.length);
+
+  // Compute NDC-specific FormRenderer props so we can conditionally override submitLabel after
+  const ndcFormProps: Record<string, any> = selectedService?.serviceKey === "no_due_certificate"
+    ? (() => {
+        if (isOffline) return {};
+        if (!formData?.property?.upn) {
+          return { submitDisabled: true, submitLabel: t("create.select_property") };
+        }
+        if (ndcPaymentStatusLoading) {
+          return { submitDisabled: true, submitLabel: t("create.loading_payment") };
+        }
+        if (!ndcPaymentStatus) {
+          return { submitDisabled: true, submitLabel: t("create.payment_unavailable") };
+        }
+        if (!ndcPaymentStatus.certificateEligible) {
+          return {
+            submitOverride: (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.4rem" }}>
+                <span style={{ fontSize: "0.8rem", color: "var(--color-warning, #f59e0b)", fontWeight: 500 }}>
+                  {t("create.clear_dues")}
+                </span>
+                <button
+                  type="button"
+                  className="form-action-btn form-action-btn--primary"
+                  disabled
+                  title="Pay all dues using the Pay Now buttons in the ledger above"
+                >
+                  {t("create.submit_dues_pending")}
+                </button>
+              </div>
+            ),
+          };
+        }
+        return { submitLabel: t("create.submit_get_cert") };
+      })()
+    : {};
 
   const ndcPaymentStatusPanel =
     selectedService?.serviceKey === "no_due_certificate" ? (
@@ -2025,100 +2112,112 @@ export default function App() {
           )}
           {!configLoading && serviceConfig?.form && (
             <>
-              <ErrorBoundary fallback={<Alert variant="error">Form could not be loaded. Check console for details.</Alert>}>
-                <FormRenderer
-                  config={serviceConfig.form as FormConfig}
-                  initialData={formData}
-                  onChange={(data) => { setFormData(data); setFormDirty(true); }}
-                  onSubmit={
-                    isOffline
-                      ? undefined
-                      : async () => { await createApplication(); }
-                  }
-                  readOnly={isOffline}
-                  citizenProperties={citizenProperties}
-                  onLookupUpn={async (upn: string) => {
-                    const res = await fetch(
-                      `${apiBaseUrl}/api/v1/citizens/me/property-lookup?upn=${encodeURIComponent(upn)}`,
-                      { headers: authHeaders() }
-                    );
-                    if (!res.ok) return null;
-                    const json = await res.json();
-                    if (json.property) {
-                      // Refresh citizenProperties so future forms also see it
-                      loadCitizenProperties();
-                      return json.property;
+              {/* FormRenderer: keep mounted, hide when on documents step */}
+              <div style={{ display: formStep === "form" ? "block" : "none" }}>
+                <ErrorBoundary fallback={<Alert variant="error">{t("create.form_error")}</Alert>}>
+                  <FormRenderer
+                    config={serviceConfig.form as FormConfig}
+                    initialData={formData}
+                    onChange={(data) => { setFormData(data); setFormDirty(true); }}
+                    onSubmit={
+                      isOffline
+                        ? undefined
+                        : hasDocumentTypes
+                          ? () => setFormStep("documents")
+                          : async () => { await createApplication(); }
                     }
-                    return null;
-                  }}
-                  secondaryLanguage={preferences.language}
-                  pageActions={[
-                    {
-                      pageId: "PAGE_APPLICATION",
-                      label: t("profile.title"),
-                      onClick: openProfileEditor,
-                      disabled: isOffline
-                    }
-                  ]}
-                  pageSupplements={{
-                    PAGE_PAYMENT: ndcPaymentStatusPanel
-                  }}
-                  {...(selectedService?.serviceKey === "no_due_certificate" && (() => {
-                    if (isOffline) return {};
-                    if (!formData?.property?.upn) {
-                      return {
-                        submitDisabled: true,
-                        submitLabel: "Select a property to continue",
-                      };
-                    }
-                    if (ndcPaymentStatusLoading) {
-                      return {
-                        submitDisabled: true,
-                        submitLabel: "Loading payment status…",
-                      };
-                    }
-                    if (!ndcPaymentStatus) {
-                      return {
-                        submitDisabled: true,
-                        submitLabel: "Payment status unavailable",
-                      };
-                    }
-                    if (!ndcPaymentStatus.certificateEligible) {
-                      return {
-                        submitOverride: (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.4rem" }}>
-                            <span style={{ fontSize: "0.8rem", color: "var(--color-warning, #f59e0b)", fontWeight: 500 }}>
-                              Clear all outstanding dues to submit
-                            </span>
-                            <button
-                              type="button"
-                              className="form-action-btn form-action-btn--primary"
-                              disabled
-                              title="Pay all dues using the Pay Now buttons in the ledger above"
-                            >
-                              Submit (Dues Pending)
-                            </button>
-                          </div>
-                        ),
-                      };
-                    }
-                    return {
-                      submitLabel: "Submit & Get Certificate",
-                    };
-                  })())}
-                />
-              </ErrorBoundary>
-              <div className="form-actions-top">
-                <Button
-                  onClick={saveDraft}
-                  className="save-draft-btn"
-                  type="button"
-                  variant="secondary"
-                  disabled={isOffline || !profileComplete || profileLoading}
-                >
-                  Save Draft
-                </Button>
+                    readOnly={isOffline}
+                    citizenProperties={citizenProperties}
+                    onLookupUpn={async (upn: string) => {
+                      const res = await fetch(
+                        `${apiBaseUrl}/api/v1/citizens/me/property-lookup?upn=${encodeURIComponent(upn)}`,
+                        { headers: authHeaders() }
+                      );
+                      if (!res.ok) return null;
+                      const json = await res.json();
+                      if (json.property) {
+                        loadCitizenProperties();
+                        return json.property;
+                      }
+                      return null;
+                    }}
+                    secondaryLanguage={preferences.language}
+                    pageActions={[
+                      {
+                        pageId: "PAGE_APPLICATION",
+                        label: t("profile.title"),
+                        onClick: openProfileEditor,
+                        disabled: isOffline
+                      }
+                    ]}
+                    pageSupplements={{
+                      PAGE_PAYMENT: ndcPaymentStatusPanel
+                    }}
+                    {...ndcFormProps}
+                    {...(hasDocumentTypes && !ndcFormProps.submitDisabled && !ndcFormProps.submitOverride
+                      ? { submitLabel: t("docs.next_step") }
+                      : {}
+                    )}
+                    appendSteps={hasDocumentTypes ? [{
+                      id: "documents",
+                      title: "Required Documents",
+                      title_hi: "आवश्यक दस्तावेज़",
+                      title_pa: "ਲੋੜੀਂਦੇ ਦਸਤਾਵੇਜ਼",
+                      onClick: () => setFormStep("documents"),
+                    }] : []}
+                  />
+                </ErrorBoundary>
+                <div className="form-actions-top">
+                  <Button
+                    onClick={saveDraft}
+                    className="save-draft-btn"
+                    type="button"
+                    variant="secondary"
+                    disabled={isOffline || !profileComplete || profileLoading}
+                  >
+                    {t("create.save_draft")}
+                  </Button>
+                </div>
               </div>
+
+              {/* Documents step: full-page */}
+              {formStep === "documents" && hasDocumentTypes && (
+                <div className="doc-step">
+                  <div className="doc-step__progress">
+                    <Bilingual tKey="docs.step_label" /> — Step {(serviceConfig.form.pages?.length || 0) + 1} of {(serviceConfig.form.pages?.length || 0) + 1}
+                  </div>
+                  <Suspense fallback={null}>
+                    <DocumentUploadPanel
+                      mode="preview"
+                      documentTypes={serviceConfig.documents.documentTypes}
+                      citizenDocuments={citizenDocuments}
+                      onDocumentUpload={handleLockerUpload}
+                      uploading={uploading}
+                      uploadProgress={uploadProgress}
+                      isOffline={isOffline}
+                    />
+                  </Suspense>
+                  <div className="doc-step__actions">
+                    <Button variant="secondary" onClick={() => setFormStep("form")}>
+                      {t("docs.back_to_form")}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={saveDraft}
+                      disabled={isOffline || !profileComplete || profileLoading}
+                    >
+                      {t("create.save_draft")}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => void createApplication()}
+                      disabled={isOffline || !profileComplete || profileLoading}
+                    >
+                      {t("create.create_application")}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
           {!configLoading && serviceConfig && !serviceConfig.form && !error && (
@@ -2365,24 +2464,22 @@ export default function App() {
 
   // Profile / Onboarding View
   if (view === "profile") {
-    const onboardingCompleted = Boolean(profileVerification.onboarding_completed_at);
+    const hasProfileData = Boolean(profileApplicant.full_name || profileApplicant.first_name || profileApplicant.aadhaar || profileApplicant.email);
+    const showProfileView = Boolean(profileVerification.onboarding_completed_at) || hasProfileData;
     return appShell(
       <div className="page">
         <a href="#citizen-main-profile" className="skip-link">{t("common.skip_to_main")}</a>
-        <h1>{onboardingCompleted ? t("nav.profile") : t("profile.complete_profile")}</h1>
-        {!onboardingCompleted && <p className="subtitle">{t("profile.complete_subtitle")}</p>}
+        <h1>{showProfileView ? t("nav.profile") : t("profile.complete_profile")}</h1>
+        {!showProfileView && <p className="subtitle">{t("profile.complete_subtitle")}</p>}
         <main id="citizen-main-profile" className="panel" role="main">
           <Suspense fallback={<div style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div>}>
-            {onboardingCompleted ? (
+            {showProfileView ? (
               <ProfileSummaryLazy
                 applicant={profileApplicant}
                 addresses={profileAddresses}
                 verification={profileVerification}
                 completeness={profileCompleteness}
-                onEdit={() => {
-                  // Reset onboarding to re-enter wizard at step 3
-                  setProfileVerification((prev: any) => ({ ...prev, onboarding_completed_at: undefined }));
-                }}
+                onUpdate={handleProfileUpdate}
                 onReVerifyAadhaar={() => {
                   setProfileVerification((prev: any) => ({ ...prev, onboarding_completed_at: undefined, aadhaar_verified: false }));
                 }}
@@ -2413,6 +2510,30 @@ export default function App() {
               />
             )}
           </Suspense>
+        </main>
+      </div>
+    );
+  }
+
+  // Profile Update (placeholder)
+  if (view === "profile-update") {
+    const sectionLabel = profileUpdateSection
+      ? t(`profile.section_${profileUpdateSection}`)
+      : t("nav.profile");
+    return appShell(
+      <div className="page">
+        <a href="#citizen-main-profile-update" className="skip-link">{t("common.skip_to_main")}</a>
+        <h1>{t("profile.update_title", { section: sectionLabel })}</h1>
+        <main id="citizen-main-profile-update" className="panel" role="main">
+          <Card style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-subtle)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "var(--space-3)" }}>
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            <h2 style={{ margin: "0 0 var(--space-2)", fontSize: "1.1rem" }}>{t("profile.update_coming_title")}</h2>
+            <p style={{ color: "var(--color-text-subtle)", fontSize: "0.9rem", margin: "0 0 var(--space-4)" }}>{t("profile.update_coming_desc")}</p>
+            <Button variant="secondary" onClick={navigateBack}>{t("profile.update_back")}</Button>
+          </Card>
         </main>
       </div>
     );

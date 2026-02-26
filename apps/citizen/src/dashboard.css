@@ -603,6 +603,16 @@
   gap: var(--space-2);
 }
 
+/* Updates section (merged nudges + notifications) */
+.updates-section {
+  gap: var(--space-3);
+}
+
+.updates-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
 /* Smart Suggestions / Nudge cards */
 .nudge-section {
   gap: var(--space-3);

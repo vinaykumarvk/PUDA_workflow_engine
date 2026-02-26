@@ -327,9 +327,6 @@ const PERSONAL_FIELDS = ["full_name", "date_of_birth", "gender", "marital_status
 const CONTACT_FIELDS = ["email", "mobile"];
 const ADDRESS_FIELDS = ["line1", "city", "state", "district", "pincode"];
 
-// Weights for % calculation
-const SECTION_WEIGHTS = { identity: 30, personal: 30, contact: 15, address: 25 };
-
 function checkFieldsPresent(data: Record<string, any>, fields: string[]): string[] {
   return fields.filter((f) => {
     const v = data?.[f];
@@ -356,29 +353,27 @@ export async function getEnhancedCompleteness(userId: string): Promise<ProfileCo
     address: { complete: addressMissing.length === 0, fields: addressMissing },
   };
 
-  // Weighted percentage
-  let percent = 0;
-  for (const [key, weight] of Object.entries(SECTION_WEIGHTS)) {
-    const section = sections[key as keyof typeof sections];
-    const sectionKey = key as keyof typeof sections;
-    const totalFields =
-      sectionKey === "identity" ? IDENTITY_FIELDS.length
-        : sectionKey === "personal" ? PERSONAL_FIELDS.length
-          : sectionKey === "contact" ? CONTACT_FIELDS.length
-            : ADDRESS_FIELDS.length;
-    const filledCount = totalFields - section.fields.length;
-    percent += (filledCount / totalFields) * weight;
-  }
-
+  // 50% data provision + 50% verification
+  const allFields = [...IDENTITY_FIELDS, ...PERSONAL_FIELDS, ...CONTACT_FIELDS, ...ADDRESS_FIELDS];
+  const totalFieldCount = allFields.length;
   const missingFields = [
     ...identityMissing,
     ...personalMissing,
     ...contactMissing,
     ...addressMissing.map((f) => `address.${f}`),
   ];
+  const filledCount = totalFieldCount - missingFields.length;
+  const dataPercent = (filledCount / totalFieldCount) * 50;
+
+  // Verification: aadhaar + pan each worth 25%
+  const verificationPercent =
+    (verification.aadhaar_verified ? 25 : 0) + (verification.pan_verified ? 25 : 0);
+
+  const percent = dataPercent + verificationPercent;
+  const isVerified = Boolean(verification.aadhaar_verified && verification.pan_verified);
 
   return {
-    isComplete: missingFields.length === 0,
+    isComplete: missingFields.length === 0 && isVerified,
     completionPercent: Math.round(percent),
     missingFields,
     sections,

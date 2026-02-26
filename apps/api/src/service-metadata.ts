@@ -20,6 +20,7 @@ export type ServiceMetadata = {
     propertyRequired: boolean;
     enforcementMode: SubmissionEnforcementMode;
   };
+  version?: string;
 };
 
 const TOP_LEVEL_KEYS = [
@@ -33,6 +34,7 @@ const TOP_LEVEL_KEYS = [
   "physicalDocumentRequired",
   "physicalVerificationRequired",
   "submissionValidation",
+  "version",
 ] as const;
 
 const SLA_KEYS = ["totalDays", "calendarType", "workingCalendar"] as const;
@@ -52,7 +54,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function assertStrictObject(
   value: unknown,
   context: string,
-  requiredKeys: readonly string[]
+  requiredKeys: readonly string[],
+  optionalKeys: ReadonlySet<string> = new Set()
 ): asserts value is Record<string, unknown> {
   if (!isRecord(value)) {
     throw new ServiceMetadataValidationError(`${context} must be an object`);
@@ -66,7 +69,7 @@ function assertStrictObject(
     );
   }
 
-  const missingKeys = requiredKeys.filter((key) => !(key in value));
+  const missingKeys = requiredKeys.filter((key) => !optionalKeys.has(key) && !(key in value));
   if (missingKeys.length > 0) {
     throw new ServiceMetadataValidationError(
       `${context} is missing required keys: ${missingKeys.join(", ")}`
@@ -125,7 +128,7 @@ export function validateServiceMetadata(
   options?: { expectedServiceKey?: string }
 ): ServiceMetadata {
   const context = `[SERVICE_METADATA_INVALID] ${sourceLabel}`;
-  assertStrictObject(value, context, TOP_LEVEL_KEYS);
+  assertStrictObject(value, context, TOP_LEVEL_KEYS, new Set(["version"]));
 
   const serviceKey = validateServiceKey(value.serviceKey, `${context}.serviceKey`);
   if (options?.expectedServiceKey && serviceKey !== options.expectedServiceKey) {
@@ -182,6 +185,11 @@ export function validateServiceMetadata(
     );
   }
 
+  const version =
+    typeof value.version === "string" && value.version.trim()
+      ? value.version.trim()
+      : undefined;
+
   return {
     serviceKey,
     displayName,
@@ -193,6 +201,7 @@ export function validateServiceMetadata(
     physicalDocumentRequired,
     physicalVerificationRequired,
     submissionValidation,
+    version,
   };
 }
 

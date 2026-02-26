@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
-import { Alert, Button, Field, Input, Select } from "@puda/shared";
+import { Alert, Button, Card, Field, Input, Select } from "@puda/shared";
+import { Bilingual } from "./Bilingual";
 import "./onboarding.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -50,7 +51,8 @@ const STEPS = [
 ];
 
 function SourceBadge({ type }: { type: "aadhaar" | "pan" | "self" }) {
-  const labels = { aadhaar: "Aadhaar Verified", pan: "PAN Verified", self: "Self-declared" };
+  const { t } = useTranslation();
+  const labels = { aadhaar: t("profile.badge_aadhaar"), pan: t("profile.badge_pan"), self: t("profile.badge_self") };
   return <span className={`badge-source badge-source--${type}`}>{labels[type]}</span>;
 }
 
@@ -670,7 +672,7 @@ export function ProfileSummary({
   addresses,
   verification,
   completeness,
-  onEdit,
+  onUpdate,
   onReVerifyAadhaar,
   onReVerifyPan,
 }: {
@@ -678,128 +680,201 @@ export function ProfileSummary({
   addresses: Record<string, any>;
   verification: VerificationData;
   completeness?: Completeness;
-  onEdit: () => void;
+  onUpdate: (section: string) => void;
   onReVerifyAadhaar: () => void;
   onReVerifyPan: () => void;
 }) {
+  const { t } = useTranslation();
+
   const pct = completeness?.completionPercent ?? 0;
+  const sections = completeness?.sections;
   const permAddr = addresses?.permanent || {};
   const commAddr = addresses?.communication || {};
 
+  // Initials for avatar
+  const initials = [applicant.first_name, applicant.last_name]
+    .filter(Boolean)
+    .map((n: string) => n[0]?.toUpperCase())
+    .join("") || "?";
+
+  // Progress ring geometry
+  const RING_R = 41;
+  const RING_C = 2 * Math.PI * RING_R;
+  const ringOffset = RING_C - (pct / 100) * RING_C;
+  const ringColor = pct >= 100 ? "var(--color-success)" : "var(--color-brand)";
+
+  // Source badge helper
   const fieldBadge = (field: string): "aadhaar" | "pan" | "self" => {
     if (verification.aadhaar_verified && ["full_name", "date_of_birth", "gender", "aadhaar"].includes(field)) return "aadhaar";
     if (verification.pan_verified && field === "pan") return "pan";
     return "self";
   };
 
-  const renderField = (label: string, value: any, field?: string) => (
-    <div className="profile-summary__field">
-      <div className="profile-summary__field-label">{label}</div>
-      <div className="profile-summary__field-value">
-        {value || "—"}
-        {field && <SourceBadge type={fieldBadge(field)} />}
+  // Section completion metadata
+  const sectionMeta: Array<{ id: string; tKey: string; icon: string; complete: boolean; missing: number }> = [
+    { id: "identity", tKey: "profile.section_identity", icon: "\uD83C\uDD94", complete: sections?.identity?.complete ?? false, missing: sections?.identity?.fields?.length ?? 0 },
+    { id: "personal", tKey: "profile.section_personal", icon: "\uD83D\uDC64", complete: sections?.personal?.complete ?? false, missing: sections?.personal?.fields?.length ?? 0 },
+    { id: "contact", tKey: "profile.section_contact", icon: "\uD83D\uDCDE", complete: sections?.contact?.complete ?? false, missing: sections?.contact?.fields?.length ?? 0 },
+    { id: "address", tKey: "profile.section_address", icon: "\uD83C\uDFE0", complete: sections?.address?.complete ?? false, missing: sections?.address?.fields?.length ?? 0 },
+  ];
+
+  // View field renderer
+  const viewField = (labelKey: string, value: any, field?: string) => {
+    const isMissing = !value;
+    return (
+      <div className={`profile-field ${isMissing ? "profile-field--missing" : ""}`}>
+        <div className="profile-field__label"><Bilingual tKey={labelKey} /></div>
+        <div className="profile-field__value">
+          {value || <span className="profile-field__empty">{t("profile.not_provided")}</span>}
+          {field && value && <SourceBadge type={fieldBadge(field)} />}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div className="profile-summary">
-      <div className="profile-summary__header">
-        <h2 style={{ margin: 0 }}>My Profile</h2>
-        <div className="profile-summary__percent">
-          <div className="profile-summary__bar">
-            <div className="profile-summary__bar-fill" style={{ width: `${pct}%` }} />
-          </div>
-          {pct}% complete
+    <div className="profile-page">
+      {/* Hero: Progress Ring + Info */}
+      <Card className="profile-hero">
+        <div className="profile-hero__ring-wrap">
+          <svg className="profile-hero__ring" viewBox="0 0 88 88" aria-hidden="true">
+            <circle className="profile-hero__ring-bg" cx="44" cy="44" r={RING_R} />
+            <circle
+              className="profile-hero__ring-fill"
+              cx="44" cy="44" r={RING_R}
+              style={{ strokeDasharray: RING_C, strokeDashoffset: ringOffset, stroke: ringColor }}
+            />
+          </svg>
+          <span className="profile-hero__initials" aria-hidden="true">{initials}</span>
         </div>
+        <div className="profile-hero__info">
+          <h2 className="profile-hero__name">
+            {applicant.full_name || applicant.first_name || t("profile.full_name")}
+          </h2>
+          <div className="profile-hero__pct">
+            {t("profile.completion_percent", { percent: Math.round(pct) })}
+          </div>
+          {(applicant.email || applicant.mobile) && (
+            <div className="profile-hero__contact">
+              {applicant.email && <span>{applicant.email}</span>}
+              {applicant.mobile && <span>{applicant.mobile}</span>}
+            </div>
+          )}
+          <div className="profile-hero__badges">
+            {verification.aadhaar_verified && <SourceBadge type="aadhaar" />}
+            {verification.pan_verified && <SourceBadge type="pan" />}
+          </div>
+        </div>
+      </Card>
+
+      {/* Section Completion Tiles */}
+      <div className="profile-tiles">
+        {sectionMeta.map((sec) => (
+          <a
+            key={sec.id}
+            href={`#profile-${sec.id}`}
+            className={`profile-tile-nav ${sec.complete ? "profile-tile-nav--done" : "profile-tile-nav--pending"}`}
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById(`profile-${sec.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            <span className="profile-tile-nav__icon" aria-hidden="true">
+              {sec.complete ? "\u2713" : sec.icon}
+            </span>
+            <span className="profile-tile-nav__label">{t(sec.tKey)}</span>
+            <span className={`profile-tile-nav__status ${sec.complete ? "profile-tile-nav__status--done" : "profile-tile-nav__status--pending"}`}>
+              {sec.complete ? t("profile.section_complete") : t("profile.fields_missing", { count: sec.missing })}
+            </span>
+          </a>
+        ))}
       </div>
 
       {/* Identity Section */}
-      <div className="profile-summary__section">
-        <div className="profile-summary__section-header">
-          <span className="profile-summary__section-title">Identity</span>
-          <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            {verification.aadhaar_verified ? (
-              <Button variant="ghost" onClick={onReVerifyAadhaar} style={{ fontSize: "0.8rem" }}>Re-verify Aadhaar</Button>
-            ) : (
-              <Button variant="ghost" onClick={onReVerifyAadhaar} style={{ fontSize: "0.8rem" }}>Verify Aadhaar</Button>
-            )}
-            {verification.pan_verified ? (
-              <Button variant="ghost" onClick={onReVerifyPan} style={{ fontSize: "0.8rem" }}>Re-verify PAN</Button>
-            ) : (
-              <Button variant="ghost" onClick={onReVerifyPan} style={{ fontSize: "0.8rem" }}>Verify PAN</Button>
-            )}
+      <Card className="profile-section-card" id="profile-identity">
+        <div className="profile-section-card__header">
+          <h3 className="profile-section-card__title"><Bilingual tKey="profile.section_identity" /></h3>
+          <div className="profile-section-card__header-actions">
+            <Button variant="ghost" size="sm" onClick={onReVerifyAadhaar}>
+              {verification.aadhaar_verified ? t("profile.reverify_aadhaar") : t("profile.verify_aadhaar")}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onReVerifyPan}>
+              {verification.pan_verified ? t("profile.reverify_pan") : t("profile.verify_pan")}
+            </Button>
           </div>
         </div>
-        <div className="profile-summary__grid">
-          {renderField("Aadhaar", applicant.aadhaar ? `XXXX XXXX ${applicant.aadhaar.slice(-4)}` : null, "aadhaar")}
-          {renderField("PAN", applicant.pan, "pan")}
+        <div className="profile-section-card__body">
+          {viewField("profile.aadhaar", applicant.aadhaar ? `XXXX XXXX ${applicant.aadhaar.slice(-4)}` : null, "aadhaar")}
+          {viewField("profile.pan", applicant.pan, "pan")}
         </div>
-      </div>
+      </Card>
 
-      {/* Personal Section */}
-      <div className="profile-summary__section">
-        <div className="profile-summary__section-header">
-          <span className="profile-summary__section-title">Personal Details</span>
-          <Button variant="ghost" onClick={onEdit} style={{ fontSize: "0.8rem" }}>Edit</Button>
+      {/* Personal Details Section */}
+      <Card className="profile-section-card" id="profile-personal">
+        <div className="profile-section-card__header">
+          <h3 className="profile-section-card__title"><Bilingual tKey="profile.section_personal" /></h3>
+          <Button variant="ghost" size="sm" onClick={() => onUpdate("personal")}>
+            {t("profile.update_section")}
+          </Button>
         </div>
-        <div className="profile-summary__grid">
-          {renderField("Full Name", applicant.full_name, "full_name")}
-          {renderField("Date of Birth", applicant.date_of_birth, "date_of_birth")}
-          {renderField("Gender", applicant.gender, "gender")}
-          {renderField("Father's Name", applicant.father_name, "father_name")}
-          {renderField("Marital Status", applicant.marital_status, "marital_status")}
-          {renderField("Salutation", applicant.salutation)}
+        <div className="profile-section-card__body">
+          {viewField("profile.full_name", applicant.full_name, "full_name")}
+          {viewField("profile.dob", applicant.date_of_birth, "date_of_birth")}
+          {viewField("profile.gender", applicant.gender, "gender")}
+          {viewField("profile.father_name", applicant.father_name, "father_name")}
+          {viewField("profile.marital_status", applicant.marital_status, "marital_status")}
+          {viewField("profile.salutation", applicant.salutation)}
         </div>
-      </div>
+      </Card>
 
       {/* Contact Section */}
-      <div className="profile-summary__section">
-        <div className="profile-summary__section-header">
-          <span className="profile-summary__section-title">Contact</span>
-          <Button variant="ghost" onClick={onEdit} style={{ fontSize: "0.8rem" }}>Edit</Button>
+      <Card className="profile-section-card" id="profile-contact">
+        <div className="profile-section-card__header">
+          <h3 className="profile-section-card__title"><Bilingual tKey="profile.section_contact" /></h3>
+          <Button variant="ghost" size="sm" onClick={() => onUpdate("contact")}>
+            {t("profile.update_section")}
+          </Button>
         </div>
-        <div className="profile-summary__grid">
-          {renderField("Email", applicant.email, "email")}
-          {renderField("Mobile", applicant.mobile, "mobile")}
+        <div className="profile-section-card__body">
+          {viewField("profile.email", applicant.email)}
+          {viewField("profile.mobile", applicant.mobile)}
         </div>
-      </div>
+      </Card>
 
       {/* Address Section */}
-      <div className="profile-summary__section">
-        <div className="profile-summary__section-header">
-          <span className="profile-summary__section-title">Addresses</span>
-          {!verification.aadhaar_verified && (
-            <Button variant="ghost" onClick={onEdit} style={{ fontSize: "0.8rem" }}>Edit</Button>
-          )}
+      <Card className="profile-section-card" id="profile-address">
+        <div className="profile-section-card__header">
+          <h3 className="profile-section-card__title"><Bilingual tKey="profile.section_address" /></h3>
+          <Button variant="ghost" size="sm" onClick={() => onUpdate("address")}>
+            {t("profile.update_section")}
+          </Button>
         </div>
-        <h4 style={{ margin: "0 0 var(--space-2)", fontSize: "0.85rem", color: "var(--color-text-subtle)" }}>
-          Permanent {verification.aadhaar_verified && <SourceBadge type="aadhaar" />}
+        <h4 className="profile-section-card__subheading">
+          <Bilingual tKey="profile.permanent_address" />
+          {verification.aadhaar_verified && <SourceBadge type="aadhaar" />}
         </h4>
-        <div className="profile-summary__grid" style={{ marginBottom: "var(--space-4)" }}>
-          {renderField("Line 1", permAddr.line1)}
-          {renderField("Line 2", permAddr.line2)}
-          {renderField("City", permAddr.city)}
-          {renderField("District", permAddr.district)}
-          {renderField("State", permAddr.state)}
-          {renderField("Pincode", permAddr.pincode)}
+        <div className="profile-section-card__body">
+          {viewField("profile.address_line1", permAddr.line1)}
+          {viewField("profile.address_line2", permAddr.line2)}
+          {viewField("profile.city", permAddr.city)}
+          {viewField("profile.district", permAddr.district)}
+          {viewField("profile.state", permAddr.state)}
+          {viewField("profile.pincode", permAddr.pincode)}
         </div>
-        <h4 style={{ margin: "0 0 var(--space-2)", fontSize: "0.85rem", color: "var(--color-text-subtle)" }}>
-          Communication
-        </h4>
+        <h4 className="profile-section-card__subheading"><Bilingual tKey="profile.communication_address" /></h4>
         {commAddr.same_as_permanent ? (
-          <p style={{ fontSize: "0.85rem", color: "var(--color-text-subtle)" }}>Same as permanent address</p>
+          <p className="profile-section-card__note">{t("profile.same_as_permanent")}</p>
         ) : (
-          <div className="profile-summary__grid">
-            {renderField("Line 1", commAddr.line1)}
-            {renderField("Line 2", commAddr.line2)}
-            {renderField("City", commAddr.city)}
-            {renderField("District", commAddr.district)}
-            {renderField("State", commAddr.state)}
-            {renderField("Pincode", commAddr.pincode)}
+          <div className="profile-section-card__body">
+            {viewField("profile.address_line1", commAddr.line1)}
+            {viewField("profile.address_line2", commAddr.line2)}
+            {viewField("profile.city", commAddr.city)}
+            {viewField("profile.district", commAddr.district)}
+            {viewField("profile.state", commAddr.state)}
+            {viewField("profile.pincode", commAddr.pincode)}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

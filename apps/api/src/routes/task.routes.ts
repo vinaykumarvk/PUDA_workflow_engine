@@ -9,18 +9,6 @@ import { requireAuthorityStaffAccess } from "../route-access";
 import { isFeatureEnabled } from "../feature-flags";
 import { MFA_PURPOSE_TASK_DECISION, verifyMfaChallenge } from "../mfa-stepup";
 
-function getTemplateForService(serviceKey: string, decision: "APPROVED" | "REJECTED"): string | null {
-  const map: Record<string, { approved: string; rejected: string }> = {
-    no_due_certificate: { approved: "ndc_approval", rejected: "ndc_rejection" },
-    registration_of_architect: { approved: "architect_approval", rejected: "architect_rejection" },
-    sanction_of_water_supply: { approved: "water_approval", rejected: "water_rejection" },
-    sanction_of_sewerage_connection: { approved: "sewerage_approval", rejected: "sewerage_rejection" },
-  };
-  const entry = map[serviceKey];
-  if (!entry) return null;
-  return decision === "APPROVED" ? entry.approved : entry.rejected;
-}
-
 async function isOfficerDecisionMfaRequired(
   userId: string,
   authorityId?: string,
@@ -223,7 +211,17 @@ export async function registerTaskRoutes(app: FastifyInstance) {
         const appRecord = await applications.getApplication(result.arn);
         if (appRecord) {
           const decision = result.newStateId === "APPROVED" ? "APPROVED" : "REJECTED";
-          const templateId = getTemplateForService(appRecord.service_key, decision);
+          let resolvedOutputAction: string | null = result.outputAction || null;
+          let templateId = outputs.templateIdFromOutputAction(resolvedOutputAction);
+          if (!templateId) {
+            const resolved = await outputs.resolveTemplateIdForDecisionState(
+              appRecord.service_key,
+              appRecord.service_version,
+              decision
+            );
+            templateId = resolved.templateId;
+            resolvedOutputAction = resolved.outputAction;
+          }
           try {
             if (templateId) {
               const outputRecord = await outputs.generateOutput(appRecord.arn, templateId, appRecord.service_key);
@@ -244,6 +242,16 @@ export async function registerTaskRoutes(app: FastifyInstance) {
                   );
                 }
               } catch (e) { request.log.warn(e, "Issuing document to locker failed"); }
+            } else {
+              request.log.warn(
+                {
+                  arn: appRecord.arn,
+                  serviceKey: appRecord.service_key,
+                  decision,
+                  outputAction: resolvedOutputAction,
+                },
+                "Skipping output generation: no workflow output action resolved"
+              );
             }
           } catch (e) { request.log.warn(e, "Output generation failed"); }
           const closeTx = result.newStateId === "APPROVED" ? "CLOSE_APPROVED" : "CLOSE_REJECTED";

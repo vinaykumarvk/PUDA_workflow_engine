@@ -38,6 +38,74 @@ const SERVICE_DISPLAY_NAME: Record<string, string> = {
   sanction_of_sewerage_connection: "Sanction of Sewerage Connection",
 };
 
+const GENERATE_OUTPUT_ACTION_PREFIX = "GENERATE_OUTPUT_";
+
+export function templateIdFromOutputAction(outputAction?: string | null): string | null {
+  if (!outputAction || !outputAction.startsWith(GENERATE_OUTPUT_ACTION_PREFIX)) {
+    return null;
+  }
+  const templateSuffix = outputAction.slice(GENERATE_OUTPUT_ACTION_PREFIX.length).trim();
+  if (!templateSuffix) {
+    return null;
+  }
+  return templateSuffix.toLowerCase();
+}
+
+interface WorkflowTransitionConfig {
+  transitionId: string;
+  fromStateId: string;
+  toStateId: string;
+  trigger?: "manual" | "system";
+  actions?: string[];
+}
+
+export async function resolveTemplateIdForDecisionState(
+  serviceKey: string,
+  serviceVersion: string,
+  decisionState: "APPROVED" | "REJECTED"
+): Promise<{ templateId: string | null; outputAction: string | null; transitionId: string | null }> {
+  const configResult = await query(
+    "SELECT config_jsonb FROM service_version WHERE service_key = $1 AND version = $2",
+    [serviceKey, serviceVersion]
+  );
+  if (configResult.rows.length === 0) {
+    return { templateId: null, outputAction: null, transitionId: null };
+  }
+
+  const transitions: WorkflowTransitionConfig[] =
+    configResult.rows[0]?.config_jsonb?.workflow?.transitions || [];
+  if (!Array.isArray(transitions) || transitions.length === 0) {
+    return { templateId: null, outputAction: null, transitionId: null };
+  }
+
+  const expectedCloseTransitionId =
+    decisionState === "APPROVED" ? "CLOSE_APPROVED" : "CLOSE_REJECTED";
+
+  const closeTransition =
+    transitions.find((transition) => transition.transitionId === expectedCloseTransitionId) ||
+    transitions.find(
+      (transition) =>
+        transition.fromStateId === decisionState &&
+        transition.toStateId === "CLOSED" &&
+        transition.trigger === "system"
+    );
+
+  if (!closeTransition) {
+    return { templateId: null, outputAction: null, transitionId: null };
+  }
+
+  const outputAction = (closeTransition.actions || []).find((action) =>
+    action.startsWith(GENERATE_OUTPUT_ACTION_PREFIX)
+  );
+  const templateId = templateIdFromOutputAction(outputAction);
+
+  return {
+    templateId,
+    outputAction: outputAction || null,
+    transitionId: closeTransition.transitionId || null,
+  };
+}
+
 async function getOutputNumber(serviceKey: string): Promise<string> {
   const year = new Date().getFullYear();
   const seqResult = await query("SELECT nextval('arn_seq') as seq");

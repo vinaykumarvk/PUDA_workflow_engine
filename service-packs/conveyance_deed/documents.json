@@ -1,8 +1,8 @@
 {
   "documentTypes": [
     {
-      "docTypeId": "DOC_NDC_COPY",
-      "name": "Self-attested copy of No Due Certificate",
+      "docTypeId": "output_no_due_certificate",
+      "name": "No Due Certificate (issued by PUDA)",
       "mandatory": false,
       "requiredWhenRuleId": "NDC_REQUIRED_WHEN_NOT_ONLINE",
       "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],

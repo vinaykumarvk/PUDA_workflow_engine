@@ -31,13 +31,6 @@ function sanitizeStorageSegment(value: string, fallback: string): string {
   return normalized;
 }
 
-function sanitizeArnForStorage(arn: string): string {
-  const segments = arn.split("/").filter(Boolean);
-  return segments
-    .map((segment, index) => sanitizeStorageSegment(segment, `seg_${index}`))
-    .join("/");
-}
-
 export async function uploadDocument(
   arn: string,
   docTypeId: string,
@@ -46,39 +39,13 @@ export async function uploadDocument(
   fileBuffer: Buffer,
   userId: string
 ): Promise<Document> {
-  // Get existing documents for this type
-  const existingResult = await query(
-    "SELECT version FROM document WHERE arn = $1 AND doc_type_id = $2 ORDER BY version DESC LIMIT 1",
-    [arn, docTypeId]
-  );
-  
-  const version = existingResult.rows.length > 0 ? existingResult.rows[0].version + 1 : 1;
-  
-  // Calculate checksum
-  const checksum = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+  // Step 1: Store file in citizen locker (single write, single storage path)
+  const citizenDoc = await uploadCitizenDocument(userId, docTypeId, filename, mimeType, fileBuffer);
 
-  const safeArn = sanitizeArnForStorage(arn);
-  const safeDocTypeId = sanitizeStorageSegment(docTypeId, "doc");
-  const safeFilename = sanitizeStorageSegment(filename, "file");
-  
-  // C9: Store file via pluggable storage adapter
-  const storageKey = `${safeArn}/${safeDocTypeId}/v${version}/${safeFilename}`;
-  await getStorage().write(storageKey, fileBuffer);
-  
-  // Mark previous versions as not current
-  await query(
-    "UPDATE document SET is_current = FALSE WHERE arn = $1 AND doc_type_id = $2",
-    [arn, docTypeId]
-  );
-  
-  // Create document record
-  const docId = uuidv4();
-  await query(
-    "INSERT INTO document (doc_id, arn, doc_type_id, version, storage_key, original_filename, mime_type, size_bytes, checksum, uploaded_by_user_id, is_current) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE)",
-    [docId, arn, docTypeId, version, storageKey, filename, mimeType, fileBuffer.length, checksum, userId]
-  );
-  
-  // Create audit event
+  // Step 2: Create junction reference linking locker doc to this application
+  const { app_doc_id: appDocId } = await reuseDocumentForApplication(userId, citizenDoc.citizen_doc_id, arn, docTypeId);
+
+  // Step 3: Audit event
   await query(
     "INSERT INTO audit_event (event_id, arn, event_type, actor_type, actor_id, payload_jsonb) VALUES ($1, $2, $3, $4, $5, $6)",
     [
@@ -87,31 +54,48 @@ export async function uploadDocument(
       "DOCUMENT_UPLOADED",
       "CITIZEN",
       userId,
-      JSON.stringify({ docId, docTypeId, version, filename, checksum })
+      JSON.stringify({
+        docId: appDocId,
+        citizenDocId: citizenDoc.citizen_doc_id,
+        docTypeId,
+        version: citizenDoc.citizen_version,
+        filename,
+        checksum: citizenDoc.checksum,
+      })
     ]
   );
-  
-  // Dual-write: also create citizen_document + application_document rows
-  try {
-    const citizenDoc = await uploadCitizenDocument(userId, docTypeId, filename, mimeType, fileBuffer);
-    await reuseDocumentForApplication(userId, citizenDoc.citizen_doc_id, arn, docTypeId);
-  } catch {
-    // Non-fatal during transition: old table write already succeeded
-  }
 
-  const doc = await getDocument(docId);
-  if (!doc) throw new Error("Document not found");
-  return doc;
+  // Step 4: Return Document-shaped object (doc_id = app_doc_id for API compat)
+  return {
+    doc_id: appDocId,
+    arn,
+    doc_type_id: docTypeId,
+    version: citizenDoc.citizen_version,
+    storage_key: citizenDoc.storage_key,
+    original_filename: citizenDoc.original_filename,
+    mime_type: citizenDoc.mime_type,
+    size_bytes: citizenDoc.size_bytes,
+    checksum: citizenDoc.checksum,
+    uploaded_at: citizenDoc.uploaded_at,
+    is_current: true,
+    verification_status: "PENDING",
+  };
 }
 
 export async function getDocument(docId: string): Promise<Document | null> {
-  const result = await query(
-    "SELECT doc_id, arn, doc_type_id, version, storage_key, original_filename, mime_type, size_bytes, checksum, uploaded_at, is_current, verification_status FROM document WHERE doc_id = $1",
+  // V2-first: check application_document + citizen_document (locker is source of truth)
+  const v2Result = await query(
+    `SELECT ad.app_doc_id AS doc_id, ad.arn, ad.doc_type_id,
+            cd.citizen_version AS version, cd.storage_key, cd.original_filename,
+            cd.mime_type, cd.size_bytes, cd.checksum, cd.uploaded_at,
+            ad.is_current, ad.verification_status
+     FROM application_document ad
+     JOIN citizen_document cd ON cd.citizen_doc_id = ad.citizen_doc_id
+     WHERE ad.app_doc_id = $1`,
     [docId]
   );
-
-  if (result.rows.length > 0) {
-    const row = result.rows[0];
+  if (v2Result.rows.length > 0) {
+    const row = v2Result.rows[0];
     return {
       doc_id: row.doc_id,
       arn: row.arn,
@@ -124,23 +108,17 @@ export async function getDocument(docId: string): Promise<Document | null> {
       checksum: row.checksum,
       uploaded_at: row.uploaded_at,
       is_current: row.is_current,
-      verification_status: row.verification_status
+      verification_status: row.verification_status,
     };
   }
 
-  // Fallback: check application_document + citizen_document (new schema)
-  const v2Result = await query(
-    `SELECT ad.app_doc_id AS doc_id, ad.arn, ad.doc_type_id,
-            cd.citizen_version AS version, cd.storage_key, cd.original_filename,
-            cd.mime_type, cd.size_bytes, cd.checksum, cd.uploaded_at,
-            ad.is_current, ad.verification_status
-     FROM application_document ad
-     JOIN citizen_document cd ON cd.citizen_doc_id = ad.citizen_doc_id
-     WHERE ad.app_doc_id = $1`,
+  // Fallback: old document table for historical data
+  const result = await query(
+    "SELECT doc_id, arn, doc_type_id, version, storage_key, original_filename, mime_type, size_bytes, checksum, uploaded_at, is_current, verification_status FROM document WHERE doc_id = $1",
     [docId]
   );
-  if (v2Result.rows.length === 0) return null;
-  const row = v2Result.rows[0];
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
   return {
     doc_id: row.doc_id,
     arn: row.arn,
@@ -153,7 +131,7 @@ export async function getDocument(docId: string): Promise<Document | null> {
     checksum: row.checksum,
     uploaded_at: row.uploaded_at,
     is_current: row.is_current,
-    verification_status: row.verification_status,
+    verification_status: row.verification_status
   };
 }
 

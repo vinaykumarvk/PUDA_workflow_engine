@@ -664,17 +664,17 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* 4. Smart Suggestions / Nudges */}
-      {nudges && (nudges.expiringDocuments.length > 0 || nudges.stalledApplications.length > 0) && (
-        <div className="section nudge-section">
+      {/* 4. Updates (merged nudges + notifications) */}
+      {(nudges && (nudges.expiringDocuments.length > 0 || nudges.stalledApplications.length > 0) || notifications.length > 0) && (
+        <div className="section updates-section">
           <h2 className="section-title">
             <span className="section-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <SectionIcon kind="notifications" />
             </span>
-            <Bilingual tKey="nudge.title" />
+            <Bilingual tKey="dashboard.updates" />
           </h2>
-          <div className="nudge-list">
-            {nudges.stalledApplications.map((app) => (
+          <div className="updates-list">
+            {nudges?.stalledApplications.map((app) => (
               <div key={app.arn} className="nudge-card nudge-card--warning">
                 <div className="nudge-card__content">
                   <p className="nudge-card__message">
@@ -691,7 +691,7 @@ export default function Dashboard({
                 </Button>
               </div>
             ))}
-            {nudges.expiringDocuments.map((doc) => (
+            {nudges?.expiringDocuments.map((doc) => (
               <div key={doc.citizen_doc_id} className="nudge-card nudge-card--tip">
                 <div className="nudge-card__content">
                   <p className="nudge-card__message">
@@ -708,6 +708,28 @@ export default function Dashboard({
                   </Button>
                 )}
               </div>
+            ))}
+            {notifications.map((notif) => (
+              <Card
+                key={notif.notification_id}
+                className={`notification-card ${notif.read ? "" : "unread"}`}
+              >
+                <div className="notification-layout">
+                  <div className="notification-content">
+                    <div className="notification-title">{notif.title}</div>
+                    <div className="notification-message">{notif.message}</div>
+                    <div className="notification-time">{formatDate(notif.created_at)}</div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="notification-open-btn"
+                    onClick={() => onNavigateToApplication(notif.arn)}
+                  >
+                    {t("dashboard.view_details")}
+                  </Button>
+                </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -870,43 +892,7 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* 8. Notifications */}
-      {notifications.length > 0 && (
-        <div className="section notifications">
-          <h2 className="section-title">
-            <span className="section-icon" aria-hidden="true">
-              <SectionIcon kind="notifications" />
-            </span>
-            <Bilingual tKey="dashboard.recent_updates" />
-          </h2>
-          <div className="notification-list">
-            {notifications.map((notif) => (
-              <Card
-                key={notif.notification_id}
-                className={`notification-card ${notif.read ? "" : "unread"}`}
-              >
-                <div className="notification-layout">
-                  <div className="notification-content">
-                    <div className="notification-title">{notif.title}</div>
-                    <div className="notification-message">{notif.message}</div>
-                    <div className="notification-time">{formatDate(notif.created_at)}</div>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="notification-open-btn"
-                    onClick={() => onNavigateToApplication(notif.arn)}
-                  >
-                    {t("dashboard.view_details")}
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 10. Empty State (first-time users only) */}
+      {/* 8. Empty State (first-time users only) */}
       {!stats && applications.length === 0 && !hasPendingActions && (
         <div className="empty-state">
           <div className="empty-icon" aria-hidden="true">

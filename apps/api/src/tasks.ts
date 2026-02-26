@@ -155,7 +155,13 @@ export async function takeActionOnTask(
   unlockedFields?: string[],
   unlockedDocuments?: string[],
   verificationData?: Record<string, any>
-): Promise<{ success: boolean; newStateId?: string; arn?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  newStateId?: string;
+  arn?: string;
+  error?: string;
+  outputAction?: string;
+}> {
   // Get task
   const taskResult = await query(
     "SELECT t.arn, t.state_id, t.assignee_user_id, t.status, a.service_key FROM task t JOIN application a ON t.arn = a.arn WHERE t.task_id = $1",
@@ -264,7 +270,7 @@ export async function takeActionOnTask(
   // M1: Use explicit action-type matching via transition metadata or suffix map
   // Prefer transitions that declare an "action" field; fall back to suffix matching as last resort
   const transition = workflow.transitions.find(
-    (t: { fromStateId: string; transitionId: string; action?: string }) => {
+    (t: { fromStateId: string; transitionId: string; action?: string; actions?: string[] }) => {
       if (t.fromStateId !== task.state_id) return false;
       // Best: workflow declares action on the transition
       if (t.action) return t.action === action;
@@ -277,6 +283,12 @@ export async function takeActionOnTask(
     return { success: false, error: "TRANSITION_NOT_FOUND" };
   }
   const transitionId = transition.transitionId;
+  const outputAction = Array.isArray(transition.actions)
+    ? transition.actions.find(
+        (candidate: unknown): candidate is string =>
+          typeof candidate === "string" && candidate.startsWith("GENERATE_OUTPUT_")
+      )
+    : undefined;
   
   const result = await executeTransition(
     task.arn,
@@ -294,7 +306,7 @@ export async function takeActionOnTask(
   );
   
   if (result.success) {
-    return { success: true, newStateId: result.newStateId, arn };
+    return { success: true, newStateId: result.newStateId, arn, outputAction };
   }
   return result;
 }

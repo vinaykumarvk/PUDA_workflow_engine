@@ -44,7 +44,6 @@ async function readOptionalJson(filePath: string): Promise<any | null> {
 
 async function seedServiceVersions() {
   const packs = await loadServicePacks();
-  const version = "1.0.0";
   const effectiveFrom = new Date().toISOString();
 
   for (const pack of packs) {
@@ -67,6 +66,7 @@ async function seedServiceVersions() {
       throw error;
     }
     service = parseServiceMetadataYaml(yamlRaw, yamlPath, { expectedServiceKey: pack });
+    const version = service.version || "1.0.0";
 
     form = await readOptionalJson(path.join(dir, "form.json"));
     if (form) {
@@ -1378,6 +1378,107 @@ async function seedComplaints() {
   console.log(`Complaints seeded: ${complaints.length} test complaints for citizen-1.`);
 }
 
+/**
+ * Seed citizen_document entries (the document locker) so that
+ * test citizens have pre-existing documents for locker-matching tests.
+ *
+ * e.g. An issued No Due Certificate for citizen-1 that can be reused
+ * when applying for Conveyance Deed.
+ */
+async function seedCitizenDocuments() {
+  const { v4: uuidv4 } = await import("uuid");
+
+  // Clean up any previously seeded citizen documents for test citizens
+  await query(`DELETE FROM citizen_document WHERE user_id LIKE 'test-citizen%'`);
+
+  const docs: {
+    userId: string;
+    docTypeId: string;
+    origin: "uploaded" | "issued";
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    sourceArn?: string;
+    validFrom?: string;
+    validUntil?: string;
+  }[] = [
+    // Citizen 1: Issued NDC certificate (simulates approved NDC application)
+    {
+      userId: "test-citizen-1",
+      docTypeId: "output_no_due_certificate",
+      origin: "issued",
+      filename: "no_due_certificate.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 45_200,
+      sourceArn: "PUDA/2025/NDC/SEED-001",
+      validFrom: "2025-12-01",
+      validUntil: "2026-12-01",
+    },
+    // Citizen 1: Uploaded identity proof
+    {
+      userId: "test-citizen-1",
+      docTypeId: "DOC_PURCHASER_ID_PROOF",
+      origin: "uploaded",
+      filename: "aadhaar_rajesh.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 128_000,
+    },
+    // Citizen 2: Issued NDC certificate
+    {
+      userId: "test-citizen-2",
+      docTypeId: "output_no_due_certificate",
+      origin: "issued",
+      filename: "no_due_certificate.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 42_800,
+      sourceArn: "PUDA/2025/NDC/SEED-002",
+      validFrom: "2025-11-15",
+      validUntil: "2026-11-15",
+    },
+    // Citizen 4: Issued sewerage connection certificate
+    {
+      userId: "test-citizen-4",
+      docTypeId: "output_sanction_of_sewerage_connection",
+      origin: "issued",
+      filename: "sewerage_sanction.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 38_400,
+      sourceArn: "PUDA/2025/SEW/SEED-004",
+      validFrom: "2025-10-01",
+      validUntil: "2027-10-01",
+    },
+  ];
+
+  for (const doc of docs) {
+    const citizenDocId = uuidv4();
+    const storageKey = `citizen/${doc.userId}/${doc.docTypeId}/v1/${doc.filename}`;
+    await query(
+      `INSERT INTO citizen_document
+         (citizen_doc_id, user_id, doc_type_id, citizen_version, storage_key,
+          original_filename, mime_type, size_bytes, uploaded_at, is_current,
+          status, origin, source_arn, valid_from, valid_until)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),TRUE,'VALID',$9,$10,$11,$12)
+       ON CONFLICT (citizen_doc_id) DO NOTHING`,
+      [
+        citizenDocId,
+        doc.userId,
+        doc.docTypeId,
+        1,
+        storageKey,
+        doc.filename,
+        doc.mimeType,
+        doc.sizeBytes,
+        doc.origin,
+        doc.sourceArn || null,
+        doc.validFrom || null,
+        doc.validUntil || null,
+      ]
+    );
+  }
+
+  console.log(`Citizen document locker seeded (${docs.length} documents for test citizens).`);
+}
+
 async function main() {
   console.log("Seeding...");
   await seedAuthorities();
@@ -1390,6 +1491,7 @@ async function main() {
   await seedFeatureFlags();
   await seedProperties();       // Must run before seedCitizenApplications so applications can reference real UPNs
   await seedCitizenApplications();
+  await seedCitizenDocuments();  // Must run after seedCitizenApplications so ARN references exist
   await seedComplaints();
   console.log("Seed complete.");
   process.exit(0);

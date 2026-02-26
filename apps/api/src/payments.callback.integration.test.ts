@@ -44,6 +44,7 @@ async function cleanupApplicationTree(arn: string): Promise<void> {
   await query(`DELETE FROM fee_line_item WHERE arn = $1`, [arn]);
   await query(`DELETE FROM notification_log WHERE arn = $1`, [arn]);
   await query(`DELETE FROM notification WHERE arn = $1`, [arn]);
+  await query(`DELETE FROM application_document WHERE arn = $1`, [arn]);
   await query(`DELETE FROM document WHERE arn = $1`, [arn]);
   await query(`DELETE FROM query WHERE arn = $1`, [arn]);
   await query(`DELETE FROM task WHERE arn = $1`, [arn]);
