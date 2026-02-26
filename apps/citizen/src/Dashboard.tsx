@@ -73,6 +73,10 @@ interface ProfileCompleteness {
     contact?: { complete: boolean };
     address?: { complete: boolean };
   };
+  verification?: {
+    aadhaar_verified?: boolean;
+    pan_verified?: boolean;
+  };
 }
 
 interface DashboardProps {
@@ -234,6 +238,9 @@ export default function Dashboard({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [attentionExpanded, setAttentionExpanded] = useState(false);
+  const [updatesExpanded, setUpdatesExpanded] = useState(false);
+  const [recentAppsExpanded, setRecentAppsExpanded] = useState(false);
   const dashboardCacheKey = user ? `puda_citizen_dashboard_cache_${user.user_id}` : null;
 
   const applyCachedDashboard = useCallback(
@@ -402,18 +409,17 @@ export default function Dashboard({
   // M3: Utilities imported from @puda/shared/utils
 
   if (loading) {
-    const statsSkeletons = [0, 1, 2, 3];
-    const recentSkeletons = [0, 1, 2, 3];
+    const recentSkeletons = [0, 1, 2];
     return (
       <div className="dashboard">
-        <div className="stats-grid" aria-label={t("dashboard.loading")}>
-          {statsSkeletons.map((idx) => (
-            <Card key={idx} className="stat-card stat-card-skeleton" aria-hidden="true">
+        <Card className="stat-strip stat-strip-skeleton" aria-label={t("dashboard.loading")} aria-hidden="true">
+          {[0, 1, 2, 3].map((idx) => (
+            <div key={idx} className="stat-strip__cell">
               <div className="skeleton skeleton-stat-value" />
               <div className="skeleton skeleton-stat-label" />
-            </Card>
+            </div>
           ))}
-        </div>
+        </Card>
 
         <div className="section recent-applications">
           <h2 className="section-title">
@@ -474,6 +480,159 @@ export default function Dashboard({
     address: "\uD83C\uDFE0",
   };
 
+  // Merge all attention items for collapsible display
+  const allAttentionItems: Array<{ type: "query" | "document"; key: string; node: React.ReactNode }> = [];
+  if (pendingActions) {
+    pendingActions.queries.forEach((query) => {
+      allAttentionItems.push({
+        type: "query",
+        key: query.query_id,
+        node: (
+          <Card key={query.query_id} className="attention-card attention-query">
+            <div className="attention-header">
+              <span className="attention-badge">{t("dashboard.query_raised")}</span>
+              <span className="attention-service">{getServiceDisplayName(query.service_key)}</span>
+            </div>
+            <div className="attention-arn">{query.arn}</div>
+            <div className="attention-message">{query.message.substring(0, 100)}...</div>
+            <div className="attention-footer">
+              <span className="attention-due">
+                {t("dashboard.respond_by")} {new Date(query.response_due_at).toLocaleDateString()}
+              </span>
+              <Button
+                onClick={() => onNavigateToApplication(query.arn)}
+                className="btn-action attention-action-btn"
+                size="sm"
+                disabled={isOffline}
+              >
+                {t("dashboard.respond")}
+              </Button>
+            </div>
+          </Card>
+        ),
+      });
+    });
+    pendingActions.documentRequests.forEach((doc, idx) => {
+      allAttentionItems.push({
+        type: "document",
+        key: `${doc.arn}-${doc.doc_type_id}-${idx}`,
+        node: (
+          <Card key={`${doc.arn}-${doc.doc_type_id}-${idx}`} className="attention-card attention-document">
+            <div className="attention-header">
+              <span className="attention-badge">{t("dashboard.document_required")}</span>
+              <span className="attention-service">{getServiceDisplayName(doc.service_key)}</span>
+            </div>
+            <div className="attention-arn">{doc.arn}</div>
+            <div className="attention-message">Upload: {doc.doc_type_name}</div>
+            <div className="attention-footer">
+              <Button
+                onClick={() => onNavigateToApplication(doc.arn)}
+                className="btn-action attention-action-btn"
+                size="sm"
+                disabled={isOffline}
+              >
+                {t("dashboard.upload_now")}
+              </Button>
+            </div>
+          </Card>
+        ),
+      });
+    });
+  }
+
+  // Merge all update items for collapsible display
+  const allUpdateItems: Array<{ key: string; node: React.ReactNode }> = [];
+  nudges?.stalledApplications.forEach((app) => {
+    allUpdateItems.push({
+      key: `stalled-${app.arn}`,
+      node: (
+        <div key={`stalled-${app.arn}`} className="nudge-card nudge-card--warning">
+          <div className="nudge-card__content">
+            <p className="nudge-card__message">
+              {t("nudge.stalled_app", {
+                service: getServiceDisplayName(app.service_key),
+                role: app.system_role_id?.replace(/_/g, " ") || "",
+                defaultValue: `Your ${getServiceDisplayName(app.service_key)} application is approaching its SLA deadline`,
+              })}
+            </p>
+            <span className="nudge-card__meta">{app.arn}</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => onNavigateToApplication(app.arn)}>
+            {t("common.view_details")}
+          </Button>
+        </div>
+      ),
+    });
+  });
+  nudges?.expiringDocuments.forEach((doc) => {
+    allUpdateItems.push({
+      key: `expiring-${doc.citizen_doc_id}`,
+      node: (
+        <div key={`expiring-${doc.citizen_doc_id}`} className="nudge-card nudge-card--tip">
+          <div className="nudge-card__content">
+            <p className="nudge-card__message">
+              {t("nudge.doc_expiring", {
+                docType: doc.doc_type_id?.replace(/_/g, " ") || doc.original_filename,
+                date: new Date(doc.valid_until).toLocaleDateString(),
+                defaultValue: `Your ${doc.doc_type_id?.replace(/_/g, " ")} expires on ${new Date(doc.valid_until).toLocaleDateString()}`,
+              })}
+            </p>
+          </div>
+          {onNavigateToLocker && (
+            <Button variant="secondary" size="sm" onClick={() => onNavigateToLocker()}>
+              {t("nudge.upload_renewal")}
+            </Button>
+          )}
+        </div>
+      ),
+    });
+  });
+  notifications.forEach((notif) => {
+    allUpdateItems.push({
+      key: `notif-${notif.notification_id}`,
+      node: (
+        <Card
+          key={`notif-${notif.notification_id}`}
+          className={`notification-card ${notif.read ? "" : "unread"}`}
+        >
+          <div className="notification-layout">
+            <div className="notification-content">
+              <div className="notification-title">{notif.title}</div>
+              <div className="notification-message">{notif.message}</div>
+              <div className="notification-time">{formatDate(notif.created_at)}</div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="notification-open-btn"
+              onClick={() => onNavigateToApplication(notif.arn)}
+            >
+              {t("dashboard.view_details")}
+            </Button>
+          </div>
+        </Card>
+      ),
+    });
+  });
+
+  const ATTENTION_DEFAULT_SHOW = 2;
+  const UPDATES_DEFAULT_SHOW = 2;
+  const APPS_DEFAULT_SHOW = 3;
+
+  const visibleAttention = attentionExpanded ? allAttentionItems : allAttentionItems.slice(0, ATTENTION_DEFAULT_SHOW);
+  const hiddenAttentionCount = allAttentionItems.length - ATTENTION_DEFAULT_SHOW;
+
+  const visibleUpdates = updatesExpanded ? allUpdateItems : allUpdateItems.slice(0, UPDATES_DEFAULT_SHOW);
+  const hiddenUpdatesCount = allUpdateItems.length - UPDATES_DEFAULT_SHOW;
+
+  const visibleApps = recentAppsExpanded ? applications : applications.slice(0, APPS_DEFAULT_SHOW);
+  const hiddenAppsCount = applications.length - APPS_DEFAULT_SHOW;
+
+  // Profile completion: compute verification pending count
+  const verificationPendingCount = profileCompleteness?.verification
+    ? [!profileCompleteness.verification.aadhaar_verified, !profileCompleteness.verification.pan_verified].filter(Boolean).length
+    : 0;
+
   return (
     <div className="dashboard">
       {isOffline ? (
@@ -489,74 +648,61 @@ export default function Dashboard({
         </Alert>
       ) : null}
 
-      {/* 1. Quick Stats Cards */}
+      {/* 1. Compact Stat Strip */}
       {stats && (
-        <div className="stats-grid">
-          <Card className="stat-card-wrap">
-            <Button
-              type="button"
-              variant="ghost"
-              className="stat-card stat-clickable"
-              onClick={() => {
-                if (onNavigateToApplications) onNavigateToApplications();
-                else onNavigateToApplication("");
-              }}
-            >
-              <div className="stat-value">{stats.total}</div>
-              <div className="stat-label">{t("dashboard.stat_total")}</div>
-            </Button>
-          </Card>
-          <Card className="stat-card-wrap">
-            <Button
-              type="button"
-              variant="ghost"
-              className="stat-card stat-active stat-clickable"
-              onClick={() => {
-                if (onNavigateToApplications) onNavigateToApplications("active");
-                else onNavigateToApplication("");
-              }}
-            >
-              <div className="stat-value">{stats.active}</div>
-              <div className="stat-label">{t("dashboard.stat_active")}</div>
-            </Button>
-          </Card>
-          <Card className="stat-card-wrap">
-            <Button
-              type="button"
-              variant="ghost"
-              className={`stat-card stat-pending ${stats.pendingAction > 0 ? "stat-clickable" : ""}`}
-              disabled={stats.pendingAction <= 0}
-              onClick={() => {
-                if (stats.pendingAction > 0) {
-                  // Scroll to requires attention section
-                  setTimeout(() => {
-                    const attentionSection = document.querySelector(".requires-attention");
-                    if (attentionSection) {
-                      attentionSection.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }
-                  }, 100);
-                }
-              }}
-            >
-              <div className="stat-value">{stats.pendingAction}</div>
-              <div className="stat-label">{t("dashboard.stat_pending_action")}</div>
-            </Button>
-          </Card>
-          <Card className="stat-card-wrap">
-            <Button
-              type="button"
-              variant="ghost"
-              className="stat-card stat-approved stat-clickable"
-              onClick={() => {
-                if (onNavigateToApplications) onNavigateToApplications("approved");
-                else onNavigateToApplication("");
-              }}
-            >
-              <div className="stat-value">{stats.approved}</div>
-              <div className="stat-label">{t("dashboard.stat_approved")}</div>
-            </Button>
-          </Card>
-        </div>
+        <Card className="stat-strip">
+          <button
+            type="button"
+            className="stat-strip__cell"
+            onClick={() => {
+              if (onNavigateToApplications) onNavigateToApplications();
+              else onNavigateToApplication("");
+            }}
+          >
+            <span className="stat-strip__value">{stats.total}</span>
+            <span className="stat-strip__label">{t("dashboard.stat_total_short")}</span>
+          </button>
+          <button
+            type="button"
+            className="stat-strip__cell"
+            onClick={() => {
+              if (onNavigateToApplications) onNavigateToApplications("active");
+              else onNavigateToApplication("");
+            }}
+          >
+            <span className="stat-strip__value">{stats.active}</span>
+            <span className="stat-strip__label">{t("dashboard.stat_active")}</span>
+          </button>
+          <button
+            type="button"
+            className="stat-strip__cell"
+            disabled={stats.pendingAction <= 0}
+            onClick={() => {
+              if (stats.pendingAction > 0) {
+                setTimeout(() => {
+                  const attentionSection = document.querySelector(".requires-attention");
+                  if (attentionSection) {
+                    attentionSection.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }, 100);
+              }
+            }}
+          >
+            <span className="stat-strip__value">{stats.pendingAction}</span>
+            <span className="stat-strip__label">{t("dashboard.stat_pending_short")}</span>
+          </button>
+          <button
+            type="button"
+            className="stat-strip__cell"
+            onClick={() => {
+              if (onNavigateToApplications) onNavigateToApplications("approved");
+              else onNavigateToApplication("");
+            }}
+          >
+            <span className="stat-strip__value">{stats.approved}</span>
+            <span className="stat-strip__label">{t("dashboard.stat_approved")}</span>
+          </button>
+        </Card>
       )}
 
       {/* 2. Profile Completion Card (only when incomplete) */}
@@ -565,13 +711,14 @@ export default function Dashboard({
           <div className="profile-completion-card__header">
             <div className="profile-completion-card__title">{t("dashboard.profile_title")}</div>
             <span className="profile-completion-card__counter">
-              {t("dashboard.profile_count", {
-                done: (["identity", "personal", "contact", "address"] as const).filter(
-                  (k) => profileCompleteness.sections?.[k]?.complete
-                ).length,
-                total: 4,
-              })}
+              {t("dashboard.profile_percent", { percent: profileCompleteness.completionPercent ?? 0 })}
             </span>
+          </div>
+          <div className="profile-completion-card__progress-bar">
+            <div
+              className="profile-completion-card__progress-fill"
+              style={{ width: `${profileCompleteness.completionPercent ?? 0}%` }}
+            />
           </div>
           {profileCompleteness.sections && (
             <div className="profile-completion-card__grid">
@@ -594,148 +741,62 @@ export default function Dashboard({
                   </button>
                 );
               })}
+              <button
+                type="button"
+                className={`profile-tile ${verificationPendingCount === 0 ? "profile-tile--done" : "profile-tile--pending"}`}
+                onClick={onNavigateToProfile}
+              >
+                <span className="profile-tile__icon" aria-hidden="true">
+                  {verificationPendingCount === 0 ? "\u2713" : "\uD83D\uDD12"}
+                </span>
+                <span className="profile-tile__label">{t("dashboard.profile_verification")}</span>
+                <span className="profile-tile__status">
+                  {verificationPendingCount === 0
+                    ? t("dashboard.profile_done")
+                    : t("dashboard.profile_verify_pending", { count: verificationPendingCount })}
+                </span>
+              </button>
             </div>
           )}
         </div>
       )}
 
-      {/* 3. Requires Attention (promoted — most critical user actions) */}
-      {hasPendingActions && (
+      {/* 3. Requires Attention (collapsible, shows 2) */}
+      {allAttentionItems.length > 0 && (
         <div className="section requires-attention">
           <h2 className="section-title">
             <span className="section-icon" aria-hidden="true">
               <SectionIcon kind="attention" />
             </span>
             <Bilingual tKey="dashboard.requires_attention" />
+            <span className="section-count-badge">{allAttentionItems.length}</span>
           </h2>
 
-          {pendingActions.queries.length > 0 && (
-            <div className="attention-cards">
-              {pendingActions.queries.map((query) => (
-                <Card key={query.query_id} className="attention-card attention-query">
-                  <div className="attention-header">
-                    <span className="attention-badge">{t("dashboard.query_raised")}</span>
-                    <span className="attention-service">{getServiceDisplayName(query.service_key)}</span>
-                  </div>
-                  <div className="attention-arn">{query.arn}</div>
-                  <div className="attention-message">{query.message.substring(0, 100)}...</div>
-                  <div className="attention-footer">
-                    <span className="attention-due">
-                      {t("dashboard.respond_by")} {new Date(query.response_due_at).toLocaleDateString()}
-                    </span>
-                    <Button
-                      onClick={() => onNavigateToApplication(query.arn)}
-                      className="btn-action attention-action-btn"
-                      size="sm"
-                      disabled={isOffline}
-                    >
-                      {t("dashboard.respond")}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {pendingActions.documentRequests.length > 0 && (
-            <div className="attention-cards">
-              {pendingActions.documentRequests.map((doc, idx) => (
-                <Card key={`${doc.arn}-${doc.doc_type_id}-${idx}`} className="attention-card attention-document">
-                  <div className="attention-header">
-                    <span className="attention-badge">{t("dashboard.document_required")}</span>
-                    <span className="attention-service">{getServiceDisplayName(doc.service_key)}</span>
-                  </div>
-                  <div className="attention-arn">{doc.arn}</div>
-                  <div className="attention-message">Upload: {doc.doc_type_name}</div>
-                  <div className="attention-footer">
-                    <Button
-                      onClick={() => onNavigateToApplication(doc.arn)}
-                      className="btn-action attention-action-btn"
-                      size="sm"
-                      disabled={isOffline}
-                    >
-                      {t("dashboard.upload_now")}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 4. Updates (merged nudges + notifications) */}
-      {(nudges && (nudges.expiringDocuments.length > 0 || nudges.stalledApplications.length > 0) || notifications.length > 0) && (
-        <div className="section updates-section">
-          <h2 className="section-title">
-            <span className="section-icon" aria-hidden="true">
-              <SectionIcon kind="notifications" />
-            </span>
-            <Bilingual tKey="dashboard.updates" />
-          </h2>
-          <div className="updates-list">
-            {nudges?.stalledApplications.map((app) => (
-              <div key={app.arn} className="nudge-card nudge-card--warning">
-                <div className="nudge-card__content">
-                  <p className="nudge-card__message">
-                    {t("nudge.stalled_app", {
-                      service: getServiceDisplayName(app.service_key),
-                      role: app.system_role_id?.replace(/_/g, " ") || "",
-                      defaultValue: `Your ${getServiceDisplayName(app.service_key)} application is approaching its SLA deadline`,
-                    })}
-                  </p>
-                  <span className="nudge-card__meta">{app.arn}</span>
-                </div>
-                <Button variant="secondary" size="sm" onClick={() => onNavigateToApplication(app.arn)}>
-                  {t("common.view_details")}
-                </Button>
-              </div>
-            ))}
-            {nudges?.expiringDocuments.map((doc) => (
-              <div key={doc.citizen_doc_id} className="nudge-card nudge-card--tip">
-                <div className="nudge-card__content">
-                  <p className="nudge-card__message">
-                    {t("nudge.doc_expiring", {
-                      docType: doc.doc_type_id?.replace(/_/g, " ") || doc.original_filename,
-                      date: new Date(doc.valid_until).toLocaleDateString(),
-                      defaultValue: `Your ${doc.doc_type_id?.replace(/_/g, " ")} expires on ${new Date(doc.valid_until).toLocaleDateString()}`,
-                    })}
-                  </p>
-                </div>
-                {onNavigateToLocker && (
-                  <Button variant="secondary" size="sm" onClick={() => onNavigateToLocker()}>
-                    {t("nudge.upload_renewal")}
-                  </Button>
-                )}
-              </div>
-            ))}
-            {notifications.map((notif) => (
-              <Card
-                key={notif.notification_id}
-                className={`notification-card ${notif.read ? "" : "unread"}`}
-              >
-                <div className="notification-layout">
-                  <div className="notification-content">
-                    <div className="notification-title">{notif.title}</div>
-                    <div className="notification-message">{notif.message}</div>
-                    <div className="notification-time">{formatDate(notif.created_at)}</div>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="notification-open-btn"
-                    onClick={() => onNavigateToApplication(notif.arn)}
-                  >
-                    {t("dashboard.view_details")}
-                  </Button>
-                </div>
-              </Card>
-            ))}
+          <div
+            className="attention-cards"
+            id="attention-items"
+            role="region"
+            aria-label={t("dashboard.attention_count", { count: allAttentionItems.length })}
+          >
+            {visibleAttention.map((item) => item.node)}
           </div>
+          {hiddenAttentionCount > 0 && (
+            <button
+              type="button"
+              className="show-more-btn"
+              aria-expanded={attentionExpanded}
+              aria-controls="attention-items"
+              onClick={() => setAttentionExpanded(!attentionExpanded)}
+            >
+              {attentionExpanded
+                ? t("dashboard.show_less")
+                : t("dashboard.show_more", { count: hiddenAttentionCount })}
+            </button>
+          )}
         </div>
       )}
 
-      {/* 5. Recent Applications */}
+      {/* 4. Recent Applications (shows 3, expand on demand) */}
       {applications.length > 0 && (
         <div className="section recent-applications">
           <h2 className="section-title">
@@ -744,15 +805,15 @@ export default function Dashboard({
             </span>
             <Bilingual tKey="dashboard.recent_apps" />
           </h2>
-            <div className="application-cards">
-              {applications.map((app) => {
-                const sla = !TERMINAL_STATES.has(app.state_id) && app.submitted_at
-                  ? getSlaForService(app.service_key)
-                  : null;
-                const daysSoFar = app.submitted_at
-                  ? Math.max(0, Math.round((Date.now() - new Date(app.submitted_at).getTime()) / 86400000))
-                  : 0;
-                return (
+          <div className="application-cards" id="recent-apps-list">
+            {visibleApps.map((app) => {
+              const sla = !TERMINAL_STATES.has(app.state_id) && app.submitted_at
+                ? getSlaForService(app.service_key)
+                : null;
+              const daysSoFar = app.submitted_at
+                ? Math.max(0, Math.round((Date.now() - new Date(app.submitted_at).getTime()) / 86400000))
+                : 0;
+              return (
                 <Card key={app.arn} className="application-card-wrap">
                   <Button
                     type="button"
@@ -788,10 +849,23 @@ export default function Dashboard({
                     </div>
                   </Button>
                 </Card>
-                );
-              })}
-            </div>
-          {applications.length >= 10 && (
+              );
+            })}
+          </div>
+          {hiddenAppsCount > 0 && (
+            <button
+              type="button"
+              className="show-more-btn"
+              aria-expanded={recentAppsExpanded}
+              aria-controls="recent-apps-list"
+              onClick={() => setRecentAppsExpanded(!recentAppsExpanded)}
+            >
+              {recentAppsExpanded
+                ? t("dashboard.show_less")
+                : t("dashboard.show_more_apps", { count: hiddenAppsCount })}
+            </button>
+          )}
+          {recentAppsExpanded && applications.length >= 10 && (
             <div className="view-all-link">
               <Button
                 onClick={() => {
@@ -807,92 +881,125 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* 6. Document Locker summary (only when data exists) */}
-      {onNavigateToLocker && docLockerSummary && docLockerSummary.total > 0 && (
-        <div className="section doc-locker-section">
-          <Card className="doc-locker-card">
-            <div className="doc-locker-card-header">
-              <span className="doc-locker-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M7 3h7l5 5v13H7z" />
-                  <path d="M14 3v6h5" />
-                </svg>
-              </span>
-              <h3 className="doc-locker-card-title"><Bilingual tKey="dashboard.doc_locker_title" /></h3>
-            </div>
-            <div className="doc-locker-stats-grid">
-              <div className="doc-locker-stat">
-                <span className="doc-locker-stat-value">{docLockerSummary.total}</span>
-                <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
-              </div>
-              <div className="doc-locker-stat">
-                <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.valid}</span>
-                <span className="doc-locker-stat-label">{t("dashboard.doc_valid")}</span>
-              </div>
-              <div className={`doc-locker-stat ${docLockerSummary.expired > 0 ? "doc-locker-stat--action" : ""}`}>
-                <span className={`doc-locker-stat-value ${docLockerSummary.expired > 0 ? "doc-locker-stat-value--action" : ""}`}>
-                  {docLockerSummary.expired}
-                </span>
-                <span className="doc-locker-stat-label">{t("dashboard.doc_expired")}</span>
-              </div>
-            </div>
-            {docLockerSummary.expiringSoon > 0 && (
-              <Alert variant="warning" className="doc-locker-expiry-banner">
-                {t("dashboard.doc_expiring", { count: docLockerSummary.expiringSoon })}
-              </Alert>
+      {/* 5. Updates (collapsible, shows 2) */}
+      {allUpdateItems.length > 0 && (
+        <div className="section updates-section">
+          <h2 className="section-title">
+            <span className="section-icon" aria-hidden="true">
+              <SectionIcon kind="notifications" />
+            </span>
+            <Bilingual tKey="dashboard.updates" />
+          </h2>
+          <div className="updates-list" id="updates-list">
+            {visibleUpdates.map((item) => item.node)}
+          </div>
+          {hiddenUpdatesCount > 0 && (
+            <button
+              type="button"
+              className="show-more-btn"
+              aria-expanded={updatesExpanded}
+              aria-controls="updates-list"
+              onClick={() => setUpdatesExpanded(!updatesExpanded)}
+            >
+              {updatesExpanded
+                ? t("dashboard.show_less")
+                : t("dashboard.show_more", { count: hiddenUpdatesCount })}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 6. Quick Access Row (Doc Locker + Complaints side-by-side) */}
+      {((onNavigateToLocker && docLockerSummary && docLockerSummary.total > 0) ||
+        (onNavigateToComplaints && complaintSummary && complaintSummary.total > 0)) && (
+        <div className="section quick-access-section">
+          <h2 className="section-title">
+            <Bilingual tKey="dashboard.quick_access" />
+          </h2>
+          <div className="quick-access-row">
+            {onNavigateToLocker && docLockerSummary && docLockerSummary.total > 0 && (
+              <Card className="doc-locker-card">
+                <div className="doc-locker-card-header">
+                  <span className="doc-locker-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M7 3h7l5 5v13H7z" />
+                      <path d="M14 3v6h5" />
+                    </svg>
+                  </span>
+                  <h3 className="doc-locker-card-title"><Bilingual tKey="dashboard.doc_locker_title" /></h3>
+                </div>
+                <div className="doc-locker-stats-grid">
+                  <div className="doc-locker-stat">
+                    <span className="doc-locker-stat-value">{docLockerSummary.total}</span>
+                    <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
+                  </div>
+                  <div className="doc-locker-stat">
+                    <span className="doc-locker-stat-value doc-locker-stat-value--verified">{docLockerSummary.valid}</span>
+                    <span className="doc-locker-stat-label">{t("dashboard.doc_valid")}</span>
+                  </div>
+                  <div className={`doc-locker-stat ${docLockerSummary.expired > 0 ? "doc-locker-stat--action" : ""}`}>
+                    <span className={`doc-locker-stat-value ${docLockerSummary.expired > 0 ? "doc-locker-stat-value--action" : ""}`}>
+                      {docLockerSummary.expired}
+                    </span>
+                    <span className="doc-locker-stat-label">{t("dashboard.doc_expired")}</span>
+                  </div>
+                </div>
+                {docLockerSummary.expiringSoon > 0 && (
+                  <Alert variant="warning" className="doc-locker-expiry-banner">
+                    {t("dashboard.doc_expiring", { count: docLockerSummary.expiringSoon })}
+                  </Alert>
+                )}
+                <div className="doc-locker-card-actions">
+                  <Button onClick={() => onNavigateToLocker()} variant="secondary" size="sm">
+                    {t("dashboard.doc_open")}
+                  </Button>
+                  {docLockerSummary.expired > 0 && (
+                    <Button onClick={() => onNavigateToLocker("expired")} variant="danger" size="sm">
+                      {t("dashboard.doc_view_expired", { count: docLockerSummary.expired })}
+                    </Button>
+                  )}
+                </div>
+              </Card>
             )}
-            <div className="doc-locker-card-actions">
-              <Button onClick={() => onNavigateToLocker()} variant="secondary" size="sm">
-                {t("dashboard.doc_open")}
-              </Button>
-              {docLockerSummary.expired > 0 && (
-                <Button onClick={() => onNavigateToLocker("expired")} variant="danger" size="sm">
-                  {t("dashboard.doc_view_expired", { count: docLockerSummary.expired })}
-                </Button>
-              )}
-            </div>
-          </Card>
+
+            {onNavigateToComplaints && complaintSummary && complaintSummary.total > 0 && (
+              <Card className="doc-locker-card">
+                <div className="doc-locker-card-header">
+                  <span className="doc-locker-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  </span>
+                  <h3 className="doc-locker-card-title"><Bilingual tKey="nav.complaints" /></h3>
+                </div>
+                <div className="doc-locker-stats-grid">
+                  <div className="doc-locker-stat">
+                    <span className="doc-locker-stat-value">{complaintSummary.total}</span>
+                    <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
+                  </div>
+                  <div className="doc-locker-stat">
+                    <span className="doc-locker-stat-value doc-locker-stat-value--action">{complaintSummary.active}</span>
+                    <span className="doc-locker-stat-label">{t("dashboard.stat_active")}</span>
+                  </div>
+                  <div className="doc-locker-stat">
+                    <span className="doc-locker-stat-value doc-locker-stat-value--verified">{complaintSummary.resolved}</span>
+                    <span className="doc-locker-stat-label">{t("complaints.status_resolved")}</span>
+                  </div>
+                </div>
+                <div className="doc-locker-card-actions">
+                  <Button onClick={() => onNavigateToComplaints()} variant="secondary" size="sm">
+                    {t("complaints.my_complaints")}
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
-      {/* 7. Complaints summary (only when data exists) */}
-      {onNavigateToComplaints && complaintSummary && complaintSummary.total > 0 && (
-        <div className="section doc-locker-section">
-          <Card className="doc-locker-card">
-            <div className="doc-locker-card-header">
-              <span className="doc-locker-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </span>
-              <h3 className="doc-locker-card-title"><Bilingual tKey="nav.complaints" /></h3>
-            </div>
-            <div className="doc-locker-stats-grid">
-              <div className="doc-locker-stat">
-                <span className="doc-locker-stat-value">{complaintSummary.total}</span>
-                <span className="doc-locker-stat-label">{t("dashboard.doc_total")}</span>
-              </div>
-              <div className="doc-locker-stat">
-                <span className="doc-locker-stat-value doc-locker-stat-value--action">{complaintSummary.active}</span>
-                <span className="doc-locker-stat-label">{t("dashboard.stat_active")}</span>
-              </div>
-              <div className="doc-locker-stat">
-                <span className="doc-locker-stat-value doc-locker-stat-value--verified">{complaintSummary.resolved}</span>
-                <span className="doc-locker-stat-label">{t("complaints.status_resolved")}</span>
-              </div>
-            </div>
-            <div className="doc-locker-card-actions">
-              <Button onClick={() => onNavigateToComplaints()} variant="secondary" size="sm">
-                {t("complaints.my_complaints")}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* 8. Empty State (first-time users only) */}
+      {/* 7. Empty State (first-time users only) */}
       {!stats && applications.length === 0 && !hasPendingActions && (
         <div className="empty-state">
           <div className="empty-icon" aria-hidden="true">

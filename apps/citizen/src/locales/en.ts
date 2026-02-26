@@ -104,6 +104,15 @@ const en = {
   "dashboard.profile_count": "{{done}} of {{total}} complete",
   "dashboard.profile_done": "Done",
   "dashboard.profile_fill_in": "Fill in",
+  "dashboard.profile_verification": "Verification",
+  "dashboard.profile_verify_pending": "{{count}} pending",
+  "dashboard.stat_total_short": "Total",
+  "dashboard.stat_pending_short": "Pending",
+  "dashboard.show_more": "Show {{count}} more",
+  "dashboard.show_less": "Show less",
+  "dashboard.attention_count": "{{count}} items needing attention",
+  "dashboard.show_more_apps": "Show {{count}} more applications",
+  "dashboard.quick_access": "Quick Access",
 
   // Service Catalog
   "catalog.title": "Service Catalog",

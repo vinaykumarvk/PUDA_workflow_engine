@@ -104,6 +104,15 @@ const hi: Record<string, string> = {
   "dashboard.profile_count": "{{total}} में से {{done}} पूर्ण",
   "dashboard.profile_done": "पूर्ण",
   "dashboard.profile_fill_in": "भरें",
+  "dashboard.profile_verification": "सत्यापन",
+  "dashboard.profile_verify_pending": "{{count}} लंबित",
+  "dashboard.stat_total_short": "कुल",
+  "dashboard.stat_pending_short": "लंबित",
+  "dashboard.show_more": "{{count}} और दिखाएं",
+  "dashboard.show_less": "कम दिखाएं",
+  "dashboard.attention_count": "{{count}} आइटम ध्यान देने योग्य",
+  "dashboard.show_more_apps": "{{count}} और आवेदन दिखाएं",
+  "dashboard.quick_access": "त्वरित पहुंच",
 
   // Service Catalog
   "catalog.title": "सेवा सूची",

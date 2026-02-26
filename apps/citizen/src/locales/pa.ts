@@ -104,6 +104,15 @@ const pa: Record<string, string> = {
   "dashboard.profile_count": "{{total}} ਵਿੱਚੋਂ {{done}} ਪੂਰੇ",
   "dashboard.profile_done": "ਪੂਰਾ",
   "dashboard.profile_fill_in": "ਭਰੋ",
+  "dashboard.profile_verification": "ਤਸਦੀਕ",
+  "dashboard.profile_verify_pending": "{{count}} ਬਕਾਇਆ",
+  "dashboard.stat_total_short": "ਕੁੱਲ",
+  "dashboard.stat_pending_short": "ਬਕਾਇਆ",
+  "dashboard.show_more": "{{count}} ਹੋਰ ਦਿਖਾਓ",
+  "dashboard.show_less": "ਘੱਟ ਦਿਖਾਓ",
+  "dashboard.attention_count": "{{count}} ਆਈਟਮ ਧਿਆਨ ਦੇਣ ਯੋਗ",
+  "dashboard.show_more_apps": "{{count}} ਹੋਰ ਅਰਜ਼ੀਆਂ ਦਿਖਾਓ",
+  "dashboard.quick_access": "ਤੁਰੰਤ ਪਹੁੰਚ",
 
   // Service Catalog
   "catalog.title": "ਸੇਵਾ ਸੂਚੀ",
