@@ -950,7 +950,12 @@ export default function App() {
     if (!user) return;
     if (resumeHydratedRef.current === user.user_id) return;
     // Deep-link from URL takes precedence over resume state
-    if (deepLinkAppliedRef.current) { resumeHydratedRef.current = user.user_id; return; }
+    const initHash = window.location.hash;
+    if (initHash && initHash !== "#" && initHash !== "#/") {
+      deepLinkAppliedRef.current = true;
+      resumeHydratedRef.current = user.user_id;
+      return;
+    }
     const key = resumeStateKey(user.user_id);
     resumeHydratedRef.current = user.user_id;
     const cached = readCached<ResumeSnapshot>(key, {
@@ -1024,9 +1029,9 @@ export default function App() {
     return buildHash("");
   }, [view, showDashboard, selectedService, currentApplication, appStatusFilter, lockerFilter]);
 
-  // Effect A — Sync state → URL hash
+  // Effect A — Sync state → URL hash (skip until deep-link check has run)
   useEffect(() => {
-    if (!user) return;
+    if (!user || !hashInitializedRef.current) return;
     const hash = citizenViewToHash();
     const direction = navDirectionRef.current;
     navDirectionRef.current = "push"; // reset for next navigation
@@ -1040,7 +1045,11 @@ export default function App() {
     if (!user || hashInitializedRef.current) return;
     hashInitializedRef.current = true;
     const hash = window.location.hash;
-    if (!hash || hash === "#" || hash === "#/") return; // no deep link — let resume-state handle it
+    if (!hash || hash === "#" || hash === "#/") {
+      // No deep link — push initial hash from current state, then let resume-state run
+      replaceHash(citizenViewToHash());
+      return;
+    }
     const parsed = parseHash(hash);
     const validView = validateView(parsed.view, CITIZEN_VALID_VIEWS, "");
     if (validView === "" || validView === "services") {

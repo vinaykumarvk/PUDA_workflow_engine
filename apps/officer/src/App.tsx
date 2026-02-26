@@ -325,9 +325,9 @@ export default function App() {
     return buildHash("");
   }, [view, selectedTask?.task_id, fromSearch]);
 
-  // Effect A — Sync state → URL hash
+  // Effect A — Sync state → URL hash (skip until deep-link check has run)
   useEffect(() => {
-    if (!auth) return;
+    if (!auth || !hashInitializedRef.current) return;
     const hash = officerViewToHash();
     const direction = navDirectionRef.current;
     navDirectionRef.current = "push";
@@ -341,7 +341,10 @@ export default function App() {
     if (!auth || hashInitializedRef.current) return;
     hashInitializedRef.current = true;
     const hash = window.location.hash;
-    if (!hash || hash === "#" || hash === "#/") return;
+    if (!hash || hash === "#" || hash === "#/") {
+      replaceHash(officerViewToHash());
+      return;
+    }
     const parsed = parseHash(hash);
     const validView = validateView(parsed.view, OFFICER_VALID_VIEWS, "");
     if (validView === "task" && parsed.resourceId) {
