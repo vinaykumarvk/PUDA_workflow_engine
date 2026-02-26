@@ -134,6 +134,9 @@ export default function App() {
   // Keep formDirtyRef in sync for the popstate closure
   useEffect(() => { formDirtyRef.current = formDirty; }, [formDirty]);
 
+  // Scroll to top on view change
+  useEffect(() => { window.scrollTo(0, 0); }, [view]);
+
   const confirmNavigation = useCallback((): boolean => {
     if (!formDirty) return true;
     return window.confirm(t("common.unsaved_confirm"));

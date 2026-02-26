@@ -347,6 +347,9 @@ export default function App() {
   // Keep formDirtyRef in sync for the popstate closure
   useEffect(() => { formDirtyRef.current = formDirty; }, [formDirty]);
 
+  // Scroll to top on view change
+  useEffect(() => { window.scrollTo(0, 0); }, [view, showDashboard]);
+
   /** Push current view onto nav stack and navigate to a new view. */
   const navigateTo = useCallback((nextView: ViewId, nextDashboard: boolean) => {
     if (!confirmNavigation()) return;
