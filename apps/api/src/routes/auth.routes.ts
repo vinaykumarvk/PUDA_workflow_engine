@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply } from "fastify";
 import * as auth from "../auth";
 import { generateToken } from "../middleware/auth";
 import { query } from "../db";
@@ -7,6 +7,23 @@ import { send400, send401, send403 } from "../errors";
 import { revokeAllUserTokens, revokeToken } from "../token-security";
 import { issueMfaChallenge, MFA_PURPOSE_TASK_DECISION } from "../mfa-stepup";
 import { validateOfficerCanActOnTask } from "../tasks";
+
+/** M3: Set HttpOnly auth cookie on the reply */
+function setAuthCookie(reply: FastifyReply, token: string): void {
+  const isProduction = process.env.NODE_ENV === "production";
+  reply.setCookie("puda_auth", token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
+    path: "/",
+    maxAge: 86400, // 24 hours (seconds)
+  });
+}
+
+/** M3: Clear auth cookie on the reply */
+function clearAuthCookie(reply: FastifyReply): void {
+  reply.clearCookie("puda_auth", { path: "/" });
+}
 
 const loginSchema = {
   body: {
@@ -151,6 +168,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return { error: "INVALID_CREDENTIALS" };
     }
     const token = generateToken(user);
+    setAuthCookie(reply, token);
     return { user, token };
   });
 
@@ -195,6 +213,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return { error: "INVALID_OTP" };
     }
     const token = generateToken(user);
+    setAuthCookie(reply, token);
     return { user, token };
     }
   );
@@ -248,6 +267,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         jti: request.authUser.jti,
       },
     });
+    clearAuthCookie(reply);
     return { success: true };
   });
 
@@ -281,10 +301,26 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         revokedBefore: revokeResult.revokedBefore.toISOString(),
       },
     });
+    clearAuthCookie(reply);
     return {
       success: true,
       revokedBefore: revokeResult.revokedBefore.toISOString(),
     };
+  });
+
+  // M3: Session check endpoint — returns current user from HttpOnly cookie
+  app.get("/api/v1/auth/me", async (request, reply) => {
+    if (!request.authUser) {
+      return send401(reply, "AUTHENTICATION_REQUIRED", "Login required");
+    }
+    const userResult = await query(
+      `SELECT user_id, login, name, email, phone, user_type FROM "user" WHERE user_id = $1`,
+      [request.authUser.userId]
+    );
+    if (!userResult.rows[0]) {
+      return send401(reply, "USER_NOT_FOUND", "User no longer exists");
+    }
+    return { user: userResult.rows[0] };
   });
 
   app.post(

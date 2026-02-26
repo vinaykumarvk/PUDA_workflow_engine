@@ -63,6 +63,7 @@ export default function Login() {
       const res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ login: loginId, password }),
       });
 
@@ -93,6 +94,7 @@ export default function Login() {
       const res = await fetch(`${apiBaseUrl}/api/v1/auth/aadhar/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ aadhar }),
       });
 
@@ -120,6 +122,7 @@ export default function Login() {
       const res = await fetch(`${apiBaseUrl}/api/v1/auth/aadhar/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ aadhar, otp }),
       });
 
@@ -150,6 +153,7 @@ export default function Login() {
       const res = await fetch(`${apiBaseUrl}/api/v1/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ login: forgotLoginId }),
       });
 
@@ -188,6 +192,7 @@ export default function Login() {
       const res = await fetch(`${apiBaseUrl}/api/v1/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ token: resetToken, newPassword }),
       });
 

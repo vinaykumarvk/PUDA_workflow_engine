@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { FastifyInstance, FastifyRequest } from "fastify";
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import compress from "@fastify/compress";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -505,7 +507,15 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
   const allowedOrigins = rawAllowedOrigins
     ? rawAllowedOrigins.split(",").map(o => o.trim()).filter(Boolean)
     : true;
-  await app.register(cors, { origin: allowedOrigins });
+  await app.register(compress, { global: true, threshold: 1024 });
+
+  await app.register(cors, {
+    origin: allowedOrigins,
+    credentials: true,
+  });
+
+  // M3: Cookie parser for HttpOnly auth tokens
+  await app.register(cookie);
 
   await app.register(multipart, {
     limits: { fileSize: 25 * 1024 * 1024 }

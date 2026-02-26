@@ -115,6 +115,26 @@ export function verifyToken(token: string): AuthPayload | null {
   }
 }
 
+// PERF-012: Short-TTL in-memory cache for officer postings to reduce DB QPS
+const POSTINGS_CACHE_TTL_MS = 30_000; // 30 seconds
+const postingsCache = new Map<string, { data: UserPosting[]; expiresAt: number }>();
+
+/** Invalidate cached postings for a user (call when postings change). */
+export function invalidatePostingsCache(userId: string): void {
+  postingsCache.delete(userId);
+}
+
+async function getCachedPostings(userId: string): Promise<UserPosting[]> {
+  const now = Date.now();
+  const cached = postingsCache.get(userId);
+  if (cached && now < cached.expiresAt) {
+    return cached.data;
+  }
+  const postings = await getUserPostings(userId);
+  postingsCache.set(userId, { data: postings, expiresAt: now + POSTINGS_CACHE_TTL_MS });
+  return postings;
+}
+
 /** Register the auth middleware on a Fastify instance */
 export function registerAuthMiddleware(app: FastifyInstance): void {
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -124,13 +144,14 @@ export function registerAuthMiddleware(app: FastifyInstance): void {
       return;
     }
 
+    // M3: Read token from HttpOnly cookie first, fall back to Authorization header
+    const cookieToken = (request.cookies as Record<string, string> | undefined)?.puda_auth;
     const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      reply.code(401).send({ error: "AUTHENTICATION_REQUIRED", message: "Missing or invalid Authorization header", statusCode: 401 });
+    const token = cookieToken || (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
+    if (!token) {
+      reply.code(401).send({ error: "AUTHENTICATION_REQUIRED", message: "Missing or invalid authentication", statusCode: 401 });
       return;
     }
-
-    const token = authHeader.slice(7);
     const payload = verifyToken(token);
     if (!payload) {
       reply.code(401).send({ error: "INVALID_TOKEN", message: "Token is invalid or expired", statusCode: 401 });
@@ -160,10 +181,10 @@ export function registerAuthMiddleware(app: FastifyInstance): void {
     request.authUser = payload;
     request.authToken = token;
 
-    // For officers, also load their postings/roles
+    // For officers, also load their postings/roles (PERF-012: cached)
     if (payload.userType === "OFFICER") {
       try {
-        const postings = await getUserPostings(payload.userId);
+        const postings = await getCachedPostings(payload.userId);
         request.authUser.postings = postings;
       } catch {
         reply.code(503).send({

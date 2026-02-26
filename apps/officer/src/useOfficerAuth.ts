@@ -19,6 +19,7 @@ export function useOfficerAuth() {
     const res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ login: loginId, password }),
     });
     const data = await res.json();
@@ -32,6 +33,12 @@ export function useOfficerAuth() {
   };
 
   const logout = () => {
+    // M3: Call logout to clear server-side cookie
+    fetch(`${apiBaseUrl}/api/v1/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    }).catch(() => {});
     setAuth(null);
     setPostings([]);
     localStorage.removeItem("puda_officer_auth");
@@ -44,10 +51,28 @@ export function useOfficerAuth() {
     return h;
   }, [auth?.token]);
 
+  // M3: Verify session on mount via HttpOnly cookie
+  useEffect(() => {
+    fetch(`${apiBaseUrl}/api/v1/auth/me`, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) {
+          // Session invalid — clear local state
+          setAuth(null);
+          setPostings([]);
+          localStorage.removeItem("puda_officer_auth");
+          localStorage.removeItem("puda_officer_token");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Load postings when auth changes
   useEffect(() => {
     if (!auth) return;
-    fetch(`${apiBaseUrl}/api/v1/auth/me/postings?userId=${auth.user.user_id}`, { headers: authHeaders() })
+    fetch(`${apiBaseUrl}/api/v1/auth/me/postings?userId=${auth.user.user_id}`, {
+      headers: authHeaders(),
+      credentials: "include",
+    })
       .then((res) => (res.ok ? res.json() : { postings: [] }))
       .then((data) => setPostings(data.postings || []))
       .catch(() => {});
