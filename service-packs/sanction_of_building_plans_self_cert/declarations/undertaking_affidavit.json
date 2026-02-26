@@ -1,0 +1,76 @@
+{
+  "declarationId": "DECL_UNDERTAKING_AFFIDAVIT",
+  "docTypeId": "DOC_UNDERTAKING_AFFIDAVIT",
+  "version": "1.0.0",
+  "title": "Undertaking / Affidavit by Applicant",
+  "title_hi": "आवेदक द्वारा शपथ पत्र / वचन पत्र",
+  "title_pa": "ਅਰਜ਼ੀਕਰਤਾ ਦੁਆਰਾ ਸਹੁੰ ਪੱਤਰ / ਵਚਨ ਪੱਤਰ",
+  "preamble": "I, {{applicant_name}}, S/o / D/o / W/o {{father_name}}, resident of {{applicant_address}}, do hereby solemnly affirm and declare as under in respect of my application for sanction of building plans for Plot No. {{plot_no}}, measuring {{area_sqyd}} Sq. Yards, situated in {{scheme_name}}, under the jurisdiction of the Punjab Urban Development Authority (PUDA).",
+  "clauses": [
+    {
+      "number": 1,
+      "text": "That I am the lawful owner / allottee of the above-mentioned plot and I hold a valid Allotment Letter / Conveyance Deed / Transfer Letter issued by the competent authority. I undertake that the ownership documents submitted along with this application are genuine and have not been tampered with or forged in any manner."
+    },
+    {
+      "number": 2,
+      "text": "That the building plans submitted herewith have been prepared by an architect / licensed building designer duly empanelled with PUDA, and the proposed construction strictly conforms to the Punjab Regional and Town Planning and Development (General) Rules, the building bye-laws of PUDA, and the zoning regulations applicable to the area in which the plot is situated."
+    },
+    {
+      "number": 3,
+      "text": "That I shall not deviate from the sanctioned building plans during the course of construction. Any addition, alteration, or modification to the sanctioned plans shall be carried out only after obtaining prior written approval from the competent authority. I understand that any unauthorised deviation shall render the sanction liable to cancellation and may attract penal action under the applicable laws."
+    },
+    {
+      "number": 4,
+      "text": "That I shall ensure compliance with all conditions imposed by the authority at the time of sanction, including but not limited to setback requirements, Floor Area Ratio (FAR) limits, ground coverage norms, height restrictions, parking provisions, and rainwater harvesting arrangements as prescribed under the applicable building bye-laws."
+    },
+    {
+      "number": 5,
+      "text": "That I shall not commence construction until I have obtained all other requisite permissions and No Objection Certificates (NOCs) from the concerned departments, including but not limited to the Fire Department, the Punjab Pollution Control Board, the Civil Aviation Authority (where applicable), and the local Municipal Corporation / Committee."
+    },
+    {
+      "number": 6,
+      "text": "That in the event any information furnished by me in this application or in the accompanying documents is found to be false, misleading, or fraudulent at any stage, I shall be solely responsible for all consequences thereof, and the authority shall be entitled to revoke the sanction, take action for demolition of the unauthorised construction, and initiate criminal proceedings against me under the relevant provisions of the Indian Penal Code and the Punjab Regional and Town Planning and Development Act, 1995."
+    }
+  ],
+  "fields": {
+    "applicant_name": {
+      "source": "applicant.full_name",
+      "label": "Full Name of Applicant",
+      "label_hi": "आवेदक का पूरा नाम",
+      "label_pa": "ਅਰਜ਼ੀਕਰਤਾ ਦਾ ਪੂਰਾ ਨਾਮ"
+    },
+    "father_name": {
+      "source": "applicant.father_name",
+      "label": "Father's / Husband's Name",
+      "label_hi": "पिता / पति का नाम",
+      "label_pa": "ਪਿਤਾ / ਪਤੀ ਦਾ ਨਾਮ"
+    },
+    "applicant_address": {
+      "source": "applicant.address",
+      "label": "Residential Address",
+      "label_hi": "आवासीय पता",
+      "label_pa": "ਰਿਹਾਇਸ਼ੀ ਪਤਾ"
+    },
+    "plot_no": {
+      "source": "property.plot_no",
+      "label": "Plot Number",
+      "label_hi": "प्लॉट नंबर",
+      "label_pa": "ਪਲਾਟ ਨੰਬਰ"
+    },
+    "area_sqyd": {
+      "source": "property.area_sqyd",
+      "label": "Area (Sq. Yards)",
+      "label_hi": "क्षेत्रफल (वर्ग गज)",
+      "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)"
+    },
+    "scheme_name": {
+      "source": "property.scheme_name",
+      "label": "Scheme Name",
+      "label_hi": "योजना का नाम",
+      "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ"
+    }
+  },
+  "confirmation": "I have read and understood all the above clauses. I solemnly declare that the information furnished above is true and correct to the best of my knowledge and belief. I agree to abide by the terms and conditions laid down by the Punjab Urban Development Authority.",
+  "confirmation_hi": "मैंने उपरोक्त सभी खंडों को पढ़ और समझ लिया है। मैं गंभीरता से घोषणा करता/करती हूँ कि ऊपर दी गई जानकारी मेरी जानकारी और विश्वास के अनुसार सत्य और सही है। मैं पंजाब शहरी विकास प्राधिकरण द्वारा निर्धारित नियमों और शर्तों का पालन करने के लिए सहमत हूँ।",
+  "confirmation_pa": "ਮੈਂ ਉਪਰੋਕਤ ਸਾਰੀਆਂ ਧਾਰਾਵਾਂ ਨੂੰ ਪੜ੍ਹ ਅਤੇ ਸਮਝ ਲਿਆ ਹੈ। ਮੈਂ ਗੰਭੀਰਤਾ ਨਾਲ ਐਲਾਨ ਕਰਦਾ/ਕਰਦੀ ਹਾਂ ਕਿ ਉੱਪਰ ਦਿੱਤੀ ਗਈ ਜਾਣਕਾਰੀ ਮੇਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਵਿਸ਼ਵਾਸ ਅਨੁਸਾਰ ਸੱਚ ਅਤੇ ਸਹੀ ਹੈ। ਮੈਂ ਪੰਜਾਬ ਸ਼ਹਿਰੀ ਵਿਕਾਸ ਅਥਾਰਟੀ ਦੁਆਰਾ ਨਿਰਧਾਰਤ ਨਿਯਮਾਂ ਅਤੇ ਸ਼ਰਤਾਂ ਦੀ ਪਾਲਣਾ ਕਰਨ ਲਈ ਸਹਿਮਤ ਹਾਂ।"
+}

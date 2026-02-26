@@ -424,6 +424,19 @@ const hi: Record<string, string> = {
   "docs.back_to_form": "फ़ॉर्म पर वापस जाएँ",
   "docs.step_label": "आवश्यक दस्तावेज़",
 
+  // Declarations
+  "docs.fill_online": "ऑनलाइन भरें",
+  "declaration.title": "ऑनलाइन घोषणा",
+  "declaration.prefilled_hint": "हाइलाइट किए गए फ़ील्ड आपके आवेदन से पहले से भरे हुए हैं। आप उन्हें संपादित कर सकते हैं।",
+  "declaration.confirm_label": "मैंने उपरोक्त घोषणा पढ़ और समझ ली है",
+  "declaration.submit": "घोषणा जमा करें",
+  "declaration.submitting": "जमा हो रहा है...",
+  "declaration.success": "घोषणा सफलतापूर्वक जमा हो गई",
+  "declaration.error": "घोषणा जमा करने में विफल। कृपया पुनः प्रयास करें।",
+  "declaration.place": "स्थान",
+  "declaration.date": "तिथि",
+  "declaration.signature_placeholder": "आवेदक के हस्ताक्षर (ई-साइन जल्द आ रहा है)",
+
   // SLA Transparency
   "sla.title": "प्रसंस्करण समय",
   "sla.avg_days": "औसत: {{count}} दिन",
@@ -545,6 +558,14 @@ const hi: Record<string, string> = {
   "guide.subtitle": "पूडा सेवाओं के लिए चरण-दर-चरण मार्गदर्शिकाएं",
   "guide.coming_soon_title": "जल्द आ रहा है",
   "guide.coming_soon_desc": "हम पूडा सेवाओं को समझने में आपकी मदद के लिए उपयोगी गाइड, FAQ और ट्यूटोरियल तैयार कर रहे हैं। बने रहें!",
+
+  // Validation
+  "validation.email": "एक वैध ईमेल पता दर्ज करें",
+  "validation.mobile": "6-9 से शुरू होने वाला 10 अंकों का वैध मोबाइल नंबर दर्ज करें",
+  "validation.aadhaar": "एक वैध 12 अंकों का आधार नंबर दर्ज करें",
+  "validation.pan": "एक वैध PAN दर्ज करें (उदा. ABCDE1234F)",
+  "validation.pincode": "एक वैध 6 अंकों का पिन कोड दर्ज करें",
+  "validation.name_min": "कम से कम 2 अक्षर होने चाहिए, कोई अंक नहीं",
 
   // Common
   "common.skip_to_main": "मुख्य सामग्री पर जाएं",

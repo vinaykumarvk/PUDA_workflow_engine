@@ -4,6 +4,7 @@ import * as documents from "../documents";
 import * as outputs from "../outputs";
 import * as notifications from "../notifications";
 import * as ndcPaymentStatus from "../ndc-payment-status";
+import * as declarations from "../declarations";
 import { getPropertyByUPN } from "../properties";
 import { getAuthUserId, send400, send403, send404 } from "../errors";
 import {
@@ -668,6 +669,45 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
       }
     }
 
+    if (raw.endsWith("/declarations")) {
+      const arn = raw.slice(0, -"/declarations".length);
+      const internalArn = await requireCitizenOwnedApplicationAccess(
+        request,
+        reply,
+        arn,
+        "You are not allowed to submit declarations for this application"
+      );
+      if (!internalArn) return;
+      if (!userId) return send400(reply, "USER_ID_REQUIRED");
+      const body = request.body as { docTypeId?: string; filledFields?: Record<string, string> };
+      if (!body?.docTypeId || typeof body.docTypeId !== "string") {
+        return send400(reply, "DOC_TYPE_ID_REQUIRED", "docTypeId is required");
+      }
+      if (!body.filledFields || typeof body.filledFields !== "object" || Array.isArray(body.filledFields)) {
+        return send400(reply, "FILLED_FIELDS_REQUIRED", "filledFields must be an object");
+      }
+      try {
+        const result = await declarations.submitDeclaration(
+          internalArn,
+          body.docTypeId,
+          body.filledFields,
+          userId
+        );
+        return { success: true, citizenDocId: result.citizenDocId, appDocId: result.appDocId };
+      } catch (error: any) {
+        if (error.message === "FORBIDDEN") {
+          return send403(reply, "FORBIDDEN", "You are not allowed to submit declarations for this application");
+        }
+        if (error.message === "DECLARATION_TEMPLATE_NOT_FOUND") {
+          return send400(reply, "DECLARATION_TEMPLATE_NOT_FOUND", "This document type does not support online declarations");
+        }
+        if (error.message === "INVALID_APPLICATION_STATE") {
+          return send400(reply, "INVALID_APPLICATION_STATE", "Declarations can only be submitted for DRAFT or QUERY_PENDING applications");
+        }
+        return send400(reply, error.message);
+      }
+    }
+
     if (raw.endsWith("/submit")) {
       const arn = raw.slice(0, -"/submit".length);
       const internalArn = await requireCitizenOwnedApplicationAccess(
@@ -774,7 +814,7 @@ export async function registerApplicationRoutes(app: FastifyInstance) {
         const requiredDocTypes: string[] = (config?.documents?.documentTypes || []).map((dt: any) => dt.docTypeId);
         if (requiredDocTypes.length === 0) return { suggestions: [] };
 
-        const userId = (request as any).authUser?.user_id;
+        const userId = request.authUser?.userId;
         if (!userId) return { suggestions: [] };
 
         // Find matching VALID current documents in citizen's locker

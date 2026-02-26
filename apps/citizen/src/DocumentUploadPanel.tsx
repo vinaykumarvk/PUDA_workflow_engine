@@ -9,6 +9,7 @@ interface DocumentType {
   mandatory: boolean;
   allowedMimeTypes?: string[];
   maxSizeMB?: number;
+  declarationTemplate?: any;
 }
 
 interface CitizenDocument {
@@ -45,6 +46,7 @@ interface DocumentUploadPanelProps {
   isOffline?: boolean;
   unlockedDocTypeIds?: string[];
   applicationStateId?: string;
+  onDeclarationStart?: (docTypeId: string) => void;
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
@@ -66,6 +68,7 @@ export default function DocumentUploadPanel({
   isOffline = false,
   unlockedDocTypeIds,
   applicationStateId,
+  onDeclarationStart,
 }: DocumentUploadPanelProps) {
   const { t } = useTranslation();
 
@@ -153,6 +156,17 @@ export default function DocumentUploadPanel({
                     </div>
                   </div>
                 ) : null}
+                {dt.declarationTemplate && onDeclarationStart && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={uploading || isOffline}
+                    onClick={() => onDeclarationStart(dt.docTypeId)}
+                    style={{ marginBottom: "var(--space-2)" }}
+                  >
+                    {t("docs.fill_online")}
+                  </Button>
+                )}
                 {/* Upload to locker — always show input, even if a version exists (allows re-upload) */}
                 {onDocumentUpload && (
                   <Field
@@ -316,6 +330,16 @@ export default function DocumentUploadPanel({
                   </Button>
                 </div>
               )}
+            {dt.declarationTemplate && onDeclarationStart && (
+              <Button
+                variant="secondary"
+                disabled={uploading || isOffline}
+                onClick={() => onDeclarationStart(dt.docTypeId)}
+                style={{ marginBottom: "var(--space-2)" }}
+              >
+                {t("docs.fill_online")}
+              </Button>
+            )}
             <Field
               label={
                 isRejectedOrQueried

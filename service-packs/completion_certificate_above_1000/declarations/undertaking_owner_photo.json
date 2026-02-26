@@ -1,0 +1,94 @@
+{
+  "declarationId": "DECL_UNDERTAKING_OWNER_PHOTO",
+  "docTypeId": "DOC_UNDERTAKING_OWNER_PHOTO",
+  "version": "1.0.0",
+  "title": "Undertaking by Owner with Photograph",
+  "title_hi": "फोटो सहित मालिक द्वारा वचन पत्र",
+  "title_pa": "ਫੋਟੋ ਸਮੇਤ ਮਾਲਕ ਦੁਆਰਾ ਵਚਨ ਪੱਤਰ",
+  "preamble": "I, {{applicant_name}}, S/o / D/o / W/o {{father_name}}, holder of Aadhaar No. {{aadhaar_number}}, resident of {{applicant_address}}, being the owner / allottee of Plot No. {{plot_no}}, measuring {{area_sqyd}} Sq. Yards, situated in {{scheme_name}}, do hereby furnish the following undertaking in connection with my application for issuance of Completion Certificate / Occupation Certificate by the Punjab Urban Development Authority (PUDA).",
+  "clauses": [
+    {
+      "number": 1,
+      "text": "That the construction on the above-mentioned plot has been completed in all respects strictly in accordance with the building plans sanctioned by PUDA vide Sanction Letter No. {{sanction_letter_no}} dated {{sanction_date}}. No deviation, addition, alteration, or modification has been carried out from the sanctioned building plans, either in terms of setbacks, ground coverage, Floor Area Ratio (FAR), height, or the approved use of the building."
+    },
+    {
+      "number": 2,
+      "text": "That the photographs attached herewith are recent photographs of the completed building taken from all four sides (front, rear, left, and right elevations) as well as the internal common areas, and they truly and accurately represent the current state of construction as on the date of this undertaking. I further declare that the passport-size photograph affixed herein is my latest photograph and is a true likeness of myself."
+    },
+    {
+      "number": 3,
+      "text": "That I have obtained all requisite No Objection Certificates (NOCs) from the concerned departments including the Fire Department, the Punjab Pollution Control Board, the Electrical Inspectorate, and the Public Health Department, wherever applicable, and that the building is fit for safe occupation in all respects."
+    },
+    {
+      "number": 4,
+      "text": "That I have duly provided rainwater harvesting arrangements, solar energy provisions (where applicable as per ECBC norms), and waste management facilities in the building as per the conditions stipulated at the time of sanction of building plans and in compliance with the applicable building bye-laws of the Authority."
+    },
+    {
+      "number": 5,
+      "text": "That in the event it is found at any stage that the construction has been carried out in deviation from the sanctioned building plans, or that any information furnished in this undertaking or the accompanying documents is false, misleading, or fraudulent, I shall be solely responsible for all consequences. I understand that the Authority shall be entitled to revoke the Completion Certificate / Occupation Certificate, order demolition of the unauthorised portions, recover penalty charges, and initiate criminal proceedings against me under the relevant provisions of the Punjab Regional and Town Planning and Development Act, 1995, and the Indian Penal Code."
+    }
+  ],
+  "fields": {
+    "applicant_name": {
+      "source": "applicant.full_name",
+      "label": "Full Name of Owner",
+      "label_hi": "मालिक का पूरा नाम",
+      "label_pa": "ਮਾਲਕ ਦਾ ਪੂਰਾ ਨਾਮ"
+    },
+    "father_name": {
+      "source": "applicant.father_name",
+      "label": "Father's / Husband's Name",
+      "label_hi": "पिता / पति का नाम",
+      "label_pa": "ਪਿਤਾ / ਪਤੀ ਦਾ ਨਾਮ"
+    },
+    "aadhaar_number": {
+      "source": "applicant.aadhaar",
+      "label": "Aadhaar Number",
+      "label_hi": "आधार संख्या",
+      "label_pa": "ਆਧਾਰ ਨੰਬਰ"
+    },
+    "applicant_address": {
+      "source": "applicant.address",
+      "label": "Residential Address",
+      "label_hi": "आवासीय पता",
+      "label_pa": "ਰਿਹਾਇਸ਼ੀ ਪਤਾ"
+    },
+    "plot_no": {
+      "source": "property.plot_no",
+      "label": "Plot Number",
+      "label_hi": "प्लॉट नंबर",
+      "label_pa": "ਪਲਾਟ ਨੰਬਰ"
+    },
+    "area_sqyd": {
+      "source": "property.area_sqyd",
+      "label": "Area (Sq. Yards)",
+      "label_hi": "क्षेत्रफल (वर्ग गज)",
+      "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)"
+    },
+    "scheme_name": {
+      "source": "property.scheme_name",
+      "label": "Scheme Name",
+      "label_hi": "योजना का नाम",
+      "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ"
+    },
+    "sanction_letter_no": {
+      "source": "property.sanction_letter_no",
+      "label": "Sanction Letter Number",
+      "label_hi": "स्वीकृति पत्र संख्या",
+      "label_pa": "ਮਨਜ਼ੂਰੀ ਪੱਤਰ ਨੰਬਰ"
+    },
+    "sanction_date": {
+      "source": "property.sanction_date",
+      "label": "Sanction Date",
+      "label_hi": "स्वीकृति तिथि",
+      "label_pa": "ਮਨਜ਼ੂਰੀ ਮਿਤੀ"
+    }
+  },
+  "photoRequired": true,
+  "photoInstructions": "Affix one recent passport-size colour photograph of the owner / applicant in the space provided. The photograph must be self-attested.",
+  "photoInstructions_hi": "मालिक / आवेदक की एक हालिया पासपोर्ट आकार की रंगीन तस्वीर निर्धारित स्थान पर चिपकाएं। तस्वीर स्व-प्रमाणित होनी चाहिए।",
+  "photoInstructions_pa": "ਮਾਲਕ / ਅਰਜ਼ੀਕਰਤਾ ਦੀ ਇੱਕ ਤਾਜ਼ਾ ਪਾਸਪੋਰਟ ਆਕਾਰ ਦੀ ਰੰਗੀਨ ਤਸਵੀਰ ਨਿਰਧਾਰਤ ਥਾਂ 'ਤੇ ਚਿਪਕਾਓ। ਤਸਵੀਰ ਸਵੈ-ਪ੍ਰਮਾਣਿਤ ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ।",
+  "confirmation": "I have read and understood all the above clauses. I solemnly affirm and declare that the statements made herein are true and correct to the best of my knowledge and belief. I attach my photograph herewith and authorise the Punjab Urban Development Authority to verify any of the information provided in this undertaking.",
+  "confirmation_hi": "मैंने उपरोक्त सभी खंडों को पढ़ और समझ लिया है। मैं गंभीरता से पुष्टि और घोषणा करता/करती हूँ कि यहाँ दिए गए कथन मेरी जानकारी और विश्वास के अनुसार सत्य और सही हैं। मैं अपनी तस्वीर इसके साथ संलग्न करता/करती हूँ और पंजाब शहरी विकास प्राधिकरण को इस वचन पत्र में दी गई किसी भी जानकारी की पुष्टि करने के लिए अधिकृत करता/करती हूँ।",
+  "confirmation_pa": "ਮੈਂ ਉਪਰੋਕਤ ਸਾਰੀਆਂ ਧਾਰਾਵਾਂ ਨੂੰ ਪੜ੍ਹ ਅਤੇ ਸਮਝ ਲਿਆ ਹੈ। ਮੈਂ ਗੰਭੀਰਤਾ ਨਾਲ ਪੁਸ਼ਟੀ ਅਤੇ ਐਲਾਨ ਕਰਦਾ/ਕਰਦੀ ਹਾਂ ਕਿ ਇੱਥੇ ਦਿੱਤੇ ਗਏ ਕਥਨ ਮੇਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਵਿਸ਼ਵਾਸ ਅਨੁਸਾਰ ਸੱਚ ਅਤੇ ਸਹੀ ਹਨ। ਮੈਂ ਆਪਣੀ ਤਸਵੀਰ ਇਸ ਨਾਲ ਨੱਥੀ ਕਰਦਾ/ਕਰਦੀ ਹਾਂ ਅਤੇ ਪੰਜਾਬ ਸ਼ਹਿਰੀ ਵਿਕਾਸ ਅਥਾਰਟੀ ਨੂੰ ਇਸ ਵਚਨ ਪੱਤਰ ਵਿੱਚ ਦਿੱਤੀ ਗਈ ਕਿਸੇ ਵੀ ਜਾਣਕਾਰੀ ਦੀ ਪੁਸ਼ਟੀ ਕਰਨ ਲਈ ਅਧਿਕਾਰਤ ਕਰਦਾ/ਕਰਦੀ ਹਾਂ।"
+}

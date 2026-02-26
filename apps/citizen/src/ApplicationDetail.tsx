@@ -5,6 +5,7 @@ import { Alert, Button, Card, Field, Input, Textarea, Breadcrumb, timeAgo } from
 import { getStatusBadgeClass, getStatusLabel, formatDateTime } from "@puda/shared/utils";
 import { Bilingual } from "./Bilingual";
 import DocumentUploadPanel from "./DocumentUploadPanel";
+import DeclarationFormPanel from "./DeclarationFormPanel";
 import "./application-detail.css";
 
 interface ApplicationDetailProps {
@@ -181,6 +182,9 @@ export default function ApplicationDetail({
   const [showNdcPaymentPage, setShowNdcPaymentPage] = useState(false);
   const [ndcPostingDueCode, setNdcPostingDueCode] = useState<string | null>(null);
   const [ndcPostingError, setNdcPostingError] = useState<string | null>(null);
+  const [declarationDocTypeId, setDeclarationDocTypeId] = useState<string | null>(null);
+  const [declarationSubmitting, setDeclarationSubmitting] = useState(false);
+  const [declarationFeedback, setDeclarationFeedback] = useState<{ variant: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     setResponseData(formData);
@@ -471,6 +475,43 @@ export default function ApplicationDetail({
       setNdcPostingError(err instanceof Error ? err.message : "Failed to post payment");
     } finally {
       setNdcPostingDueCode(null);
+    }
+  };
+
+  // Declaration form helpers
+  const activeDeclarationDocType = declarationDocTypeId
+    ? docTypes.find((dt: any) => dt.docTypeId === declarationDocTypeId)
+    : null;
+  const activeDeclarationTemplate = activeDeclarationDocType?.declarationTemplate || null;
+
+  const handleDeclarationSubmit = async (filledFields: Record<string, string>) => {
+    if (!declarationDocTypeId || isOffline) return;
+    setDeclarationSubmitting(true);
+    setDeclarationFeedback(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001"}/api/v1/applications/${application.arn}/declarations`,
+        {
+          method: "POST",
+          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ docTypeId: declarationDocTypeId, filledFields }),
+        }
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `API error ${res.status}`);
+      }
+      setDeclarationFeedback({ variant: "success", text: t("declaration.success") });
+      setDeclarationDocTypeId(null);
+      // Trigger a refresh of documents by calling onQueryResponded which reloads the detail
+      if (onQueryResponded) onQueryResponded();
+    } catch (err) {
+      setDeclarationFeedback({
+        variant: "error",
+        text: err instanceof Error ? err.message : t("declaration.error"),
+      });
+    } finally {
+      setDeclarationSubmitting(false);
     }
   };
 
@@ -1006,6 +1047,10 @@ export default function ApplicationDetail({
             isOffline={isOffline}
             unlockedDocTypeIds={unlockedDocTypes}
             applicationStateId={application.state_id}
+            onDeclarationStart={(docTypeId) => {
+              setDeclarationFeedback(null);
+              setDeclarationDocTypeId(docTypeId);
+            }}
           />
         )}
         {application.state_id === "QUERY_PENDING" && unlockedDocTypes.length === 0 && (
@@ -1068,7 +1113,24 @@ export default function ApplicationDetail({
           </button>
         </div>
       )}
+      {/* Declaration feedback */}
+      {declarationFeedback && (
+        <Alert variant={declarationFeedback.variant} className="detail-feedback" style={{ marginTop: "var(--space-3)" }}>
+          {declarationFeedback.text}
+        </Alert>
+      )}
       </main>
+
+      {/* Declaration Form Panel overlay */}
+      {activeDeclarationTemplate && declarationDocTypeId && (
+        <DeclarationFormPanel
+          template={activeDeclarationTemplate}
+          applicationData={formData}
+          submitting={declarationSubmitting}
+          onSubmit={handleDeclarationSubmit}
+          onCancel={() => setDeclarationDocTypeId(null)}
+        />
+      )}
     </>
   );
 }

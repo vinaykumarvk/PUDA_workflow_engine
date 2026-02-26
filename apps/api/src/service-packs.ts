@@ -145,6 +145,19 @@ export async function loadServiceConfig(serviceKey: string): Promise<any> {
   const documents = await readOptionalJson(documentsPath);
   const feeSchedule = await readOptionalJson(feesPath);
 
+  // Load declaration templates for doc types that reference them
+  if (documents && typeof documents === "object" && Array.isArray((documents as any).documentTypes)) {
+    for (const dt of (documents as any).documentTypes) {
+      if (dt.declaration) {
+        const declPath = path.join(serviceDir, "declarations", dt.declaration);
+        const template = await readOptionalJson(declPath);
+        if (template) {
+          dt.declarationTemplate = template;
+        }
+      }
+    }
+  }
+
   return {
     ...service,
     form,

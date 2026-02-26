@@ -424,6 +424,19 @@ const en = {
   "docs.back_to_form": "Back to Form",
   "docs.step_label": "Required Documents",
 
+  // Declarations
+  "docs.fill_online": "Fill Online",
+  "declaration.title": "Online Declaration",
+  "declaration.prefilled_hint": "Highlighted fields are pre-filled from your application. You may edit them.",
+  "declaration.confirm_label": "I have read and understood the above declaration",
+  "declaration.submit": "Submit Declaration",
+  "declaration.submitting": "Submitting...",
+  "declaration.success": "Declaration submitted successfully",
+  "declaration.error": "Failed to submit declaration. Please try again.",
+  "declaration.place": "Place",
+  "declaration.date": "Date",
+  "declaration.signature_placeholder": "Signature of Applicant (e-sign coming soon)",
+
   // SLA Transparency
   "sla.title": "Processing Times",
   "sla.avg_days": "Avg: {{count}} days",
@@ -545,6 +558,14 @@ const en = {
   "guide.subtitle": "Step-by-step guides for PUDA services",
   "guide.coming_soon_title": "Coming Soon",
   "guide.coming_soon_desc": "We're preparing helpful guides, FAQs, and tutorials to help you navigate PUDA services. Stay tuned!",
+
+  // Validation
+  "validation.email": "Enter a valid email address",
+  "validation.mobile": "Enter a valid 10-digit mobile number starting with 6-9",
+  "validation.aadhaar": "Enter a valid 12-digit Aadhaar number",
+  "validation.pan": "Enter a valid PAN (e.g. ABCDE1234F)",
+  "validation.pincode": "Enter a valid 6-digit PIN code",
+  "validation.name_min": "Must be at least 2 characters with no digits",
 
   // Common
   "common.skip_to_main": "Skip to main content",

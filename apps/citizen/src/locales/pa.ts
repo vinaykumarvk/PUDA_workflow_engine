@@ -424,6 +424,19 @@ const pa: Record<string, string> = {
   "docs.back_to_form": "ਫ਼ਾਰਮ ਤੇ ਵਾਪਸ ਜਾਓ",
   "docs.step_label": "ਲੋੜੀਂਦੇ ਦਸਤਾਵੇਜ਼",
 
+  // Declarations
+  "docs.fill_online": "ਔਨਲਾਈਨ ਭਰੋ",
+  "declaration.title": "ਔਨਲਾਈਨ ਘੋਸ਼ਣਾ",
+  "declaration.prefilled_hint": "ਹਾਈਲਾਈਟ ਕੀਤੇ ਖੇਤਰ ਤੁਹਾਡੀ ਅਰਜ਼ੀ ਤੋਂ ਪਹਿਲਾਂ ਤੋਂ ਭਰੇ ਹੋਏ ਹਨ। ਤੁਸੀਂ ਉਹਨਾਂ ਨੂੰ ਸੰਪਾਦਿਤ ਕਰ ਸਕਦੇ ਹੋ।",
+  "declaration.confirm_label": "ਮੈਂ ਉਪਰੋਕਤ ਘੋਸ਼ਣਾ ਪੜ੍ਹ ਅਤੇ ਸਮਝ ਲਈ ਹੈ",
+  "declaration.submit": "ਘੋਸ਼ਣਾ ਜਮ੍ਹਾਂ ਕਰੋ",
+  "declaration.submitting": "ਜਮ੍ਹਾਂ ਹੋ ਰਿਹਾ ਹੈ...",
+  "declaration.success": "ਘੋਸ਼ਣਾ ਸਫਲਤਾਪੂਰਵਕ ਜਮ੍ਹਾਂ ਹੋ ਗਈ",
+  "declaration.error": "ਘੋਸ਼ਣਾ ਜਮ੍ਹਾਂ ਕਰਨ ਵਿੱਚ ਅਸਫਲ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "declaration.place": "ਸਥਾਨ",
+  "declaration.date": "ਮਿਤੀ",
+  "declaration.signature_placeholder": "ਅਰਜ਼ੀਕਰਤਾ ਦੇ ਹਸਤਾਖਰ (ਈ-ਸਾਈਨ ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ)",
+
   // SLA Transparency
   "sla.title": "ਪ੍ਰੋਸੈਸਿੰਗ ਸਮਾਂ",
   "sla.avg_days": "ਔਸਤ: {{count}} ਦਿਨ",
@@ -545,6 +558,14 @@ const pa: Record<string, string> = {
   "guide.subtitle": "ਪੁਡਾ ਸੇਵਾਵਾਂ ਲਈ ਕਦਮ-ਦਰ-ਕਦਮ ਗਾਈਡ",
   "guide.coming_soon_title": "ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ",
   "guide.coming_soon_desc": "ਅਸੀਂ ਪੁਡਾ ਸੇਵਾਵਾਂ ਨੂੰ ਸਮਝਣ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਲਈ ਉਪਯੋਗੀ ਗਾਈਡ, FAQ ਅਤੇ ਟਿਊਟੋਰੀਅਲ ਤਿਆਰ ਕਰ ਰਹੇ ਹਾਂ। ਜੁੜੇ ਰਹੋ!",
+
+  // Validation
+  "validation.email": "ਇੱਕ ਵੈਧ ਈਮੇਲ ਪਤਾ ਦਰਜ ਕਰੋ",
+  "validation.mobile": "6-9 ਨਾਲ ਸ਼ੁਰੂ ਹੋਣ ਵਾਲਾ 10 ਅੰਕਾਂ ਦਾ ਵੈਧ ਮੋਬਾਈਲ ਨੰਬਰ ਦਰਜ ਕਰੋ",
+  "validation.aadhaar": "ਇੱਕ ਵੈਧ 12 ਅੰਕਾਂ ਦਾ ਆਧਾਰ ਨੰਬਰ ਦਰਜ ਕਰੋ",
+  "validation.pan": "ਇੱਕ ਵੈਧ PAN ਦਰਜ ਕਰੋ (ਉਦਾ. ABCDE1234F)",
+  "validation.pincode": "ਇੱਕ ਵੈਧ 6 ਅੰਕਾਂ ਦਾ ਪਿਨ ਕੋਡ ਦਰਜ ਕਰੋ",
+  "validation.name_min": "ਘੱਟੋ-ਘੱਟ 2 ਅੱਖਰ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ, ਕੋਈ ਅੰਕ ਨਹੀਂ",
 
   // Common
   "common.skip_to_main": "ਮੁੱਖ ਸਮੱਗਰੀ ਤੇ ਜਾਓ",

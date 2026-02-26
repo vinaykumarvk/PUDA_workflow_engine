@@ -25,6 +25,7 @@
       "docTypeId": "DOC_INDEMNITY_BOND",
       "name": "Indemnity Bond",
       "mandatory": true,
+      "declaration": "indemnity_bond.json",
       "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
       "maxSizeMB": 10
     },
@@ -46,6 +47,7 @@
       "docTypeId": "DOC_UNDERTAKING_AFFIDAVIT",
       "name": "Undertaking / Affidavit by Applicant",
       "mandatory": true,
+      "declaration": "undertaking_affidavit.json",
       "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
       "maxSizeMB": 10
     },

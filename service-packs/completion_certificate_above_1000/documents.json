@@ -4,6 +4,7 @@
       "docTypeId": "DOC_UNDERTAKING_OWNER_PHOTO",
       "name": "Undertaking by owner with photograph",
       "mandatory": true,
+      "declaration": "undertaking_owner_photo.json",
       "allowedMimeTypes": ["application/pdf", "image/jpeg", "image/png"],
       "maxSizeMB": 10
     },

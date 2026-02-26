@@ -1,0 +1,72 @@
+{
+  "declarationId": "DECL_INDEMNITY_BOND",
+  "docTypeId": "DOC_INDEMNITY_BOND",
+  "version": "1.0.0",
+  "title": "Indemnity Bond",
+  "title_hi": "क्षतिपूर्ति बंध पत्र",
+  "title_pa": "ਮੁਆਵਜ਼ਾ ਬਾਂਡ",
+  "preamble": "This Indemnity Bond is executed on this day by {{applicant_name}}, S/o / D/o / W/o {{father_name}}, resident of {{applicant_address}} (hereinafter referred to as the \"Executant\") in favour of the Punjab Urban Development Authority (PUDA) (hereinafter referred to as the \"Authority\") in connection with the sanction of building plans for Plot No. {{plot_no}}, measuring {{area_sqyd}} Sq. Yards, situated in {{scheme_name}}.",
+  "clauses": [
+    {
+      "number": 1,
+      "text": "That I, the Executant, have applied for sanction of building plans under the self-certification scheme of PUDA. I understand that the building plans have been processed on the basis of the documents and declarations submitted by me, and that the Authority has relied upon the correctness and authenticity of such documents and declarations in granting the sanction."
+    },
+    {
+      "number": 2,
+      "text": "That I hereby indemnify and shall keep indemnified the Punjab Urban Development Authority, its officers, employees, and agents against all claims, demands, actions, proceedings, losses, damages, costs, charges, and expenses of whatsoever nature which may be brought against or suffered by the Authority arising out of or in connection with (a) any defect in my title to the said plot; (b) any encumbrance, lien, or third-party claim over the said property; (c) any deviation from the sanctioned building plans; (d) any structural failure or damage caused during or after the construction."
+    },
+    {
+      "number": 3,
+      "text": "That I undertake to construct the building strictly in accordance with the sanctioned plans and in compliance with all applicable building bye-laws, zoning regulations, and the conditions imposed by the Authority. In the event of any deviation, I shall be solely liable for all consequences including demolition, penalties, and prosecution under the Punjab Regional and Town Planning and Development Act, 1995."
+    },
+    {
+      "number": 4,
+      "text": "That I shall bear the entire cost and responsibility for any damage, injury, or loss caused to any third party, adjoining property, public infrastructure, or utility services during the course of construction. The Authority shall not be liable in any manner whatsoever for any such claims, and I shall defend and hold harmless the Authority against any proceedings initiated by any third party in this regard."
+    },
+    {
+      "number": 5,
+      "text": "That this Indemnity Bond shall remain in force and effect until the issuance of a Completion Certificate / Occupation Certificate by the Authority for the said building, and in respect of title-related indemnities, shall remain in force in perpetuity. I understand that this bond is irrevocable and shall be enforceable against me, my heirs, executors, administrators, and legal representatives."
+    }
+  ],
+  "fields": {
+    "applicant_name": {
+      "source": "applicant.full_name",
+      "label": "Full Name of Executant",
+      "label_hi": "निष्पादनकर्ता का पूरा नाम",
+      "label_pa": "ਨਿਸ਼ਪਾਦਨਕਰਤਾ ਦਾ ਪੂਰਾ ਨਾਮ"
+    },
+    "father_name": {
+      "source": "applicant.father_name",
+      "label": "Father's / Husband's Name",
+      "label_hi": "पिता / पति का नाम",
+      "label_pa": "ਪਿਤਾ / ਪਤੀ ਦਾ ਨਾਮ"
+    },
+    "applicant_address": {
+      "source": "applicant.address",
+      "label": "Residential Address",
+      "label_hi": "आवासीय पता",
+      "label_pa": "ਰਿਹਾਇਸ਼ੀ ਪਤਾ"
+    },
+    "plot_no": {
+      "source": "property.plot_no",
+      "label": "Plot Number",
+      "label_hi": "प्लॉट नंबर",
+      "label_pa": "ਪਲਾਟ ਨੰਬਰ"
+    },
+    "area_sqyd": {
+      "source": "property.area_sqyd",
+      "label": "Area (Sq. Yards)",
+      "label_hi": "क्षेत्रफल (वर्ग गज)",
+      "label_pa": "ਖੇਤਰਫਲ (ਵਰਗ ਗਜ਼)"
+    },
+    "scheme_name": {
+      "source": "property.scheme_name",
+      "label": "Scheme Name",
+      "label_hi": "योजना का नाम",
+      "label_pa": "ਸਕੀਮ ਦਾ ਨਾਮ"
+    }
+  },
+  "confirmation": "I have read and understood the contents of this Indemnity Bond. I execute this bond voluntarily, without any coercion or undue influence, and with full knowledge of its legal implications. I agree to be bound by the terms herein.",
+  "confirmation_hi": "मैंने इस क्षतिपूर्ति बंध पत्र की सामग्री को पढ़ और समझ लिया है। मैं इस बंध पत्र को स्वेच्छा से, बिना किसी दबाव या अनुचित प्रभाव के, और इसके कानूनी निहितार्थों की पूर्ण जानकारी के साथ निष्पादित कर रहा/रही हूँ। मैं यहाँ निर्धारित शर्तों से बंधित होने के लिए सहमत हूँ।",
+  "confirmation_pa": "ਮੈਂ ਇਸ ਮੁਆਵਜ਼ਾ ਬਾਂਡ ਦੀ ਸਮੱਗਰੀ ਨੂੰ ਪੜ੍ਹ ਅਤੇ ਸਮਝ ਲਿਆ ਹੈ। ਮੈਂ ਇਸ ਬਾਂਡ ਨੂੰ ਆਪਣੀ ਮਰਜ਼ੀ ਨਾਲ, ਬਿਨਾਂ ਕਿਸੇ ਦਬਾਅ ਜਾਂ ਅਣਉਚਿਤ ਪ੍ਰਭਾਵ ਦੇ, ਅਤੇ ਇਸ ਦੇ ਕਾਨੂੰਨੀ ਪ੍ਰਭਾਵਾਂ ਦੀ ਪੂਰੀ ਜਾਣਕਾਰੀ ਨਾਲ ਲਾਗੂ ਕਰ ਰਿਹਾ/ਰਹੀ ਹਾਂ। ਮੈਂ ਇੱਥੇ ਨਿਰਧਾਰਤ ਸ਼ਰਤਾਂ ਨਾਲ ਬੱਝਣ ਲਈ ਸਹਿਮਤ ਹਾਂ।"
+}
