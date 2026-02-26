@@ -379,7 +379,7 @@ describe("Authorization Integration - Hardened Routes", () => {
       `--${boundary}\r\n` +
       `Content-Disposition: form-data; name="file"; filename="authz.pdf"\r\n` +
       `Content-Type: application/pdf\r\n\r\n` +
-      `authz document test content\r\n` +
+      `%PDF-1.4\n1 0 obj\n<<>>\nendobj\r\n` +
       `--${boundary}--\r\n`;
 
     const uploadRes = await app.inject({
@@ -1055,7 +1055,7 @@ describe("Authorization Integration - Hardened Routes", () => {
       `--${boundary}\r\n` +
       `Content-Disposition: form-data; name="file"; filename="test.pdf"\r\n` +
       `Content-Type: application/pdf\r\n\r\n` +
-      `test content\r\n` +
+      `%PDF-1.4\n1 0 obj\n<<>>\nendobj\r\n` +
       `--${boundary}--\r\n`;
 
     const res = await app.inject({
@@ -1984,8 +1984,8 @@ describe("Authorization Integration - Hardened Routes", () => {
       headers: authHeader(citizen1Token),
       payload: { status: "VERIFIED" },
     });
-    // Should get 403 or 404 (not 200) — citizen cannot verify
-    expect([403, 404]).toContain(res.statusCode);
+    // Citizens must be denied with 403 on officer-only routes
+    expect(res.statusCode).toBe(403);
   });
 
   it("ARC-002: mismatched complaint/evidence ID returns 404", async () => {
@@ -2007,9 +2007,8 @@ describe("Authorization Integration - Hardened Routes", () => {
       headers: authHeader(citizen1Token),
       payload: { outcome: "COMPLIANT" },
     });
-    // Citizen should not be able to complete inspections
-    expect([400, 403, 404]).toContain(res.statusCode);
-    expect(res.statusCode).not.toBe(200);
+    // Citizens must be denied with 403 on officer-only inspection routes
+    expect(res.statusCode).toBe(403);
   });
 
   it("ARC-009: AI summarize-timeline with unauthorized ARN returns 403", async () => {
@@ -2021,8 +2020,10 @@ describe("Authorization Integration - Hardened Routes", () => {
       headers: authHeader(citizen2Token),
       payload: { arn: pudaArn },
     });
-    // citizen2 does not own pudaArn → should be denied
-    expect([403, 503]).toContain(res.statusCode);
+    // citizen2 does not own pudaArn → must be denied (503 only if AI not configured)
+    if (res.statusCode !== 503) {
+      expect(res.statusCode).toBe(403);
+    }
   });
 
   it("ARC-023: officer inbox fetch works without userId query param", async () => {

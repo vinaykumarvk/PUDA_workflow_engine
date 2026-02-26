@@ -5,9 +5,10 @@
 import { promises as fs } from "fs";
 import { createWriteStream } from "fs";
 import path from "path";
-import { Readable, Transform } from "stream";
+import { PassThrough, Readable, Transform } from "stream";
 import { pipeline } from "stream/promises";
 import { logInfo } from "./logger";
+import { UploadErrorCode } from "./upload-errors";
 
 export interface StorageAdapter {
   name: string;
@@ -35,7 +36,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     const base = path.resolve(this.baseDir);
     const resolved = path.resolve(base, key);
     if (resolved !== base && !resolved.startsWith(`${base}${path.sep}`)) {
-      throw new Error("INVALID_STORAGE_KEY");
+      throw new Error(UploadErrorCode.INVALID_STORAGE_KEY);
     }
     return resolved;
   }
@@ -52,7 +53,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       try {
         const stat = await fs.lstat(current);
         if (stat.isSymbolicLink()) {
-          throw new Error("INVALID_STORAGE_KEY");
+          throw new Error(UploadErrorCode.INVALID_STORAGE_KEY);
         }
       } catch (error: any) {
         if (error?.code === "ENOENT") {
@@ -65,7 +66,7 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async write(key: string, data: Buffer): Promise<void> {
     if (data.length > this.maxFileBytes) {
-      throw new Error("FILE_TOO_LARGE");
+      throw new Error(UploadErrorCode.FILE_TOO_LARGE);
     }
     const fullPath = this.resolveSafePath(key);
     await this.assertNoSymlinkInPath(fullPath);
@@ -84,7 +85,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       transform(chunk, _encoding, callback) {
         bytesWritten += chunk.length;
         if (bytesWritten > limit) {
-          callback(new Error("FILE_TOO_LARGE"));
+          callback(new Error(UploadErrorCode.FILE_TOO_LARGE));
         } else {
           callback(null, chunk);
         }
@@ -130,30 +131,82 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 }
 
-// S3-compatible storage (stub - implement with @aws-sdk/client-s3 when ready)
+// S3-compatible storage (works with AWS S3, MinIO, and other S3-compatible providers)
 export class S3StorageAdapter implements StorageAdapter {
   name = "s3";
-  constructor(private bucket: string, private region: string = "ap-south-1") {}
+  private client: import("@aws-sdk/client-s3").S3Client;
 
-  async write(key: string, data: Buffer): Promise<void> {
-    // In production: use @aws-sdk/client-s3 PutObjectCommand
-    logInfo("S3 PUT requested (stub)", { bucket: this.bucket, region: this.region, key, bytes: data.length });
-    throw new Error("S3 adapter not yet configured. Install @aws-sdk/client-s3 and provide credentials.");
+  constructor(
+    private bucket: string,
+    private region: string = "ap-south-1",
+    endpoint?: string,
+    private maxFileBytes: number = resolveStorageMaxFileBytes()
+  ) {
+    // Lazy-import at construction so the SDK is only required when STORAGE_PROVIDER=s3
+    const { S3Client } = require("@aws-sdk/client-s3") as typeof import("@aws-sdk/client-s3");
+    this.client = new S3Client({
+      region,
+      ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+    });
   }
 
-  async writeStream(key: string, _stream: Readable, _maxBytes?: number): Promise<number> {
-    logInfo("S3 PUT stream requested (stub)", { bucket: this.bucket, region: this.region, key });
-    throw new Error("S3 adapter not yet configured. Install @aws-sdk/client-s3 and provide credentials.");
+  async write(key: string, data: Buffer): Promise<void> {
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      Body: data,
+    }));
+  }
+
+  async writeStream(key: string, stream: Readable, maxBytes?: number): Promise<number> {
+    const limit = maxBytes ?? this.maxFileBytes;
+    const { Upload } = await import("@aws-sdk/lib-storage");
+
+    let bytesWritten = 0;
+    const sizeGuard = new Transform({
+      transform(chunk, _encoding, callback) {
+        bytesWritten += chunk.length;
+        if (bytesWritten > limit) {
+          callback(new Error(UploadErrorCode.FILE_TOO_LARGE));
+        } else {
+          callback(null, chunk);
+        }
+      },
+    });
+    const guarded = stream.pipe(sizeGuard);
+
+    const upload = new Upload({
+      client: this.client,
+      params: { Bucket: this.bucket, Key: key, Body: guarded },
+    });
+    await upload.done();
+    return bytesWritten;
   }
 
   async read(key: string): Promise<Buffer | null> {
-    logInfo("S3 GET requested (stub)", { bucket: this.bucket, region: this.region, key });
-    throw new Error("S3 adapter not yet configured.");
+    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+    try {
+      const res = await this.client.send(new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }));
+      if (!res.Body) return null;
+      return Buffer.from(await res.Body.transformToByteArray());
+    } catch (err: any) {
+      if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   async delete(key: string): Promise<void> {
-    logInfo("S3 DELETE requested (stub)", { bucket: this.bucket, region: this.region, key });
-    throw new Error("S3 adapter not yet configured.");
+    const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+    await this.client.send(new DeleteObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    }));
   }
 }
 
@@ -162,9 +215,18 @@ let _storageAdapter: StorageAdapter | null = null;
 
 export function getStorage(): StorageAdapter {
   if (!_storageAdapter) {
-    // Default to local storage
-    const baseDir = process.env.STORAGE_BASE_DIR || path.resolve(__dirname, "..", "..", "..", "uploads");
-    _storageAdapter = new LocalStorageAdapter(baseDir);
+    if (process.env.STORAGE_PROVIDER === "s3") {
+      const bucket = process.env.S3_BUCKET;
+      if (!bucket) throw new Error("S3_BUCKET env var is required when STORAGE_PROVIDER=s3");
+      _storageAdapter = new S3StorageAdapter(
+        bucket,
+        process.env.S3_REGION || "ap-south-1",
+        process.env.S3_ENDPOINT || undefined
+      );
+    } else {
+      const baseDir = process.env.STORAGE_BASE_DIR || path.resolve(__dirname, "..", "..", "..", "uploads");
+      _storageAdapter = new LocalStorageAdapter(baseDir);
+    }
   }
   return _storageAdapter;
 }
@@ -216,7 +278,7 @@ export async function streamToStorageWithValidation(
         headerBuf = headerBuf ? Buffer.concat([headerBuf, chunk]) : chunk;
         if (headerBuf.length >= 8) {
           if (!validateMagicBytes(headerBuf, declaredMime)) {
-            return callback(new Error("MIME_MISMATCH"));
+            return callback(new Error(UploadErrorCode.MIME_MISMATCH));
           }
           headerValidated = true;
         }
@@ -225,10 +287,14 @@ export async function streamToStorageWithValidation(
       callback(null, chunk);
     },
     flush(callback) {
+      // Reject empty files
+      if (!headerBuf || headerBuf.length === 0) {
+        return callback(new Error(UploadErrorCode.EMPTY_FILE));
+      }
       // If file was very small and we never reached 8 bytes
-      if (!headerValidated && headerBuf) {
+      if (!headerValidated) {
         if (!validateMagicBytes(headerBuf, declaredMime)) {
-          return callback(new Error("MIME_MISMATCH"));
+          return callback(new Error(UploadErrorCode.MIME_MISMATCH));
         }
       }
       callback();
@@ -236,8 +302,11 @@ export async function streamToStorageWithValidation(
   });
 
   const storage = getStorage();
-  // Pipe through validator then to storage
-  const validated = stream.pipe(validator);
-  const bytesWritten = await storage.writeStream(storageKey, validated, maxBytes);
+  // Use pipeline() for proper error propagation — errors from validator
+  // are caught here rather than surfacing as unhandled exceptions.
+  const pass = new PassThrough();
+  const writePromise = storage.writeStream(storageKey, pass, maxBytes);
+  await pipeline(stream, validator, pass);
+  const bytesWritten = await writePromise;
   return { bytesWritten, checksum: hash.digest("hex") };
 }

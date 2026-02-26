@@ -14,6 +14,7 @@
     "build:citizen": "npm run build:shared && npm --workspace apps/citizen run build",
     "build:officer": "npm run build:shared && npm --workspace apps/officer run build",
     "build:all": "npm run build:shared && npm run build:api && npm run build:citizen && npm run build:officer",
+    "typecheck": "npm --workspace packages/shared run typecheck && npm --workspace apps/api run typecheck && npm --workspace apps/citizen run typecheck && npm --workspace apps/officer run typecheck",
     "test:api": "npm --workspace apps/api run test",
     "test:citizen:unit": "npm --workspace apps/citizen run test:unit",
     "check:frontend-budgets": "node scripts/check-frontend-budgets.mjs",

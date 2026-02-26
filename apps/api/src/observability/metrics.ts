@@ -64,6 +64,29 @@ const dbPoolWaitingClients = new Gauge({
   registers: [registry],
 });
 
+// ── Outbound HTTP (resilientFetch) metrics ──
+
+const outboundRequestsTotal = new Counter({
+  name: "puda_api_outbound_requests_total",
+  help: "Total outbound HTTP requests (includes retries)",
+  labelNames: ["host", "result"] as const, // result: success | retry | failure
+  registers: [registry],
+});
+
+const outboundRetryAttemptsTotal = new Counter({
+  name: "puda_api_outbound_retry_attempts_total",
+  help: "Total retry attempts on outbound HTTP requests",
+  labelNames: ["host", "reason"] as const, // reason: timeout | 5xx | network
+  registers: [registry],
+});
+
+const outboundCircuitBreakerState = new Gauge({
+  name: "puda_api_outbound_circuit_breaker_open",
+  help: "Whether the circuit breaker is open (1) or closed (0) per host",
+  labelNames: ["host"] as const,
+  registers: [registry],
+});
+
 const workflowBacklogOpenTasks = new Gauge({
   name: "puda_api_workflow_backlog_open_tasks",
   help: "Open workflow tasks (queue backlog proxy)",
@@ -126,6 +149,18 @@ export function updateWorkflowBacklogMetric(input: {
 }): void {
   workflowBacklogOpenTasks.set(input.openTasks);
   workflowBacklogOverdueTasks.set(input.overdueTasks);
+}
+
+export function recordOutboundRequest(host: string, result: "success" | "retry" | "failure"): void {
+  outboundRequestsTotal.inc({ host, result }, 1);
+}
+
+export function recordOutboundRetry(host: string, reason: "timeout" | "5xx" | "network"): void {
+  outboundRetryAttemptsTotal.inc({ host, reason }, 1);
+}
+
+export function setOutboundCircuitState(host: string, isOpen: boolean): void {
+  outboundCircuitBreakerState.set({ host }, isOpen ? 1 : 0);
 }
 
 export function getMetricsContentType(): string {

@@ -1,7 +1,8 @@
-import { query } from "./db";
+import { query, getClient } from "./db";
 import { v4 as uuidv4 } from "uuid";
 import { Readable } from "stream";
 import { getStorage, streamToStorageWithValidation } from "./storage";
+import { UploadErrorCode } from "./upload-errors";
 import path from "path";
 
 export interface Complaint {
@@ -196,21 +197,7 @@ export async function addComplaintEvidence(
   bufferOrStream: Buffer | Readable
 ): Promise<ComplaintEvidence> {
   if (!ALLOWED_EVIDENCE_TYPES.includes(mimeType)) {
-    throw new Error("INVALID_FILE_TYPE");
-  }
-
-  // Lock the complaint row to prevent concurrent evidence uploads from exceeding the limit
-  await query(
-    "SELECT complaint_id FROM complaint WHERE complaint_id = $1 FOR UPDATE",
-    [complaintId]
-  );
-
-  const countResult = await query(
-    "SELECT COUNT(*) AS cnt FROM complaint_evidence WHERE complaint_id = $1",
-    [complaintId]
-  );
-  if (parseInt(countResult.rows[0].cnt, 10) >= MAX_EVIDENCE_PER_COMPLAINT) {
-    throw new Error("MAX_EVIDENCE_REACHED");
+    throw new Error(UploadErrorCode.INVALID_FILE_TYPE);
   }
 
   const evidenceId = uuidv4();
@@ -219,23 +206,56 @@ export async function addComplaintEvidence(
   const safeFilename = sanitizeStorageSegment(filename, "file");
   const storageKey = `complaints/${safeComplaintId}/${safeEvidenceId}/${safeFilename}`;
 
-  let sizeBytes: number;
-  if (Buffer.isBuffer(bufferOrStream)) {
-    if (bufferOrStream.length > MAX_EVIDENCE_SIZE_BYTES) {
-      throw new Error("FILE_TOO_LARGE");
-    }
-    sizeBytes = bufferOrStream.length;
-    await getStorage().write(storageKey, bufferOrStream);
-  } else {
-    const result = await streamToStorageWithValidation(bufferOrStream, storageKey, mimeType, MAX_EVIDENCE_SIZE_BYTES);
-    sizeBytes = result.bytesWritten;
-  }
+  // Use a single DB client transaction so the FOR UPDATE lock, count check,
+  // and INSERT are atomic — prevents concurrent uploads exceeding the cap.
+  let sizeBytes: number = 0;
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
 
-  await query(
-    `INSERT INTO complaint_evidence (evidence_id, complaint_id, storage_key, original_filename, mime_type, size_bytes, uploaded_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [evidenceId, complaintId, storageKey, filename, mimeType, sizeBytes, userId]
-  );
+    // Lock the complaint row to serialize concurrent evidence uploads
+    await client.query(
+      "SELECT complaint_id FROM complaint WHERE complaint_id = $1 FOR UPDATE",
+      [complaintId]
+    );
+
+    const countResult = await client.query(
+      "SELECT COUNT(*) AS cnt FROM complaint_evidence WHERE complaint_id = $1",
+      [complaintId]
+    );
+    if (parseInt(countResult.rows[0].cnt, 10) >= MAX_EVIDENCE_PER_COMPLAINT) {
+      await client.query("ROLLBACK");
+      throw new Error(UploadErrorCode.MAX_EVIDENCE_REACHED);
+    }
+
+    // Write to storage (outside transaction scope — file storage is not transactional)
+    if (Buffer.isBuffer(bufferOrStream)) {
+      if (bufferOrStream.length > MAX_EVIDENCE_SIZE_BYTES) {
+        await client.query("ROLLBACK");
+        throw new Error(UploadErrorCode.FILE_TOO_LARGE);
+      }
+      sizeBytes = bufferOrStream.length;
+      await getStorage().write(storageKey, bufferOrStream);
+    } else {
+      const result = await streamToStorageWithValidation(bufferOrStream, storageKey, mimeType, MAX_EVIDENCE_SIZE_BYTES);
+      sizeBytes = result.bytesWritten;
+    }
+
+    await client.query(
+      `INSERT INTO complaint_evidence (evidence_id, complaint_id, storage_key, original_filename, mime_type, size_bytes, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [evidenceId, complaintId, storageKey, filename, mimeType, sizeBytes, userId]
+    );
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    // Clean up orphaned storage object if write succeeded but DB insert failed
+    await getStorage().delete(storageKey).catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 
   return {
     evidence_id: evidenceId,

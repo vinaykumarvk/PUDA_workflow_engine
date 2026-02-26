@@ -3,6 +3,7 @@
  * Used for AI endpoints (OpenAI) and payment gateway (Razorpay).
  */
 import { logWarn, logError } from "./logger";
+import { recordOutboundRequest, recordOutboundRetry, setOutboundCircuitState } from "./observability/metrics";
 
 export interface ResilientFetchOptions extends RequestInit {
   /** Timeout in milliseconds (default: 30_000) */
@@ -34,8 +35,10 @@ function getCircuit(host: string): CircuitState {
 
 function recordSuccess(host: string): void {
   const state = getCircuit(host);
+  const wasOpen = state.isOpen;
   state.failures = 0;
   state.isOpen = false;
+  if (wasOpen) setOutboundCircuitState(host, false);
 }
 
 function recordFailure(host: string): void {
@@ -44,6 +47,7 @@ function recordFailure(host: string): void {
   state.lastFailure = Date.now();
   if (state.failures >= CIRCUIT_FAILURE_THRESHOLD) {
     state.isOpen = true;
+    setOutboundCircuitState(host, true);
     logWarn("Circuit breaker opened", { host, failures: state.failures });
   }
 }
@@ -105,21 +109,27 @@ export async function resilientFetch(
       if (retryOn5xx && response.status >= 500 && attempt < maxRetries) {
         lastError = new Error(`HTTP ${response.status} from ${host}`);
         recordFailure(host);
+        recordOutboundRetry(host, "5xx");
+        recordOutboundRequest(host, "retry");
         continue;
       }
 
       recordSuccess(host);
+      recordOutboundRequest(host, "success");
       return response;
     } catch (err: any) {
       clearTimeout(timeoutId);
       lastError = err;
       recordFailure(host);
 
+      const reason = err.name === "AbortError" ? "timeout" : "network";
       if (err.name === "AbortError") {
         lastError = new Error(`Request to ${host} timed out after ${timeoutMs}ms`);
       }
 
       if (attempt < maxRetries) {
+        recordOutboundRetry(host, reason as "timeout" | "network");
+        recordOutboundRequest(host, "retry");
         logWarn("Outbound request failed, retrying", {
           host,
           attempt: attempt + 1,
@@ -130,6 +140,7 @@ export async function resilientFetch(
     }
   }
 
+  recordOutboundRequest(host, "failure");
   logError("Outbound request failed after all retries", {
     host,
     maxRetries,

@@ -1,4 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { validateField as runValidation, type ValidationType } from "./validation";
+import { PUNJAB_DISTRICTS, INDIAN_STATES } from "./india-data";
+
+/** Fallback English error messages for validation i18n keys */
+const VALIDATION_MESSAGES: Record<string, string> = {
+  "validation.email": "Enter a valid email address",
+  "validation.mobile": "Enter a valid 10-digit mobile number starting with 6-9",
+  "validation.aadhaar": "Enter a valid 12-digit Aadhaar number",
+  "validation.pan": "Enter a valid PAN (e.g. ABCDE1234F)",
+  "validation.pincode": "Enter a valid 6-digit PIN code",
+  "validation.name_min": "Must be at least 2 characters with no digits",
+};
 
 export interface CitizenProperty {
   property_id: string;
@@ -147,13 +159,31 @@ export function FormRenderer({
     return value;
   }, [data]);
 
+  // Infer validation type from field definition
+  const inferValidationType = useCallback((field: FieldDef): ValidationType | null => {
+    if (field.type === "email") return "email";
+    if (field.type === "phone") return "mobile";
+    if (field.type === "aadhaar") return "aadhaar";
+    const k = field.key.toLowerCase();
+    if (k.includes("pincode")) return "pincode";
+    if (k.endsWith(".pan") || k === "pan") return "pan";
+    return null;
+  }, []);
+
   // Helper: validate a single field value
   const validateField = useCallback((field: FieldDef, value: any): string | null => {
     if (field.required && (value === undefined || value === null || value === "")) {
       return `${field.label} is required`;
     }
+    if (value) {
+      const vType = inferValidationType(field);
+      if (vType) {
+        const errKey = runValidation(String(value), vType);
+        if (errKey) return VALIDATION_MESSAGES[errKey] || errKey;
+      }
+    }
     return null;
-  }, []);
+  }, [inferValidationType]);
 
   // Helper: write a nested dot-key into form data
   const updateField = useCallback((key: string, value: any) => {
@@ -446,6 +476,37 @@ export function FormRenderer({
             </div>
           );
         }
+        // Render district/state dropdowns only when schema explicitly opts in via ui.widget
+        if (field.type === "string" && !field.readOnly && !field.ui?.readOnly) {
+          const widget = field.ui?.widget;
+          const isDistrict = widget === "district-select";
+          const isState = widget === "state-select";
+          if (isDistrict || isState) {
+            const options = isDistrict ? PUNJAB_DISTRICTS : INDIAN_STATES;
+            return (
+              <div key={field.key} className="field">
+                <label htmlFor={fieldId}>
+                  {bilingualText(field.label, field.label_hi, field.label_pa)}
+                  {field.required && <span className="required">*</span>}
+                </label>
+                <select
+                  {...ariaProps}
+                  value={value || ""}
+                  onChange={(e) => updateField(field.key, e.target.value)}
+                  onBlur={blurHandler}
+                  disabled={!editable}
+                  className={error ? "error" : ""}
+                >
+                  <option value="">Select...</option>
+                  {options.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+                {error && <span id={errorId} className="error-message" role="alert">{error}</span>}
+              </div>
+            );
+          }
+        }
         return (
           <div key={field.key} className="field">
             <label htmlFor={fieldId}>
@@ -555,17 +616,21 @@ export function FormRenderer({
               {bilingualText(field.label, field.label_hi, field.label_pa)}
               {field.required && <span className="required">*</span>}
             </label>
-            <input
-              {...ariaProps}
-              type="tel"
-              inputMode="tel"
-              value={value || ""}
-              onChange={(e) => updateField(field.key, e.target.value)}
-              onBlur={blurHandler}
-              placeholder={field.placeholder}
-              disabled={!editable}
-              className={error ? "error" : ""}
-            />
+            <div className="phone-input-row">
+              <span className="phone-prefix" aria-hidden="true">+91</span>
+              <input
+                {...ariaProps}
+                type="tel"
+                inputMode="numeric"
+                value={value || ""}
+                onChange={(e) => updateField(field.key, e.target.value.replace(/\D/g, "").slice(0, 10))}
+                onBlur={blurHandler}
+                placeholder={field.placeholder || "10-digit mobile"}
+                disabled={!editable}
+                className={error ? "error" : ""}
+                maxLength={10}
+              />
+            </div>
             {error && <span id={errorId} className="error-message" role="alert">{error}</span>}
           </div>
         );

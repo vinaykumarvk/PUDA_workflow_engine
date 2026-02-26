@@ -497,6 +497,19 @@ export async function getApplicationDocumentById(appDocId: string): Promise<any 
   return result.rows[0] || null;
 }
 
+export async function getApplicationDocumentsByIds(appDocIds: string[]): Promise<any[]> {
+  if (appDocIds.length === 0) return [];
+  const placeholders = appDocIds.map((_, i) => `$${i + 1}`).join(", ");
+  const result = await query(
+    `SELECT ad.*, cd.original_filename, cd.mime_type, cd.size_bytes, cd.storage_key, cd.citizen_version
+     FROM application_document ad
+     JOIN citizen_document cd ON cd.citizen_doc_id = ad.citizen_doc_id
+     WHERE ad.app_doc_id IN (${placeholders})`,
+    appDocIds
+  );
+  return result.rows;
+}
+
 export async function getCitizenDocument(citizenDocId: string): Promise<CitizenDocument | null> {
   const result = await query(
     `SELECT citizen_doc_id, user_id, doc_type_id, citizen_version,

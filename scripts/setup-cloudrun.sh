@@ -8,21 +8,54 @@
 #   - cloud-sql-proxy running (for migration verification)
 #   - Docker images build locally (npm run build:all passes)
 #
-# Usage: ./scripts/setup-cloudrun.sh
+# Required env vars:
+#   GCP_PROJECT          — GCP project ID
+#   CLOUDSQL_INSTANCE    — Cloud SQL instance connection name
+#   DB_NAME              — Database name
+#   DB_USER              — Database user
+#   DB_PASS              — Database password (URL-encoded)
+#
+# Optional env vars:
+#   GCP_REGION           — GCP region (default: asia-south1)
+#
+# Usage:
+#   GCP_PROJECT=my-proj CLOUDSQL_INSTANCE=my-proj:region:instance DB_NAME=puda DB_USER=puda DB_PASS=secret \
+#     ./scripts/setup-cloudrun.sh
+#
+# Dry run (prints commands without executing):
+#   ./scripts/setup-cloudrun.sh --dry-run
 # =============================================================================
 set -euo pipefail
 
-PROJECT="wealth-report"
-REGION="europe-west1"
-CLOUDSQL_INSTANCE="wealth-report:europe-west1:free-trial-first-project"
-DB_NAME="puda"
-DB_USER="puda"
-DB_PASS='PudaDb2026%40'  # URL-encoded (@ → %40)
+# ---- Parse flags ----
+DRY_RUN=false
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=true ;;
+    *) echo "Unknown flag: $arg"; exit 1 ;;
+  esac
+done
+
+# ---- Required env vars ----
+PROJECT="${GCP_PROJECT:?GCP_PROJECT must be set}"
+REGION="${GCP_REGION:-asia-south1}"
+CLOUDSQL_INSTANCE="${CLOUDSQL_INSTANCE:?CLOUDSQL_INSTANCE must be set}"
+DB_NAME="${DB_NAME:?DB_NAME must be set}"
+DB_USER="${DB_USER:?DB_USER must be set}"
+DB_PASS="${DB_PASS:?DB_PASS must be set}"
 
 # ---- Helpers ----
 step() { echo -e "\n\033[1;34m=== STEP $1: $2 ===\033[0m"; }
 ok()   { echo -e "\033[1;32m✅ $1\033[0m"; }
 warn() { echo -e "\033[1;33m⚠️  $1\033[0m"; }
+
+run() {
+  if [ "$DRY_RUN" = true ]; then
+    echo "[DRY RUN] $*"
+  else
+    "$@"
+  fi
+}
 
 # =========================================================================
 # STEP 1: Create Secret Manager secrets
@@ -34,6 +67,10 @@ DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@/${DB_NAME}?host=/cloudsql/${CL
 create_secret() {
   local name="$1"
   local value="$2"
+  if [ "$DRY_RUN" = true ]; then
+    echo "[DRY RUN] create/update secret '$name'"
+    return
+  fi
   if gcloud secrets describe "$name" --project="$PROJECT" &>/dev/null; then
     warn "Secret '$name' already exists — adding new version"
     echo -n "$value" | gcloud secrets versions add "$name" --data-file=- --project="$PROJECT"
@@ -59,26 +96,30 @@ echo "Generated JWT_SECRET (save this): $JWT_SECRET"
 # =========================================================================
 step 2 "Setting up IAM permissions"
 
-PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
-COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+if [ "$DRY_RUN" = true ]; then
+  echo "[DRY RUN] Would grant secret accessor + Cloud SQL client roles"
+else
+  PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
+  COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
-echo "Service account: $COMPUTE_SA"
+  echo "Service account: $COMPUTE_SA"
 
-# Secret access
-for secret in puda-database-url puda-jwt-secret puda-payment-webhook-secret; do
-  gcloud secrets add-iam-policy-binding "$secret" \
+  # Secret access
+  for secret in puda-database-url puda-jwt-secret puda-payment-webhook-secret; do
+    gcloud secrets add-iam-policy-binding "$secret" \
+      --member="serviceAccount:$COMPUTE_SA" \
+      --role=roles/secretmanager.secretAccessor \
+      --project="$PROJECT" --quiet 2>/dev/null
+    ok "Secret access: $secret"
+  done
+
+  # Cloud SQL client
+  gcloud projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:$COMPUTE_SA" \
-    --role=roles/secretmanager.secretAccessor \
-    --project="$PROJECT" --quiet 2>/dev/null
-  ok "Secret access: $secret"
-done
-
-# Cloud SQL client
-gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member="serviceAccount:$COMPUTE_SA" \
-  --role=roles/cloudsql.client \
-  --quiet 2>/dev/null
-ok "Cloud SQL client role granted"
+    --role=roles/cloudsql.client \
+    --quiet 2>/dev/null
+  ok "Cloud SQL client role granted"
+fi
 
 # =========================================================================
 # STEP 3: Build and deploy API
@@ -87,7 +128,7 @@ step 3 "Building API image via Cloud Build"
 
 cd "$(dirname "$0")/.."
 
-gcloud builds submit \
+run gcloud builds submit \
   --tag "gcr.io/${PROJECT}/puda-api" \
   --project "$PROJECT" \
   --gcs-source-staging-dir="gs://${PROJECT}_cloudbuild/source" \
@@ -98,7 +139,7 @@ ok "API image built: gcr.io/${PROJECT}/puda-api"
 
 step 3b "Deploying API to Cloud Run"
 
-gcloud run deploy puda-api \
+run gcloud run deploy puda-api \
   --image "gcr.io/${PROJECT}/puda-api" \
   --project "$PROJECT" \
   --region "$REGION" \
@@ -121,20 +162,24 @@ gcloud run deploy puda-api \
   --set-secrets "PAYMENT_GATEWAY_WEBHOOK_SECRET=puda-payment-webhook-secret:latest" \
   --quiet
 
-API_URL=$(gcloud run services describe puda-api \
-  --project "$PROJECT" --region "$REGION" \
-  --format='value(status.url)')
-
-ok "API deployed: $API_URL"
-
-# Verify health
-echo "Checking API health..."
-sleep 5
-HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/health" || echo "000")
-if [ "$HTTP_STATUS" = "200" ]; then
-  ok "API health check passed"
+if [ "$DRY_RUN" = true ]; then
+  API_URL="https://puda-api-EXAMPLE.${REGION}.run.app"
+  echo "[DRY RUN] API_URL=${API_URL}"
 else
-  warn "API health returned $HTTP_STATUS (may need a few seconds to start)"
+  API_URL=$(gcloud run services describe puda-api \
+    --project "$PROJECT" --region "$REGION" \
+    --format='value(status.url)')
+  ok "API deployed: $API_URL"
+
+  # Verify health
+  echo "Checking API health..."
+  sleep 5
+  HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/health" || echo "000")
+  if [ "$HTTP_STATUS" = "200" ]; then
+    ok "API health check passed"
+  else
+    warn "API health returned $HTTP_STATUS (may need a few seconds to start)"
+  fi
 fi
 
 # =========================================================================
@@ -143,7 +188,7 @@ fi
 step 4 "Building Citizen Portal (API_URL=${API_URL})"
 
 # Frontend builds need --build-arg for VITE_API_BASE_URL, so use cloudbuild config
-gcloud builds submit \
+run gcloud builds submit \
   --config=cloudbuild-frontend.yaml \
   --project "$PROJECT" \
   --gcs-source-staging-dir="gs://${PROJECT}_cloudbuild/source" \
@@ -152,7 +197,7 @@ gcloud builds submit \
 
 ok "Citizen image built (VITE_API_BASE_URL=${API_URL})"
 
-gcloud run deploy puda-citizen \
+run gcloud run deploy puda-citizen \
   --image "gcr.io/${PROJECT}/puda-citizen" \
   --project "$PROJECT" \
   --region "$REGION" \
@@ -165,18 +210,22 @@ gcloud run deploy puda-citizen \
   --max-instances 5 \
   --quiet
 
-CITIZEN_URL=$(gcloud run services describe puda-citizen \
-  --project "$PROJECT" --region "$REGION" \
-  --format='value(status.url)')
-
-ok "Citizen Portal deployed: $CITIZEN_URL"
+if [ "$DRY_RUN" = true ]; then
+  CITIZEN_URL="https://puda-citizen-EXAMPLE.${REGION}.run.app"
+  echo "[DRY RUN] CITIZEN_URL=${CITIZEN_URL}"
+else
+  CITIZEN_URL=$(gcloud run services describe puda-citizen \
+    --project "$PROJECT" --region "$REGION" \
+    --format='value(status.url)')
+  ok "Citizen Portal deployed: $CITIZEN_URL"
+fi
 
 # =========================================================================
 # STEP 5: Build and deploy Officer Portal
 # =========================================================================
 step 5 "Building Officer Portal (API_URL=${API_URL})"
 
-gcloud builds submit \
+run gcloud builds submit \
   --config=cloudbuild-frontend.yaml \
   --project "$PROJECT" \
   --gcs-source-staging-dir="gs://${PROJECT}_cloudbuild/source" \
@@ -185,7 +234,7 @@ gcloud builds submit \
 
 ok "Officer image built (VITE_API_BASE_URL=${API_URL})"
 
-gcloud run deploy puda-officer \
+run gcloud run deploy puda-officer \
   --image "gcr.io/${PROJECT}/puda-officer" \
   --project "$PROJECT" \
   --region "$REGION" \
@@ -198,18 +247,22 @@ gcloud run deploy puda-officer \
   --max-instances 5 \
   --quiet
 
-OFFICER_URL=$(gcloud run services describe puda-officer \
-  --project "$PROJECT" --region "$REGION" \
-  --format='value(status.url)')
-
-ok "Officer Portal deployed: $OFFICER_URL"
+if [ "$DRY_RUN" = true ]; then
+  OFFICER_URL="https://puda-officer-EXAMPLE.${REGION}.run.app"
+  echo "[DRY RUN] OFFICER_URL=${OFFICER_URL}"
+else
+  OFFICER_URL=$(gcloud run services describe puda-officer \
+    --project "$PROJECT" --region "$REGION" \
+    --format='value(status.url)')
+  ok "Officer Portal deployed: $OFFICER_URL"
+fi
 
 # =========================================================================
 # STEP 6: Update API CORS with actual frontend URLs
 # =========================================================================
 step 6 "Updating API CORS origins with frontend URLs"
 
-gcloud run services update puda-api \
+run gcloud run services update puda-api \
   --project "$PROJECT" \
   --region "$REGION" \
   --update-env-vars "ALLOWED_ORIGINS=${CITIZEN_URL},${OFFICER_URL}" \

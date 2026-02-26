@@ -5,8 +5,6 @@ steps:
       - "build"
       - "-t"
       - "gcr.io/$PROJECT_ID/puda-api:$COMMIT_SHA"
-      - "-t"
-      - "gcr.io/$PROJECT_ID/puda-api:latest"
       - "-f"
       - "Dockerfile.api"
       - "."
@@ -33,7 +31,6 @@ steps:
 
 images:
   - "gcr.io/$PROJECT_ID/puda-api:$COMMIT_SHA"
-  - "gcr.io/$PROJECT_ID/puda-api:latest"
 
 options:
   logging: CLOUD_LOGGING_ONLY

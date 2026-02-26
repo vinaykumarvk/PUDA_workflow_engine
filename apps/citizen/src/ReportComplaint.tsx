@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
-import { Alert, Button, Card, Field, Input, Select, SkeletonBlock } from "@puda/shared";
+import { Alert, Button, Card, Field, Input, Select, SkeletonBlock, validatePincode, PUNJAB_DISTRICTS } from "@puda/shared";
 import { Bilingual } from "./Bilingual";
 import "./report-complaint.css";
 
@@ -129,6 +129,9 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
   const [filing, setFiling] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Field validation errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Evidence upload state
   const [evidenceUploading, setEvidenceUploading] = useState(false);
@@ -285,6 +288,22 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (isOffline || !token) return;
+
+      // Submit-time validation guard
+      const submitErrors: Record<string, string> = {};
+      if (!formData.violationType) submitErrors.violationType = "complaints.violation_required";
+      if (!formData.subject?.trim()) submitErrors.subject = "complaints.subject_required";
+      if (!formData.description?.trim()) submitErrors.description = "complaints.description_required";
+      if (!formData.locationAddress?.trim()) submitErrors.locationAddress = "complaints.address_required";
+      if (formData.locationPincode) {
+        const pinErr = validatePincode(formData.locationPincode);
+        if (pinErr) submitErrors.pincode = pinErr;
+      }
+      if (Object.keys(submitErrors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...submitErrors }));
+        return;
+      }
+
       setFiling(true);
       setFormError(null);
       setSuccessMsg(null);
@@ -592,16 +611,24 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
                   placeholder={t("complaints.locality_placeholder")}
                 />
               </Field>
-              <Field label={<Bilingual tKey="complaints.location_pincode" />} htmlFor="pincode">
+              <Field label={<Bilingual tKey="complaints.location_pincode" />} htmlFor="pincode" error={fieldErrors.pincode ? t(fieldErrors.pincode) : undefined}>
                 <Input
                   id="pincode"
                   value={formData.locationPincode}
                   onChange={(e) =>
-                    setFormData((p) => ({ ...p, locationPincode: e.target.value }))
+                    setFormData((p) => ({ ...p, locationPincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))
                   }
+                  onBlur={() => {
+                    const err = validatePincode(formData.locationPincode);
+                    setFieldErrors((prev) => {
+                      if (err) return { ...prev, pincode: err };
+                      const { pincode: _, ...rest } = prev;
+                      return rest;
+                    });
+                  }}
                   placeholder={t("complaints.pincode_placeholder")}
+                  inputMode="numeric"
                   maxLength={6}
-                  pattern="[0-9]{6}"
                 />
               </Field>
             </div>
@@ -617,13 +644,16 @@ export default function ReportComplaint({ onBack, isOffline }: ReportComplaintPr
                 />
               </Field>
               <Field label={<Bilingual tKey="complaints.location_district" />} htmlFor="district">
-                <Input
+                <Select
                   id="district"
                   value={formData.locationDistrict}
                   onChange={(e) =>
                     setFormData((p) => ({ ...p, locationDistrict: e.target.value }))
                   }
-                />
+                >
+                  <option value="">{t("profile.select")}</option>
+                  {PUNJAB_DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </Select>
               </Field>
             </div>
 

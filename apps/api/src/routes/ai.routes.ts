@@ -34,16 +34,30 @@ export async function registerAIRoutes(app: FastifyInstance) {
     return result;
   });
 
-  // Summarize application timeline — accepts ARN, fetches data server-side with authz
+  // Summarize application timeline — supports both new {arn} and legacy {timeline,currentState,serviceKey}
   app.post("/api/v1/ai/summarize-timeline", {
     schema: {
       body: {
-        type: "object",
-        required: ["arn"],
-        additionalProperties: false,
-        properties: {
-          arn: { type: "string", minLength: 1 },
-        },
+        oneOf: [
+          {
+            type: "object",
+            required: ["arn"],
+            additionalProperties: false,
+            properties: {
+              arn: { type: "string", minLength: 1 },
+            },
+          },
+          {
+            type: "object",
+            required: ["timeline", "currentState", "serviceKey"],
+            additionalProperties: false,
+            properties: {
+              timeline: { type: "array" },
+              currentState: { type: "string" },
+              serviceKey: { type: "string" },
+            },
+          },
+        ],
       },
     },
   }, async (request, reply) => {
@@ -52,7 +66,16 @@ export async function registerAIRoutes(app: FastifyInstance) {
       return { error: "AI_NOT_CONFIGURED", message: "AI features are not available" };
     }
 
-    const { arn } = request.body as { arn: string };
+    const body = request.body as any;
+
+    // Legacy payload: client sends pre-fetched data directly
+    if (body.timeline && body.currentState && body.serviceKey) {
+      const summary = await summarizeTimeline(body.timeline, body.currentState, body.serviceKey);
+      return { summary };
+    }
+
+    // New payload: server fetches data by ARN with authz
+    const { arn } = body as { arn: string };
 
     const internalArn = await requireApplicationReadAccess(request, reply, arn, "You are not allowed to access this application");
     if (!internalArn) return;
@@ -63,7 +86,7 @@ export async function registerAIRoutes(app: FastifyInstance) {
     const auditResult = await query(
       `SELECT ae.event_type, ae.actor_type, ae.actor_id, u.name as actor_name, ae.payload_jsonb, ae.created_at
        FROM audit_event ae LEFT JOIN "user" u ON ae.actor_id = u.user_id
-       WHERE ae.arn = $1 ORDER BY ae.created_at DESC LIMIT 50`,
+       WHERE ae.arn = $1 ORDER BY ae.created_at ASC LIMIT 50`,
       [internalArn]
     );
 

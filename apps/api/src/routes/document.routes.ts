@@ -199,12 +199,18 @@ export async function registerDocumentRoutes(app: FastifyInstance) {
 
     const body = request.body as { verifications: Array<{ appDocId: string; status: string; remarks?: string }> };
 
-    // Verify staff mutation access for all documents in the batch
-    const arnSet = new Set<string>();
+    // Fetch all app docs in one query to avoid N+1
+    const appDocIds = body.verifications.map((v) => v.appDocId);
+    const appDocs = await documents.getApplicationDocumentsByIds(appDocIds);
+    const appDocMap = new Map(appDocs.map((d: any) => [d.app_doc_id, d]));
     for (const v of body.verifications) {
-      const appDoc = await documents.getApplicationDocumentById(v.appDocId);
-      if (!appDoc) return send404(reply, "APP_DOC_NOT_FOUND");
-      arnSet.add(appDoc.arn);
+      if (!appDocMap.has(v.appDocId)) return send404(reply, "APP_DOC_NOT_FOUND");
+    }
+
+    // Verify staff mutation access for each unique ARN
+    const arnSet = new Set<string>();
+    for (const doc of appDocs) {
+      arnSet.add(doc.arn);
     }
     for (const arn of arnSet) {
       const internalArn = await requireApplicationStaffMutationAccess(request, reply, arn, "You are not allowed to verify documents for this application");

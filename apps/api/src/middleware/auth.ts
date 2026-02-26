@@ -43,6 +43,7 @@ export const PUBLIC_ROUTES = [
 
 const PUBLIC_ROUTE_PREFIXES = [
   "/api/v1/config/",
+  "/internal/jobs/",  // ARC-016: auth handled by X-Internal-Secret header
   ...(process.env.NODE_ENV !== "production" ? DEV_ONLY_PREFIXES : []),
 ];
 

@@ -103,6 +103,8 @@ class RazorpayPaymentGatewayAdapter implements PaymentGatewayAdapter {
     });
 
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+    // Order creation is non-idempotent — do NOT retry to avoid duplicate gateway orders.
+    // Retries are only safe if Razorpay idempotency keys are enforced.
     const response = await resilientFetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -111,7 +113,8 @@ class RazorpayPaymentGatewayAdapter implements PaymentGatewayAdapter {
       },
       body,
       timeoutMs: 15_000,
-      maxRetries: 2,
+      maxRetries: 0,
+      retryOn5xx: false,
     });
 
     if (!response.ok) {

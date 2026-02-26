@@ -28,6 +28,7 @@ import { registerTelemetryRoutes } from "./routes/telemetry.routes";
 import { registerCitizenDocumentRoutes } from "./routes/citizen-document.routes";
 import { registerComplaintRoutes } from "./routes/complaint.routes";
 import { registerAIRoutes } from "./routes/ai.routes";
+import { registerInternalJobRoutes } from "./routes/internal-jobs.routes";
 import { startSLAChecker } from "./sla-checker";
 import { startClientTelemetryRetentionJob } from "./telemetry-retention";
 import { registerTransport } from "./notifications";
@@ -37,6 +38,8 @@ import { verifyAuditChainIntegrity } from "./audit-chain";
 import { cleanupExpiredMfaChallenges } from "./mfa-stepup";
 import { cleanupExpiredRevocations } from "./token-security";
 import { evaluateRuntimeAdapterPreflight, runRuntimeAdapterPreflightOrThrow } from "./runtime-adapter-preflight";
+import { setDistributedCache } from "./feature-flags";
+import { createRedisCache, disconnectRedis } from "./providers/redis";
 import { send400, sendError } from "./errors";
 import { logError } from "./logger";
 import { setLogContext } from "./log-context";
@@ -783,6 +786,11 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
   await registerTelemetryRoutes(app);
   await registerAIRoutes(app);
 
+  // ARC-016: HTTP-triggered internal jobs (when INTERNAL_JOB_SECRET is configured)
+  if (process.env.INTERNAL_JOB_SECRET) {
+    registerInternalJobRoutes(app);
+  }
+
   if (docsEnabled) {
     app.get("/api/v1/openapi.json", async (_request, reply) => {
       reply.header("cache-control", "no-store");
@@ -796,116 +804,130 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
     registerTransport(createSmsTransport());
   }
 
-  // H3: Start SLA breach detection (runs every 30 minutes in production)
-  if (!isTestRuntime) {
-    const intervalMs = parseInt(process.env.SLA_CHECK_INTERVAL_MS || "1800000"); // default 30 min
-    startSLAChecker(intervalMs);
+  // M11: Connect Redis distributed cache for feature flags (if configured)
+  if (process.env.REDIS_URL && !isTestRuntime) {
+    try {
+      const cache = await createRedisCache(process.env.REDIS_URL);
+      setDistributedCache(cache);
+    } catch (error) {
+      app.log.warn({ error }, "Redis connection failed — falling back to local cache only");
+    }
   }
 
-  // Retain client cache telemetry for bounded history to keep audit_event growth controlled.
-  if (process.env.NODE_ENV !== "test") {
-    startClientTelemetryRetentionJob();
-  }
-
-  // Publish workflow backlog gauges for operational dashboards and SLO alerts.
+  // ARC-016: Periodic jobs — use setInterval fallback only when INTERNAL_JOB_SECRET
+  // is NOT configured (local dev). In production, Cloud Scheduler triggers the
+  // /internal/jobs/* HTTP endpoints instead.
   let workflowBacklogTimer: NodeJS.Timeout | null = null;
-  if (process.env.ENABLE_WORKFLOW_BACKLOG_METRICS !== "false" && !isTestRuntime) {
-    const configuredIntervalMs = Number.parseInt(
-      process.env.WORKFLOW_BACKLOG_METRICS_INTERVAL_MS || "30000",
-      10
-    );
-    const intervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
-      ? configuredIntervalMs
-      : 30000;
-    const refreshWorkflowBacklogMetrics = async () => {
-      try {
-        const { query: dbQuery } = await import("./db");
-        const result = await dbQuery(
-          `SELECT
-             COUNT(*) FILTER (WHERE status IN ('PENDING', 'IN_PROGRESS'))::int AS open_tasks,
-             COUNT(*) FILTER (
-               WHERE status IN ('PENDING', 'IN_PROGRESS')
-                 AND sla_due_at IS NOT NULL
-                 AND sla_due_at < NOW()
-             )::int AS overdue_tasks
-           FROM task`
-        );
-        updateWorkflowBacklogMetric({
-          openTasks: Number(result.rows[0]?.open_tasks || 0),
-          overdueTasks: Number(result.rows[0]?.overdue_tasks || 0),
-        });
-      } catch (error) {
-        app.log.warn({ error }, "workflow backlog metrics refresh failed");
-      }
-    };
-    await refreshWorkflowBacklogMetrics();
-    workflowBacklogTimer = setInterval(() => {
-      void refreshWorkflowBacklogMetrics();
-    }, intervalMs);
-    workflowBacklogTimer.unref();
-  }
-
   let tokenRevocationCleanupTimer: NodeJS.Timeout | null = null;
-  if (!isTestRuntime) {
-    const configuredIntervalMs = Number.parseInt(
-      process.env.JWT_DENYLIST_CLEANUP_INTERVAL_MS || "3600000",
-      10
-    );
-    const cleanupIntervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
-      ? configuredIntervalMs
-      : 3600000;
-    tokenRevocationCleanupTimer = setInterval(() => {
-      void cleanupExpiredRevocations();
-    }, cleanupIntervalMs);
-    tokenRevocationCleanupTimer.unref();
-  }
-
   let mfaChallengeCleanupTimer: NodeJS.Timeout | null = null;
-  if (!isTestRuntime) {
-    const configuredIntervalMs = Number.parseInt(
-      process.env.MFA_CHALLENGE_CLEANUP_INTERVAL_MS || "900000",
-      10
-    );
-    const cleanupIntervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
-      ? configuredIntervalMs
-      : 900000;
-    mfaChallengeCleanupTimer = setInterval(() => {
-      void cleanupExpiredMfaChallenges();
-    }, cleanupIntervalMs);
-    mfaChallengeCleanupTimer.unref();
-  }
-
   let auditChainVerifyTimer: NodeJS.Timeout | null = null;
-  if (!isTestRuntime && process.env.ENABLE_AUDIT_CHAIN_VERIFICATION_JOB === "true") {
-    const configuredIntervalMs = Number.parseInt(
-      process.env.AUDIT_CHAIN_VERIFY_INTERVAL_MS || "21600000",
-      10
-    );
-    const verifyIntervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
-      ? configuredIntervalMs
-      : 21600000;
-    const runAuditChainVerification = async () => {
-      try {
-        const verification = await verifyAuditChainIntegrity();
-        if (!verification.ok) {
-          app.log.error(
-            {
-              checked: verification.checked,
-              mismatch: verification.mismatch,
-            },
-            "audit hash-chain verification failed"
+
+  if (!process.env.INTERNAL_JOB_SECRET && !isTestRuntime) {
+    // H3: SLA breach detection (every 30 minutes)
+    const slaIntervalMs = parseInt(process.env.SLA_CHECK_INTERVAL_MS || "1800000");
+    startSLAChecker(slaIntervalMs);
+
+    // Client telemetry retention
+    if (process.env.NODE_ENV !== "test") {
+      startClientTelemetryRetentionJob();
+    }
+
+    // Workflow backlog metrics
+    if (process.env.ENABLE_WORKFLOW_BACKLOG_METRICS !== "false") {
+      const configuredIntervalMs = Number.parseInt(
+        process.env.WORKFLOW_BACKLOG_METRICS_INTERVAL_MS || "30000",
+        10
+      );
+      const intervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
+        ? configuredIntervalMs
+        : 30000;
+      const refreshWorkflowBacklogMetrics = async () => {
+        try {
+          const { query: dbQuery } = await import("./db");
+          const result = await dbQuery(
+            `SELECT
+               COUNT(*) FILTER (WHERE status IN ('PENDING', 'IN_PROGRESS'))::int AS open_tasks,
+               COUNT(*) FILTER (
+                 WHERE status IN ('PENDING', 'IN_PROGRESS')
+                   AND sla_due_at IS NOT NULL
+                   AND sla_due_at < NOW()
+               )::int AS overdue_tasks
+             FROM task`
           );
-          return;
+          updateWorkflowBacklogMetric({
+            openTasks: Number(result.rows[0]?.open_tasks || 0),
+            overdueTasks: Number(result.rows[0]?.overdue_tasks || 0),
+          });
+        } catch (error) {
+          app.log.warn({ error }, "workflow backlog metrics refresh failed");
         }
-        app.log.info({ checked: verification.checked }, "audit hash-chain verification passed");
-      } catch (error) {
-        app.log.error({ error }, "audit hash-chain verification job failed");
-      }
-    };
-    auditChainVerifyTimer = setInterval(() => {
-      void runAuditChainVerification();
-    }, verifyIntervalMs);
-    auditChainVerifyTimer.unref();
+      };
+      await refreshWorkflowBacklogMetrics();
+      workflowBacklogTimer = setInterval(() => {
+        void refreshWorkflowBacklogMetrics();
+      }, intervalMs);
+      workflowBacklogTimer.unref();
+    }
+
+    // JWT denylist cleanup
+    {
+      const configuredIntervalMs = Number.parseInt(
+        process.env.JWT_DENYLIST_CLEANUP_INTERVAL_MS || "3600000",
+        10
+      );
+      const cleanupIntervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
+        ? configuredIntervalMs
+        : 3600000;
+      tokenRevocationCleanupTimer = setInterval(() => {
+        void cleanupExpiredRevocations();
+      }, cleanupIntervalMs);
+      tokenRevocationCleanupTimer.unref();
+    }
+
+    // MFA challenge cleanup
+    {
+      const configuredIntervalMs = Number.parseInt(
+        process.env.MFA_CHALLENGE_CLEANUP_INTERVAL_MS || "900000",
+        10
+      );
+      const cleanupIntervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
+        ? configuredIntervalMs
+        : 900000;
+      mfaChallengeCleanupTimer = setInterval(() => {
+        void cleanupExpiredMfaChallenges();
+      }, cleanupIntervalMs);
+      mfaChallengeCleanupTimer.unref();
+    }
+
+    // Audit chain verification
+    if (process.env.ENABLE_AUDIT_CHAIN_VERIFICATION_JOB === "true") {
+      const configuredIntervalMs = Number.parseInt(
+        process.env.AUDIT_CHAIN_VERIFY_INTERVAL_MS || "21600000",
+        10
+      );
+      const verifyIntervalMs = Number.isFinite(configuredIntervalMs) && configuredIntervalMs > 0
+        ? configuredIntervalMs
+        : 21600000;
+      const runAuditChainVerification = async () => {
+        try {
+          const verification = await verifyAuditChainIntegrity();
+          if (!verification.ok) {
+            app.log.error(
+              { checked: verification.checked, mismatch: verification.mismatch },
+              "audit hash-chain verification failed"
+            );
+            return;
+          }
+          app.log.info({ checked: verification.checked }, "audit hash-chain verification passed");
+        } catch (error) {
+          app.log.error({ error }, "audit hash-chain verification job failed");
+        }
+      };
+      auditChainVerifyTimer = setInterval(() => {
+        void runAuditChainVerification();
+      }, verifyIntervalMs);
+      auditChainVerifyTimer.unref();
+    }
   }
 
   app.addHook("onClose", async () => {
@@ -925,6 +947,7 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
       clearInterval(auditChainVerifyTimer);
       auditChainVerifyTimer = null;
     }
+    await disconnectRedis();
   });
 
   return app;

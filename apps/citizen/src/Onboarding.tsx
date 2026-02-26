@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
-import { Alert, Button, Card, Field, Input, Select } from "@puda/shared";
+import { Alert, Button, Card, Field, Input, Select, validateEmail, validateMobile, validatePincode, validateName, validateAadhaar, validatePan, PUNJAB_DISTRICTS, INDIAN_STATES } from "@puda/shared";
 import { Bilingual } from "./Bilingual";
 import "./onboarding.css";
 
@@ -105,10 +105,23 @@ export default function Onboarding({
     addresses.communication?.same_as_permanent ?? true
   );
 
+  // Field-level validation errors (keyed by field name)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const hdrs = useCallback(
     () => ({ ...authHeaders(), "Content-Type": "application/json" }),
     [authHeaders]
   );
+
+  // Blur-level field validation helper
+  const onFieldBlur = useCallback((fieldName: string, value: string, validator: (v: string) => string | null) => {
+    const err = validator(value);
+    setFieldErrors((prev) => {
+      if (err) return { ...prev, [fieldName]: err };
+      const { [fieldName]: _, ...rest } = prev;
+      return rest;
+    });
+  }, []);
 
   // Step 1: Send OTP
   const sendOtp = useCallback(async () => {
@@ -184,6 +197,28 @@ export default function Onboarding({
   // Final: Save all and complete
   const completeOnboarding = useCallback(async () => {
     setError(null);
+
+    // Run validators at submit time (not just on blur)
+    const submitErrors: Record<string, string> = {};
+    const emailErr = validateEmail(manualFields.email);
+    if (emailErr) submitErrors.email = emailErr;
+    const mobileErr = validateMobile(manualFields.mobile);
+    if (mobileErr) submitErrors.mobile = mobileErr;
+    const fatherErr = validateName(manualFields.father_name);
+    if (fatherErr) submitErrors.father_name = fatherErr;
+    if (permanentAddr.pincode) {
+      const pinErr = validatePincode(permanentAddr.pincode);
+      if (pinErr) submitErrors.perm_pincode = pinErr;
+    }
+    if (!sameAsPermanent && commAddr.pincode) {
+      const commPinErr = validatePincode(commAddr.pincode);
+      if (commPinErr) submitErrors.comm_pincode = commPinErr;
+    }
+    if (Object.keys(submitErrors).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...submitErrors }));
+      return;
+    }
+
     setSaving(true);
     try {
       const commAddressPayload = sameAsPermanent
@@ -282,11 +317,12 @@ export default function Onboarding({
       ) : (
         <>
           <div className="onboarding__field-group">
-            <Field label="Aadhaar Number" htmlFor="onb-aadhaar" required>
+            <Field label="Aadhaar Number" htmlFor="onb-aadhaar" required error={fieldErrors.aadhaar ? t(fieldErrors.aadhaar) : undefined}>
               <Input
                 id="onb-aadhaar"
                 value={aadhaarInput}
                 onChange={(e) => setAadhaarInput(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                onBlur={() => onFieldBlur("aadhaar", aadhaarInput, validateAadhaar)}
                 placeholder="Enter 12-digit Aadhaar"
                 inputMode="numeric"
                 maxLength={12}
@@ -384,11 +420,12 @@ export default function Onboarding({
         </>
       ) : (
         <div className="onboarding__field-group">
-          <Field label="PAN Number" htmlFor="onb-pan" required>
+          <Field label="PAN Number" htmlFor="onb-pan" required error={fieldErrors.pan ? t(fieldErrors.pan) : undefined}>
             <Input
               id="onb-pan"
               value={panInput}
               onChange={(e) => setPanInput(e.target.value.toUpperCase().slice(0, 10))}
+              onBlur={() => onFieldBlur("pan", panInput, validatePan)}
               placeholder="AAAAA9999A"
               maxLength={10}
               style={{ textTransform: "uppercase" }}
@@ -445,11 +482,12 @@ export default function Onboarding({
             <option value="MRS">Mrs</option>
           </Select>
         </Field>
-        <Field label="Father's Name" htmlFor="onb-father" required>
+        <Field label="Father's Name" htmlFor="onb-father" required error={fieldErrors.father_name ? t(fieldErrors.father_name) : undefined}>
           <Input
             id="onb-father"
             value={manualFields.father_name}
             onChange={(e) => setManualFields((p) => ({ ...p, father_name: e.target.value }))}
+            onBlur={() => onFieldBlur("father_name", manualFields.father_name, validateName)}
             placeholder="Father's full name"
           />
         </Field>
@@ -464,24 +502,29 @@ export default function Onboarding({
             <option value="MARRIED">Married</option>
           </Select>
         </Field>
-        <Field label="Email" htmlFor="onb-email" required>
+        <Field label="Email" htmlFor="onb-email" required error={fieldErrors.email ? t(fieldErrors.email) : undefined}>
           <Input
             id="onb-email"
             type="email"
             value={manualFields.email}
             onChange={(e) => setManualFields((p) => ({ ...p, email: e.target.value }))}
+            onBlur={() => onFieldBlur("email", manualFields.email, validateEmail)}
             placeholder="your@email.com"
           />
         </Field>
-        <Field label="Mobile Number" htmlFor="onb-mobile" required>
-          <Input
-            id="onb-mobile"
-            value={manualFields.mobile}
-            onChange={(e) => setManualFields((p) => ({ ...p, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
-            placeholder="10-digit mobile"
-            inputMode="numeric"
-            maxLength={10}
-          />
+        <Field label="Mobile Number" htmlFor="onb-mobile" required error={fieldErrors.mobile ? t(fieldErrors.mobile) : undefined}>
+          <div className="phone-input-row">
+            <span className="phone-prefix" aria-hidden="true">+91</span>
+            <Input
+              id="onb-mobile"
+              value={manualFields.mobile}
+              onChange={(e) => setManualFields((p) => ({ ...p, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+              onBlur={() => onFieldBlur("mobile", manualFields.mobile, validateMobile)}
+              placeholder="10-digit mobile"
+              inputMode="numeric"
+              maxLength={10}
+            />
+          </div>
         </Field>
       </div>
 
@@ -546,26 +589,47 @@ export default function Onboarding({
             />
           </Field>
           <Field label="District" htmlFor="onb-perm-district" required>
-            <Input
-              id="onb-perm-district"
-              value={permanentAddr.district || ""}
-              onChange={(e) => setPermanentAddr((p) => ({ ...p, district: e.target.value }))}
-              readOnly={aadhaarLocked}
-            />
+            {aadhaarLocked ? (
+              <Input
+                id="onb-perm-district"
+                value={permanentAddr.district || ""}
+                readOnly
+              />
+            ) : (
+              <Select
+                id="onb-perm-district"
+                value={permanentAddr.district || ""}
+                onChange={(e) => setPermanentAddr((p) => ({ ...p, district: e.target.value }))}
+              >
+                <option value="">Select...</option>
+                {PUNJAB_DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </Select>
+            )}
           </Field>
           <Field label="State" htmlFor="onb-perm-state" required>
-            <Input
-              id="onb-perm-state"
-              value={permanentAddr.state || ""}
-              onChange={(e) => setPermanentAddr((p) => ({ ...p, state: e.target.value }))}
-              readOnly={aadhaarLocked}
-            />
+            {aadhaarLocked ? (
+              <Input
+                id="onb-perm-state"
+                value={permanentAddr.state || ""}
+                readOnly
+              />
+            ) : (
+              <Select
+                id="onb-perm-state"
+                value={permanentAddr.state || "Punjab"}
+                onChange={(e) => setPermanentAddr((p) => ({ ...p, state: e.target.value }))}
+              >
+                <option value="">Select...</option>
+                {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            )}
           </Field>
-          <Field label="Pincode" htmlFor="onb-perm-pin" required>
+          <Field label="Pincode" htmlFor="onb-perm-pin" required error={fieldErrors.perm_pincode ? t(fieldErrors.perm_pincode) : undefined}>
             <Input
               id="onb-perm-pin"
               value={permanentAddr.pincode || ""}
               onChange={(e) => setPermanentAddr((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+              onBlur={() => onFieldBlur("perm_pincode", permanentAddr.pincode || "", validatePincode)}
               readOnly={aadhaarLocked}
               inputMode="numeric"
               maxLength={6}
@@ -609,24 +673,31 @@ export default function Onboarding({
               />
             </Field>
             <Field label="District" htmlFor="onb-comm-district" required>
-              <Input
+              <Select
                 id="onb-comm-district"
                 value={commAddr.district || ""}
                 onChange={(e) => setCommAddr((p) => ({ ...p, district: e.target.value }))}
-              />
+              >
+                <option value="">Select...</option>
+                {PUNJAB_DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </Select>
             </Field>
             <Field label="State" htmlFor="onb-comm-state" required>
-              <Input
+              <Select
                 id="onb-comm-state"
-                value={commAddr.state || ""}
+                value={commAddr.state || "Punjab"}
                 onChange={(e) => setCommAddr((p) => ({ ...p, state: e.target.value }))}
-              />
+              >
+                <option value="">Select...</option>
+                {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </Select>
             </Field>
-            <Field label="Pincode" htmlFor="onb-comm-pin" required>
+            <Field label="Pincode" htmlFor="onb-comm-pin" required error={fieldErrors.comm_pincode ? t(fieldErrors.comm_pincode) : undefined}>
               <Input
                 id="onb-comm-pin"
                 value={commAddr.pincode || ""}
                 onChange={(e) => setCommAddr((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                onBlur={() => onFieldBlur("comm_pincode", commAddr.pincode || "", validatePincode)}
                 inputMode="numeric"
                 maxLength={6}
               />
