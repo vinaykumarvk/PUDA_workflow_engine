@@ -1,9 +1,9 @@
-.page {
-  width: min(100%, 88rem);
-}
-
 .page__header {
   margin-bottom: var(--space-6);
+}
+
+.app-layout__main {
+  padding: var(--space-5);
 }
 
 .panel {
@@ -493,6 +493,48 @@
 
 .error {
   margin: 0;
+}
+
+/* Empty states */
+.empty-state {
+  text-align: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-bg-elevated), transparent 15%);
+  padding: var(--space-6) var(--space-4);
+}
+
+.empty-icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0 auto;
+  border-radius: 0.7rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+  color: var(--color-brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.empty-state h3 {
+  margin-top: var(--space-2);
+  font-size: 1.2rem;
+}
+
+.empty-state p {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
 }
 
 @media (min-width: 48rem) {

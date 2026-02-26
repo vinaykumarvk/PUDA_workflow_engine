@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Alert, Button, Field, Input, PasswordInput } from "@puda/shared";
-import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "./theme";
+import type { ThemePreference } from "./theme";
 
 interface OfficerLoginProps {
   onLogin: (loginId: string, password: string) => Promise<void>;
 }
 
 export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
-  const { theme, resolvedTheme, setTheme } = useTheme("puda_officer_theme");
+  const { theme, setTheme } = useTheme("puda_officer_theme");
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -32,19 +32,21 @@ export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
       <a href="#officer-login-main" className="skip-link">
         Skip to main content
       </a>
-      <header className="page__header">
-        <div className="topbar">
-          <div>
-            <p className="eyebrow">PUDA Officer Workbench</p>
-            <h1>Officer Login</h1>
-          </div>
-          <ThemeToggle
-            theme={theme}
-            resolvedTheme={resolvedTheme}
-            onThemeChange={setTheme}
-            idSuffix="officer-login"
-          />
+      <header className="page__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "var(--space-3)" }}>
+        <div>
+          <p className="eyebrow">PUDA Officer Workbench</p>
+          <h1>Officer Login</h1>
         </div>
+        <select
+          className="login-theme-select"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value as ThemePreference)}
+          aria-label="Theme"
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">System</option>
+        </select>
       </header>
       <main id="officer-login-main" className="panel officer-login-panel" role="main">
         <form onSubmit={handleSubmit} className="officer-login-form">

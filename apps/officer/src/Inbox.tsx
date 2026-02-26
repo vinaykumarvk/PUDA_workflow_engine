@@ -16,7 +16,15 @@ export default function Inbox({ tasks, loading, error, feedback, onTaskClick }: 
     <section className="panel">
       {feedback ? <Alert variant={feedback.variant}>{feedback.text}</Alert> : null}
       {error ? <Alert variant="error">{error}</Alert> : null}
-      {!loading && !error && tasks.length === 0 ? <p>No pending tasks.</p> : null}
+      {!loading && !error && tasks.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <h3>No pending tasks</h3>
+          <p>Your inbox is empty. Tasks will appear here when applications need your review.</p>
+        </div>
+      ) : null}
 
       {loading ? (
         <ul className="task-list officer-skeleton-list" aria-label="Loading tasks">

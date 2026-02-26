@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Alert, Button, SkeletonBlock } from "@puda/shared";
 import { apiBaseUrl } from "./types";
-import ThemeToggle from "./ThemeToggle";
-import { useTheme } from "./theme";
 import "./service-config.css";
 
 // ---- Types ----
@@ -97,8 +95,6 @@ type SubView = "service-list" | "version-list" | "version-detail";
 type DetailTab = "workflow" | "documents" | "fees" | "compare";
 
 export default function ServiceConfigView({ authHeaders, isOffline, onBack }: ServiceConfigViewProps) {
-  const { theme, resolvedTheme, setTheme } = useTheme("puda_officer_theme");
-
   const [subView, setSubView] = useState<SubView>("service-list");
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [versions, setVersions] = useState<VersionSummary[]>([]);
@@ -275,7 +271,13 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
           {[1,2,3,4].map(i => <SkeletonBlock key={i} height="6rem" />)}
         </div>
       ) : services.length === 0 ? (
-        <p className="svc-empty">No services configured.</p>
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <h3>No services configured</h3>
+          <p>Service configurations will appear here once created.</p>
+        </div>
       ) : (
         <div className="svc-grid">
           {services.map(svc => (
@@ -370,7 +372,13 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
           {[1,2].map(i => <SkeletonBlock key={i} height="5rem" />)}
         </div>
       ) : versions.length === 0 ? (
-        <p className="svc-empty">No versions found.</p>
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <h3>No versions found</h3>
+          <p>No versions exist for this service configuration.</p>
+        </div>
       ) : (
         <div className="ver-timeline">
           {versions.map(ver => (
@@ -718,32 +726,12 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
   // ---- Main render ----
 
   return (
-    <div className="page">
-      <a href="#svc-main" className="skip-link">Skip to main content</a>
-      <header className="page__header">
-        <div className="topbar">
-          <div>
-            <p className="eyebrow">PUDA Officer Workbench</p>
-            <h1>Service Configuration</h1>
-          </div>
-          <div className="topbar-actions">
-            <ThemeToggle theme={theme} resolvedTheme={resolvedTheme} onThemeChange={setTheme} idSuffix="svc-config" />
-          </div>
-        </div>
-      </header>
+    <>
+      {error && <Alert variant="error" className="view-feedback">{error}</Alert>}
 
-      <main id="svc-main" role="main">
-        {isOffline && (
-          <Alert variant="warning" className="view-feedback">
-            Offline mode is active. Service config data cannot be loaded.
-          </Alert>
-        )}
-        {error && <Alert variant="error" className="view-feedback">{error}</Alert>}
-
-        {subView === "service-list" && renderServiceList()}
-        {subView === "version-list" && renderVersionList()}
-        {subView === "version-detail" && renderVersionDetail()}
-      </main>
-    </div>
+      {subView === "service-list" && renderServiceList()}
+      {subView === "version-list" && renderVersionList()}
+      {subView === "version-detail" && renderVersionDetail()}
+    </>
   );
 }

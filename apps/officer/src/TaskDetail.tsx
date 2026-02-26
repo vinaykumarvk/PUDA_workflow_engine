@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Alert, Button, Card, Field, Input, Modal, Textarea } from "@puda/shared";
 import { Task, Application, apiBaseUrl } from "./types";
-import ThemeToggle from "./ThemeToggle";
-import { useTheme } from "./theme";
 
 // Field label map for structured data display
 const FIELD_LABELS: Record<string, string> = {
@@ -105,6 +103,7 @@ interface TaskDetailProps {
   fromSearch: boolean;
   onBack: () => void;
   onActionComplete: (feedback?: { variant: "info" | "success" | "warning" | "error"; text: string }) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export default function TaskDetail({
@@ -117,8 +116,9 @@ export default function TaskDetail({
   fromSearch,
   onBack,
   onActionComplete,
+  onDirtyChange,
 }: TaskDetailProps) {
-  const { theme, resolvedTheme, setTheme } = useTheme("puda_officer_theme");
+
   const [feedback, setFeedback] = useState<{ variant: "info" | "success" | "warning" | "error"; text: string } | null>(null);
   const [action, setAction] = useState<"FORWARD" | "QUERY" | "APPROVE" | "REJECT" | null>(null);
   const [remarks, setRemarks] = useState("");
@@ -166,6 +166,17 @@ export default function TaskDetail({
     setVerificationChecklist(nextChecklist);
     setVerificationRemarks("");
   }, [serviceConfig, application?.state_id]);
+
+  // Notify parent when form becomes dirty (action form opened + text changed)
+  useEffect(() => {
+    const dirty = action !== null && (remarks.length > 0 || queryMessage.length > 0);
+    onDirtyChange?.(dirty);
+  }, [action, remarks, queryMessage, onDirtyChange]);
+
+  // Clean up dirty state on unmount
+  useEffect(() => {
+    return () => { onDirtyChange?.(false); };
+  }, [onDirtyChange]);
 
   // Clean up blob URL when preview closes
   useEffect(() => {
@@ -315,29 +326,14 @@ export default function TaskDetail({
   };
 
   return (
-    <div className="page">
-      <a href="#officer-task-main" className="skip-link">
-        Skip to main content
-      </a>
-      <header className="page__header">
-        <div className="topbar">
-          <div>
-            <Button onClick={onBack} className="back-button" variant="ghost">
-              ← Back to {fromSearch ? "Search" : "Inbox"}
-            </Button>
-            <h1>Application Review</h1>
-            <p className="subtitle">ARN: {application.arn}</p>
-          </div>
-          <ThemeToggle
-            theme={theme}
-            resolvedTheme={resolvedTheme}
-            onThemeChange={setTheme}
-            idSuffix="officer-task-detail"
-          />
-        </div>
-      </header>
+    <>
+      <Button onClick={onBack} className="back-button" variant="ghost">
+        &larr; Back to {fromSearch ? "Search" : "Inbox"}
+      </Button>
+      <h1 style={{ marginTop: "var(--space-3)" }}>Application Review</h1>
+      <p className="subtitle">ARN: {application.arn}</p>
 
-      <main id="officer-task-main" className="panel" role="main">
+      <div className="panel" style={{ marginTop: "var(--space-4)" }}>
         {isOffline ? (
           <Alert variant="warning" className="task-feedback">
             Offline mode is active. Changes are disabled.
@@ -648,7 +644,7 @@ export default function TaskDetail({
             )}
           </div>
         )}
-      </main>
+      </div>
 
       <Modal
         open={confirmOpen && (action === "APPROVE" || action === "REJECT")}
@@ -755,6 +751,6 @@ export default function TaskDetail({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

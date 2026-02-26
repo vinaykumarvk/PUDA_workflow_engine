@@ -179,7 +179,13 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
       )}
 
       {!searchLoading && searchTerm && searchResults.length === 0 && (
-        <p>No applications found matching your search criteria.</p>
+        <div className="empty-state">
+          <div className="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <h3>No applications found</h3>
+          <p>No applications matched your search criteria. Try broadening your search.</p>
+        </div>
       )}
     </section>
   );

@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Alert, Button, Card, Field, SkeletonBlock, Textarea } from "@puda/shared";
 import { apiBaseUrl } from "./types";
-import ThemeToggle from "./ThemeToggle";
-import { useTheme } from "./theme";
 
 interface Complaint {
   complaint_id: string;
@@ -90,8 +88,6 @@ export default function ComplaintManagement({
   isOffline,
   onBack,
 }: ComplaintManagementProps) {
-  const { theme, resolvedTheme, setTheme } = useTheme("puda_officer_theme");
-
   const [subView, setSubView] = useState<"list" | "detail">("list");
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [total, setTotal] = useState(0);
@@ -253,25 +249,14 @@ export default function ComplaintManagement({
     const isTerminal = terminalStatuses.includes(selected.status);
 
     return (
-      <div className="page">
-        <a href="#officer-complaint-detail" className="skip-link">Skip to main content</a>
-        <header className="page__header">
-          <div className="topbar">
-            <div>
-              <Button onClick={backToList} variant="ghost" className="back-button">
-                &larr; Back to Complaints
-              </Button>
-              <h1>Complaint Detail</h1>
-              <p className="subtitle">{selected.complaint_number}</p>
-            </div>
-            <ThemeToggle theme={theme} resolvedTheme={resolvedTheme} onThemeChange={setTheme} idSuffix="officer-complaint-detail" />
-          </div>
-        </header>
+      <>
+        <Button onClick={backToList} variant="ghost" className="back-button">
+          &larr; Back to Complaints
+        </Button>
+        <h1 style={{ marginTop: "var(--space-3)" }}>Complaint Detail</h1>
+        <p className="subtitle">{selected.complaint_number}</p>
 
-        <main id="officer-complaint-detail" className="panel" role="main">
-          {isOffline && (
-            <Alert variant="warning" className="task-feedback">Offline mode is active. Changes are disabled.</Alert>
-          )}
+        <div className="panel" style={{ marginTop: "var(--space-4)" }}>
           {feedback && <Alert variant={feedback.variant} className="task-feedback">{feedback.text}</Alert>}
 
           {/* Complaint Info */}
@@ -444,32 +429,16 @@ export default function ComplaintManagement({
               </div>
             </div>
           )}
-        </main>
-      </div>
+        </div>
+      </>
     );
   }
 
   // --- List View ---
   return (
-    <div className="page">
-      <a href="#officer-complaints-main" className="skip-link">Skip to main content</a>
-      <header className="page__header">
-        <div className="topbar">
-          <div>
-            <Button onClick={onBack} variant="ghost" className="back-button">
-              &larr; Back to Inbox
-            </Button>
-            <h1>Complaint Management</h1>
-            <p className="subtitle">Review and manage citizen complaints ({total} total)</p>
-          </div>
-          <ThemeToggle theme={theme} resolvedTheme={resolvedTheme} onThemeChange={setTheme} idSuffix="officer-complaints" />
-        </div>
-      </header>
-
-      <main id="officer-complaints-main" role="main">
-        {isOffline && (
-          <Alert variant="warning" className="view-feedback">Offline mode is active. Data-changing actions are disabled.</Alert>
-        )}
+    <>
+      <h1>Complaint Management</h1>
+      <p className="subtitle">Review and manage citizen complaints ({total} total)</p>
 
         {/* Filters */}
         <div className="complaint-filters">
@@ -504,9 +473,13 @@ export default function ComplaintManagement({
             <SkeletonBlock height="4rem" />
           </div>
         ) : complaints.length === 0 ? (
-          <Alert variant="info" className="view-feedback">
-            No complaints found{filterStatus || filterViolation ? " matching the selected filters" : ""}.
-          </Alert>
+          <div className="empty-state">
+            <div className="empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h3>No complaints found</h3>
+            <p>{filterStatus || filterViolation ? "No complaints matching the selected filters." : "No complaints have been submitted yet."}</p>
+          </div>
         ) : (
           <ul className="task-list">
             {complaints.map((c) => (
@@ -530,7 +503,6 @@ export default function ComplaintManagement({
             ))}
           </ul>
         )}
-      </main>
-    </div>
+    </>
   );
 }

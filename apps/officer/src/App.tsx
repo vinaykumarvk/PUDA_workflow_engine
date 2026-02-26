@@ -1,28 +1,42 @@
 /**
- * Officer Portal — Main App (thin router).
- * Decomposed into: OfficerLogin, Inbox, TaskDetail, SearchPanel.
+ * Officer Portal — Main App (app shell with sidebar, bottom nav, avatar menu).
  */
-import { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import "./app.css";
-import { Alert, Button, useToast, SkeletonBlock } from "@puda/shared";
+import { Alert, Button, Drawer, useToast, SkeletonBlock } from "@puda/shared";
 import { Task, Application, apiBaseUrl } from "./types";
 import { useOfficerAuth } from "./useOfficerAuth";
 import OfficerLogin from "./OfficerLogin";
-import ThemeToggle from "./ThemeToggle";
+import { useTheme } from "./theme";
+import { usePreferences } from "./preferences";
+import { SecondaryLanguageProvider } from "./SecondaryLanguageContext";
+import { readCached, writeCached, clearOfficerCachedState } from "./cache";
 
 const Inbox = lazy(() => import("./Inbox"));
 const TaskDetail = lazy(() => import("./TaskDetail"));
 const SearchPanel = lazy(() => import("./SearchPanel"));
 const ComplaintManagement = lazy(() => import("./ComplaintManagement"));
 const ServiceConfigView = lazy(() => import("./ServiceConfigView"));
-import { useTheme } from "./theme";
+const Settings = lazy(() => import("./Settings"));
 
-type View = "inbox" | "task" | "search" | "complaints" | "service-config";
+type View = "inbox" | "task" | "search" | "complaints" | "service-config" | "settings";
+
+const PAGE_TITLES: Record<View, string> = {
+  inbox: "My Inbox",
+  search: "Search Applications",
+  task: "Application Review",
+  complaints: "Complaint Management",
+  "service-config": "Service Configuration",
+  settings: "Settings",
+};
 
 export default function App() {
   const { auth, login, logout, authHeaders, postings, roles, authorities } = useOfficerAuth();
-  const { theme, resolvedTheme, setTheme } = useTheme("puda_officer_theme");
+  const { theme, setTheme } = useTheme("puda_officer_theme");
   const { showToast } = useToast();
+
+  const officerUserId = auth?.user.user_id || "";
+  const { preferences, updatePreference } = usePreferences(apiBaseUrl, authHeaders, officerUserId || undefined);
 
   const [view, setView] = useState<View>("inbox");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -37,16 +51,99 @@ export default function App() {
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
 
-  const officerUserId = auth?.user.user_id || "";
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarMenuRef = useRef<HTMLDivElement>(null);
+  const avatarBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Navigation history stack
+  type ViewSnapshot = { view: View; fromSearch: boolean };
+  const navStackRef = useRef<ViewSnapshot[]>([]);
+  const [formDirty, setFormDirty] = useState(false);
+
+  // Inbox cache
+  const INBOX_CACHE_KEY = "puda_officer_cache_inbox";
+  const INBOX_CACHE_SCHEMA = "officer_inbox_v1";
+  const CACHE_5_MIN = 5 * 60 * 1000;
+
+  const handleLogout = useCallback(() => {
+    clearOfficerCachedState();
+    logout();
+  }, [logout]);
+
+  // Sync theme preference → useTheme
+  useEffect(() => {
+    if (preferences.theme !== theme) {
+      setTheme(preferences.theme as any);
+    }
+  }, [preferences.theme]);
+
+  // Sync contrastMode → data-contrast
+  useEffect(() => {
+    if (preferences.contrastMode === "high") {
+      document.documentElement.dataset.contrast = "high";
+    } else {
+      delete document.documentElement.dataset.contrast;
+    }
+  }, [preferences.contrastMode]);
+
+  // Sync reduceAnimations → data-reduce-motion
+  useEffect(() => {
+    if (preferences.reduceAnimations) {
+      document.documentElement.dataset.reduceMotion = "true";
+    } else {
+      delete document.documentElement.dataset.reduceMotion;
+    }
+  }, [preferences.reduceAnimations]);
+
+  // Avatar menu click-outside + Escape
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const handleDown = (e: MouseEvent) => {
+      if (
+        avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node) &&
+        avatarBtnRef.current && !avatarBtnRef.current.contains(e.target as Node)
+      ) {
+        setAvatarMenuOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAvatarMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleDown);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleDown);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [avatarMenuOpen]);
+
+  const confirmNavigation = useCallback((): boolean => {
+    if (!formDirty) return true;
+    return window.confirm("You have unsaved changes. Are you sure you want to leave?");
+  }, [formDirty]);
 
   const loadInbox = useCallback(async () => {
     if (!officerUserId) return;
     if (isOffline) {
+      const cached = readCached<Task[]>(INBOX_CACHE_KEY, { schema: INBOX_CACHE_SCHEMA });
+      if (cached) {
+        setTasks(cached.data);
+        setLoading(false);
+        return;
+      }
       setError("Offline mode is active. Inbox data is unavailable until connection is restored.");
       setLoading(false);
       return;
     }
-    setLoading(true);
+    // Show cached data immediately if available
+    const cached = readCached<Task[]>(INBOX_CACHE_KEY, { schema: INBOX_CACHE_SCHEMA, maxAgeMs: CACHE_5_MIN });
+    if (cached) {
+      setTasks(cached.data);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const authorityParam = authorities.length > 0 ? `&authorityId=${authorities[0]}` : "";
@@ -56,9 +153,13 @@ export default function App() {
       );
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
-      setTasks(data.tasks || []);
+      const freshTasks = data.tasks || [];
+      setTasks(freshTasks);
+      writeCached(INBOX_CACHE_KEY, freshTasks, { schema: INBOX_CACHE_SCHEMA });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      }
     } finally {
       setLoading(false);
     }
@@ -89,10 +190,10 @@ export default function App() {
       return;
     }
     setInboxFeedback(null);
+    navStackRef.current.push({ view, fromSearch });
     setFromSearch(false);
     setSelectedTask(task);
     await loadApplication(task.arn);
-    // Auto-assign task to current officer
     if (task.task_id) {
       await fetch(`${apiBaseUrl}/api/v1/tasks/${task.task_id}/assign`, {
         method: "POST",
@@ -108,6 +209,7 @@ export default function App() {
       setInboxFeedback({ variant: "warning", text: "Offline mode is active. Search results are read-only." });
       return;
     }
+    navStackRef.current.push({ view, fromSearch });
     setFromSearch(true);
     await loadApplication(app.arn);
     setSelectedTask({
@@ -138,11 +240,19 @@ export default function App() {
   }, [inboxFeedback]);
 
   const handleBack = () => {
+    if (!confirmNavigation()) return;
+    setFormDirty(false);
+    const prev = navStackRef.current.pop();
+    if (prev) {
+      setView(prev.view);
+      setFromSearch(prev.fromSearch);
+    } else {
+      setView("inbox");
+      setFromSearch(false);
+    }
     setSelectedTask(null);
     setApplication(null);
     setServiceConfig(null);
-    setView(fromSearch ? "search" : "inbox");
-    setFromSearch(false);
   };
 
   useEffect(() => {
@@ -162,127 +272,324 @@ export default function App() {
     };
   }, []);
 
+  // Navigate via sidebar/bottom nav
+  const navigate = (target: View) => {
+    if (!confirmNavigation()) return;
+    navStackRef.current.push({ view, fromSearch });
+    setFormDirty(false);
+    setSelectedTask(null);
+    setApplication(null);
+    setServiceConfig(null);
+    setFromSearch(false);
+    setView(target);
+    setDrawerOpen(false);
+  };
+
   // --- Login gate ---
   if (!auth) {
     return <OfficerLogin onLogin={login} />;
   }
 
-  // --- Service Config ---
-  if (view === "service-config") {
-    return (
-      <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
-        <ServiceConfigView
-          authHeaders={authHeaders}
-          isOffline={isOffline}
-          onBack={() => setView("inbox")}
-        />
-      </Suspense>
-    );
-  }
+  const userName = auth.user.name || officerUserId;
+  const initial = userName.charAt(0).toUpperCase();
+  const sidebarCollapsed = preferences.sidebarCollapsed;
+  const pageTitle = PAGE_TITLES[view] || "";
 
-  // --- Complaint Management ---
-  if (view === "complaints") {
-    return (
-      <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
-        <ComplaintManagement
-          authHeaders={authHeaders}
-          isOffline={isOffline}
-          onBack={() => setView("inbox")}
-        />
-      </Suspense>
-    );
-  }
+  // Shared nav items rendered in sidebar + drawer
+  const renderNavContent = (context: "sidebar" | "drawer") => (
+    <>
+      {context === "drawer" && (
+        <div className="sidebar__header">
+          <p className="sidebar__portal-name">PUDA Officer</p>
+          <p className="sidebar__user-name">{userName}</p>
+        </div>
+      )}
+      <ul className="sidebar__nav">
+        <li>
+          <button
+            className={`sidebar__item ${view === "inbox" ? "sidebar__item--active" : ""}`}
+            onClick={() => navigate("inbox")}
+            title="My Inbox"
+          >
+            <span className="sidebar__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </span>
+            <span>My Inbox</span>
+          </button>
+        </li>
+        <li>
+          <button
+            className={`sidebar__item ${view === "search" ? "sidebar__item--active" : ""}`}
+            onClick={() => navigate("search")}
+            title="Search"
+          >
+            <span className="sidebar__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <span>Search</span>
+          </button>
+        </li>
+        <li>
+          <button
+            className={`sidebar__item ${view === "complaints" ? "sidebar__item--active" : ""}`}
+            onClick={() => navigate("complaints")}
+            title="Complaints"
+          >
+            <span className="sidebar__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <span>Complaints</span>
+          </button>
+        </li>
+        <li>
+          <button
+            className={`sidebar__item ${view === "service-config" ? "sidebar__item--active" : ""}`}
+            onClick={() => navigate("service-config")}
+            title="Service Config"
+          >
+            <span className="sidebar__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </span>
+            <span>Service Config</span>
+          </button>
+        </li>
+        <li className="sidebar__divider" role="separator" />
+        <li>
+          <button
+            className={`sidebar__item ${view === "settings" ? "sidebar__item--active" : ""}`}
+            onClick={() => navigate("settings")}
+            title="Settings"
+          >
+            <span className="sidebar__item-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+            </span>
+            <span>Settings</span>
+          </button>
+        </li>
+      </ul>
+      <div className="sidebar__footer">
+        <button className="sidebar__item" onClick={handleLogout} title="Logout">
+          <span className="sidebar__item-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </span>
+          <span>Logout</span>
+        </button>
+      </div>
+    </>
+  );
 
-  // --- Task detail ---
-  if (view === "task" && selectedTask && application) {
-    return (
-      <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
-      <TaskDetail
-        task={selectedTask}
-        application={application}
-        serviceConfig={serviceConfig}
-        officerUserId={officerUserId}
-        authHeaders={authHeaders}
-        isOffline={isOffline}
-        fromSearch={fromSearch}
-        onBack={handleBack}
-        onActionComplete={handleActionComplete}
-      />
-      </Suspense>
-    );
-  }
+  const suspenseFallback = (
+    <div className="panel" style={{ display: "grid", gap: "var(--space-3)" }}>
+      <SkeletonBlock height="2rem" width="50%" />
+      <SkeletonBlock height="4rem" />
+      <SkeletonBlock height="4rem" />
+    </div>
+  );
 
-  // --- Inbox / Search header ---
   return (
-    <div className="page">
+    <SecondaryLanguageProvider lang={preferences.language}>
       <a href="#officer-main" className="skip-link">
         Skip to main content
       </a>
-      <header className="page__header">
-        <div className="topbar">
-          <div>
-            <p className="eyebrow">PUDA Officer Workbench</p>
-            <h1>{view === "search" ? "Search Applications" : "My Inbox"}</h1>
-            <p className="subtitle">
-              {view === "search"
-                ? "Search by ARN, applicant name, UPN, plot, or scheme"
-                : `${postings.map((p) => p.designation_name).join(", ") || "Loading..."} | Roles: ${roles.join(", ") || "—"}`}
-            </p>
+
+      {/* App Bar */}
+      <header className="app-bar">
+        <div className="app-bar__inner">
+          <button
+            className="app-bar__hamburger app-bar__hamburger--desktop-only"
+            onClick={() => updatePreference("sidebarCollapsed", !sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            type="button"
+          >
+            &#9776;
+          </button>
+          <div className="app-bar__brand">
+            <div className="app-bar__brand-text">
+              <span className="app-bar__brand-name">PUDA Officer Workbench</span>
+              <span className="app-bar__page-title">{pageTitle}</span>
+            </div>
           </div>
-          <div className="topbar-actions">
-            <ThemeToggle
-              theme={theme}
-              resolvedTheme={resolvedTheme}
-              onThemeChange={setTheme}
-              idSuffix="officer-home"
-            />
-            <span className="user-chip" title={auth.user.name}>{auth.user.name}</span>
-            <Button onClick={logout} className="ui-btn-ghost" type="button" variant="ghost">
-              Logout
-            </Button>
-            <Button
-              onClick={() => setView(view === "search" ? "inbox" : "search")}
-              className="search-toggle-btn"
+          <div className="app-bar__avatar-wrap" style={{ position: "relative" }}>
+            <button
+              ref={avatarBtnRef}
+              className="app-bar__avatar"
+              onClick={() => setAvatarMenuOpen((o) => !o)}
+              aria-label="Account menu"
+              aria-expanded={avatarMenuOpen}
               type="button"
             >
-              {view === "search" ? "\u2190 Back to Inbox" : "Search"}
-            </Button>
-            <Button
-              onClick={() => setView("complaints")}
-              className="search-toggle-btn"
-              type="button"
-            >
-              Complaints
-            </Button>
-            <Button
-              onClick={() => setView("service-config")}
-              className="search-toggle-btn"
-              type="button"
-            >
-              Service Config
-            </Button>
+              {initial}
+            </button>
+            {avatarMenuOpen && (
+              <div className="avatar-menu" ref={avatarMenuRef} role="menu">
+                <div className="avatar-menu__header">
+                  <span className="avatar-menu__initial">{initial}</span>
+                  <span className="avatar-menu__name">{userName}</span>
+                </div>
+                <div className="avatar-menu__divider" />
+                <button
+                  className="avatar-menu__item"
+                  onClick={() => { setAvatarMenuOpen(false); navigate("settings"); }}
+                  role="menuitem"
+                  type="button"
+                >
+                  Settings
+                </button>
+                <div className="avatar-menu__divider" />
+                <button
+                  className="avatar-menu__item avatar-menu__item--danger"
+                  onClick={() => { setAvatarMenuOpen(false); handleLogout(); }}
+                  role="menuitem"
+                  type="button"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      <main id="officer-main" role="main">
-        {isOffline ? (
-          <Alert variant="warning" className="view-feedback">
-            Offline mode is active. Data-changing actions are disabled.
-          </Alert>
-        ) : null}
-        <Suspense fallback={<div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div>}>
-          {view === "search" ? (
-            <SearchPanel
-              authHeaders={authHeaders}
-              onSelectApplication={handleSearchSelect}
-              isOffline={isOffline}
-            />
-          ) : (
-            <Inbox tasks={tasks} loading={loading} error={error} feedback={inboxFeedback} onTaskClick={handleTaskClick} />
+      {/* Desktop Sidebar */}
+      <aside className={`sidebar ${sidebarCollapsed ? "sidebar--collapsed" : ""}`}>
+        {renderNavContent("sidebar")}
+      </aside>
+
+      {/* Mobile Drawer */}
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        {renderNavContent("drawer")}
+      </Drawer>
+
+      {/* Bottom Navigation (mobile) */}
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <button
+          className={`bottom-nav__tab ${view === "inbox" ? "bottom-nav__tab--active" : ""}`}
+          onClick={() => navigate("inbox")}
+          type="button"
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </span>
+          <span className="bottom-nav__label">Inbox</span>
+        </button>
+        <button
+          className={`bottom-nav__tab ${view === "search" ? "bottom-nav__tab--active" : ""}`}
+          onClick={() => navigate("search")}
+          type="button"
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <span className="bottom-nav__label">Search</span>
+        </button>
+        <button
+          className={`bottom-nav__tab ${view === "complaints" ? "bottom-nav__tab--active" : ""}`}
+          onClick={() => navigate("complaints")}
+          type="button"
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </span>
+          <span className="bottom-nav__label">Complaints</span>
+        </button>
+        <button
+          className={`bottom-nav__tab ${view === "service-config" ? "bottom-nav__tab--active" : ""}`}
+          onClick={() => navigate("service-config")}
+          type="button"
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </span>
+          <span className="bottom-nav__label">Config</span>
+        </button>
+        <button
+          className="bottom-nav__tab"
+          onClick={() => setDrawerOpen(true)}
+          type="button"
+          aria-label="More navigation options"
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </span>
+          <span className="bottom-nav__label">More</span>
+        </button>
+      </nav>
+
+      {/* Main Content */}
+      <div className={`app-layout ${sidebarCollapsed ? "app-layout--sidebar-collapsed" : ""}`}>
+        <div className="app-layout__main">
+          {isOffline && (
+            <Alert variant="warning" className="view-feedback">
+              Offline mode is active. Data-changing actions are disabled.
+            </Alert>
           )}
-        </Suspense>
-      </main>
-    </div>
+
+          <main id="officer-main" role="main">
+            <Suspense fallback={suspenseFallback}>
+              {view === "inbox" && (
+                <>
+                  <div className="page__header">
+                    <h1>My Inbox</h1>
+                    <p className="subtitle">
+                      {postings.map((p) => p.designation_name).join(", ") || "Loading..."} | Roles: {roles.join(", ") || "\u2014"}
+                    </p>
+                  </div>
+                  {inboxFeedback && (
+                    <Alert variant={inboxFeedback.variant} className="view-feedback">{inboxFeedback.text}</Alert>
+                  )}
+                  <Inbox tasks={tasks} loading={loading} error={error} feedback={inboxFeedback} onTaskClick={handleTaskClick} />
+                </>
+              )}
+
+              {view === "search" && (
+                <SearchPanel
+                  authHeaders={authHeaders}
+                  onSelectApplication={handleSearchSelect}
+                  isOffline={isOffline}
+                />
+              )}
+
+              {view === "task" && selectedTask && application && (
+                <TaskDetail
+                  task={selectedTask}
+                  application={application}
+                  serviceConfig={serviceConfig}
+                  officerUserId={officerUserId}
+                  authHeaders={authHeaders}
+                  isOffline={isOffline}
+                  fromSearch={fromSearch}
+                  onBack={handleBack}
+                  onActionComplete={handleActionComplete}
+                  onDirtyChange={setFormDirty}
+                />
+              )}
+
+              {view === "complaints" && (
+                <ComplaintManagement
+                  authHeaders={authHeaders}
+                  isOffline={isOffline}
+                  onBack={() => navigate("inbox")}
+                />
+              )}
+
+              {view === "service-config" && (
+                <ServiceConfigView
+                  authHeaders={authHeaders}
+                  isOffline={isOffline}
+                  onBack={() => navigate("inbox")}
+                />
+              )}
+
+              {view === "settings" && (
+                <Settings
+                  preferences={preferences}
+                  onUpdatePreference={updatePreference}
+                />
+              )}
+            </Suspense>
+          </main>
+        </div>
+      </div>
+    </SecondaryLanguageProvider>
   );
 }

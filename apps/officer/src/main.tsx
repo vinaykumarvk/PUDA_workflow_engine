@@ -4,6 +4,7 @@ import { initErrorReporting } from "@puda/shared/error-reporting";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ToastProvider } from "@puda/shared";
 import App from "./App";
+import "./i18n";
 import "./design-system.css";
 
 initErrorReporting({
