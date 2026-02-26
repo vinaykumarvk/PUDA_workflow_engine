@@ -13,6 +13,7 @@ import { cleanupExpiredMfaChallenges } from "../mfa-stepup";
 import { verifyAuditChainIntegrity } from "../audit-chain";
 import { updateWorkflowBacklogMetric } from "../observability/metrics";
 import { query as dbQuery } from "../db";
+import { anonymizeExpiredApplications, purgeOrphanDocuments } from "../pii-retention";
 
 function verifyInternalSecret(request: FastifyRequest, reply: FastifyReply): boolean {
   const expected = process.env.INTERNAL_JOB_SECRET;
@@ -81,5 +82,13 @@ export function registerInternalJobRoutes(app: FastifyInstance): void {
     if (!verifyInternalSecret(request, reply)) return;
     const result = await verifyAuditChainIntegrity();
     return { ok: result.ok, checked: result.checked, mismatch: result.mismatch };
+  });
+
+  // ARC-032-033: PII retention — anonymize + purge
+  app.post("/internal/jobs/pii-retention", async (request, reply) => {
+    if (!verifyInternalSecret(request, reply)) return;
+    const anonymized = await anonymizeExpiredApplications();
+    const purged = await purgeOrphanDocuments();
+    return { ok: true, ...anonymized, ...purged };
   });
 }

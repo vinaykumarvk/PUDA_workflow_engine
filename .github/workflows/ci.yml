@@ -225,6 +225,47 @@ jobs:
       - name: Build (workspace typecheck gate)
         run: npm run build:all
 
+  validate-migrations:
+    needs: [build-and-typecheck]
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ci-test-secret
+      DATABASE_URL: postgres://puda:puda@localhost:5432/puda
+      ALLOWED_ORIGINS: http://localhost:5173
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: puda
+          POSTGRES_USER: puda
+          POSTGRES_PASSWORD: puda
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U puda -d puda"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations (first pass)
+        run: npm --workspace apps/api run migrate
+
+      - name: Run migrations (idempotency check)
+        run: npm --workspace apps/api run migrate
+
   frontend-performance-budget:
     needs: [build-and-typecheck]
     runs-on: ubuntu-latest
