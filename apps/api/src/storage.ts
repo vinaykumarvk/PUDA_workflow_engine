@@ -2,7 +2,7 @@
  * C9: Pluggable document storage abstraction.
  * Default: local filesystem. S3 adapter can be plugged in via configuration.
  */
-import { promises as fs } from "fs";
+import { promises as fs, createReadStream } from "fs";
 import { createWriteStream } from "fs";
 import path from "path";
 import { PassThrough, Readable, Transform } from "stream";
@@ -16,6 +16,8 @@ export interface StorageAdapter {
   /** Stream data to storage with size enforcement. Returns bytes written. */
   writeStream(key: string, stream: Readable, maxBytes?: number): Promise<number>;
   read(key: string): Promise<Buffer | null>;
+  /** PERF-011: Stream read for downloads — avoids buffering entire file in memory. */
+  readStream(key: string): Promise<Readable | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -117,6 +119,22 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
   }
 
+  async readStream(key: string): Promise<Readable | null> {
+    let fullPath: string;
+    try {
+      fullPath = this.resolveSafePath(key);
+    } catch {
+      return null;
+    }
+    try {
+      await this.assertNoSymlinkInPath(fullPath);
+      await fs.access(fullPath);
+      return createReadStream(fullPath);
+    } catch {
+      return null;
+    }
+  }
+
   async delete(key: string): Promise<void> {
     let fullPath: string;
     try {
@@ -193,6 +211,24 @@ export class S3StorageAdapter implements StorageAdapter {
       }));
       if (!res.Body) return null;
       return Buffer.from(await res.Body.transformToByteArray());
+    } catch (err: any) {
+      if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  async readStream(key: string): Promise<Readable | null> {
+    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+    try {
+      const res = await this.client.send(new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }));
+      if (!res.Body) return null;
+      // S3 SDK v3 Body is a Readable-compatible stream
+      return res.Body as unknown as Readable;
     } catch (err: any) {
       if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
         return null;

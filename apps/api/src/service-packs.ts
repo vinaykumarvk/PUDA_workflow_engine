@@ -8,6 +8,17 @@ type ServiceSummary = ServiceMetadata;
 const servicePackRoot = path.resolve(__dirname, "..", "..", "..", "service-packs");
 const IGNORED_SERVICE_PACK_DIRECTORIES = new Set(["_shared"]);
 
+// PERF-010: In-memory cache for service pack responses (static files, rarely change)
+const SERVICE_PACK_CACHE_TTL_MS = 60_000; // 1 minute
+let packsCache: { data: ServiceSummary[]; expiresAt: number } | null = null;
+const configCache = new Map<string, { data: any; expiresAt: number }>();
+
+/** Clear all service pack caches (useful for tests or hot-reload). */
+export function clearServicePackCache(): void {
+  packsCache = null;
+  configCache.clear();
+}
+
 export class ServicePackNotFoundError extends Error {
   constructor(serviceKey: string) {
     super(`Service pack not found: ${serviceKey}`);
@@ -91,6 +102,11 @@ export async function validateAllServicePackForms(): Promise<void> {
 }
 
 export async function loadServicePacks(): Promise<ServiceSummary[]> {
+  const now = Date.now();
+  if (packsCache && now < packsCache.expiresAt) {
+    return packsCache.data;
+  }
+
   const entries = await fs.readdir(servicePackRoot, { withFileTypes: true });
   const packs = entries
     .filter((entry) => entry.isDirectory() && !IGNORED_SERVICE_PACK_DIRECTORIES.has(entry.name))
@@ -112,10 +128,18 @@ export async function loadServicePacks(): Promise<ServiceSummary[]> {
     results.push(parsed);
   }
 
-  return results.sort((a, b) => a.serviceKey.localeCompare(b.serviceKey));
+  const sorted = results.sort((a, b) => a.serviceKey.localeCompare(b.serviceKey));
+  packsCache = { data: sorted, expiresAt: now + SERVICE_PACK_CACHE_TTL_MS };
+  return sorted;
 }
 
 export async function loadServiceConfig(serviceKey: string): Promise<any> {
+  const now = Date.now();
+  const cached = configCache.get(serviceKey);
+  if (cached && now < cached.expiresAt) {
+    return cached.data;
+  }
+
   const serviceDir = path.join(servicePackRoot, serviceKey);
   const serviceYamlPath = path.join(serviceDir, "service.yaml");
   let serviceRaw: string;
@@ -158,11 +182,13 @@ export async function loadServiceConfig(serviceKey: string): Promise<any> {
     }
   }
 
-  return {
+  const result = {
     ...service,
     form,
     workflow,
     documents,
     feeSchedule,
   };
+  configCache.set(serviceKey, { data: result, expiresAt: now + SERVICE_PACK_CACHE_TTL_MS });
+  return result;
 }

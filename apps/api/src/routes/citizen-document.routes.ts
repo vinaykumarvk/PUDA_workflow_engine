@@ -203,11 +203,12 @@ export async function registerCitizenDocumentRoutes(app: FastifyInstance) {
         return send403(reply, "DOCUMENT_NOT_DOWNLOADABLE", "This document cannot be downloaded because it is " + doc.computed_status.toLowerCase());
       }
 
-      const fileBuffer = await documents.getCitizenDocumentFile(params.citizenDocId);
-      if (!fileBuffer) return send404(reply, "FILE_NOT_FOUND");
+      // PERF-011: Stream file to response instead of buffering
+      const fileStream = await documents.getCitizenDocumentFileStream(params.citizenDocId);
+      if (!fileStream) return send404(reply, "FILE_NOT_FOUND");
 
       reply.type(doc.mime_type || "application/octet-stream");
-      return fileBuffer;
+      return reply.send(fileStream);
     }
   );
 

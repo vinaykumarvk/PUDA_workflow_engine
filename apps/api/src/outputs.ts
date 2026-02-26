@@ -453,6 +453,19 @@ export async function getOutputFile(outputId: string): Promise<{ buffer: Buffer;
   return { buffer, mimeType: "application/pdf" };
 }
 
+/** PERF-011: Stream version of getOutputFile for downloads. */
+export async function getOutputFileStream(outputId: string): Promise<{ stream: import("stream").Readable; mimeType: string } | null> {
+  const result = await query(
+    "SELECT storage_key FROM output WHERE output_id = $1",
+    [outputId]
+  );
+  if (result.rows.length === 0) return null;
+  const storage = getStorage();
+  const stream = await storage.readStream(result.rows[0].storage_key);
+  if (!stream) return null;
+  return { stream, mimeType: "application/pdf" };
+}
+
 export async function getOutputFileByArn(arn: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
   const out = await getOutputByArn(arn);
   if (!out) return null;

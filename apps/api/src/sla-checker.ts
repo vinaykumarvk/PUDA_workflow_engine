@@ -41,59 +41,77 @@ export async function detectSLABreaches(): Promise<SLABreachResult> {
     );
 
     result.breachedTasks = breachedTasksResult.rows.length;
+    if (result.breachedTasks === 0) return result;
 
-    for (const task of breachedTasksResult.rows) {
-      const client = await getClient();
-      try {
-        await client.query("BEGIN");
+    // PERF-017: Set-based processing — single transaction for all breached tasks
+    const client = await getClient();
+    try {
+      await client.query("BEGIN");
 
-        // Create audit event for the breach
-        await client.query(
-          `INSERT INTO audit_event (event_id, arn, event_type, actor_type, payload_jsonb)
-           VALUES ($1, $2, 'SLA_BREACHED', 'SYSTEM', $3)`,
-          [
-            uuidv4(),
-            task.arn,
-            JSON.stringify({
-              taskId: task.task_id,
-              stateId: task.state_id,
-              systemRoleId: task.system_role_id,
-              slaDueAt: task.sla_due_at,
-              breachedAt: new Date().toISOString(),
-            }),
-          ]
-        );
+      // Prepare arrays for batch operations
+      const auditIds: string[] = [];
+      const auditArns: string[] = [];
+      const auditPayloads: string[] = [];
+      const notifIds: string[] = [];
+      const notifUserIds: string[] = [];
+      const notifArns: string[] = [];
+      const notifMessages: string[] = [];
+      const taskIds: string[] = [];
+      const breachedAt = new Date().toISOString();
 
-        // Create notification for the applicant
+      for (const task of breachedTasksResult.rows) {
+        auditIds.push(uuidv4());
+        auditArns.push(task.arn);
+        auditPayloads.push(JSON.stringify({
+          taskId: task.task_id,
+          stateId: task.state_id,
+          systemRoleId: task.system_role_id,
+          slaDueAt: task.sla_due_at,
+          breachedAt,
+        }));
+        taskIds.push(task.task_id);
+
         if (task.applicant_user_id) {
-          const message = `Your application ${task.public_arn || task.arn} has exceeded the expected processing time at ${task.state_id}. The authority has been notified.`;
-          await client.query(
-            `INSERT INTO notification (notification_id, user_id, arn, event_type, title, message, read, created_at)
-             VALUES ($1, $2, $3, 'SLA_BREACHED', $4, $5, false, NOW())`,
-            [
-              uuidv4(),
-              task.applicant_user_id,
-              task.arn,
-              "Application SLA Breach",
-              message,
-            ]
+          notifIds.push(uuidv4());
+          notifUserIds.push(task.applicant_user_id);
+          notifArns.push(task.arn);
+          notifMessages.push(
+            `Your application ${task.public_arn || task.arn} has exceeded the expected processing time at ${task.state_id}. The authority has been notified.`
           );
-          result.notificationsCreated++;
         }
-
-        // Also flag the task itself
-        await client.query(
-          `UPDATE task SET remarks = COALESCE(remarks || '; ', '') || 'SLA_BREACHED at ' || NOW()::text
-           WHERE task_id = $1`,
-          [task.task_id]
-        );
-        await client.query("COMMIT");
-      } catch (err: any) {
-        await client.query("ROLLBACK").catch(() => {});
-        result.errors.push(`Task ${task.task_id}: ${err.message}`);
-      } finally {
-        client.release();
       }
+
+      // Bulk insert audit events
+      await client.query(
+        `INSERT INTO audit_event (event_id, arn, event_type, actor_type, payload_jsonb)
+         SELECT unnest($1::text[]), unnest($2::text[]), 'SLA_BREACHED', 'SYSTEM', unnest($3::jsonb[])`,
+        [auditIds, auditArns, auditPayloads]
+      );
+
+      // Bulk insert notifications
+      if (notifIds.length > 0) {
+        await client.query(
+          `INSERT INTO notification (notification_id, user_id, arn, event_type, title, message, read, created_at)
+           SELECT unnest($1::text[]), unnest($2::text[]), unnest($3::text[]),
+                  'SLA_BREACHED', 'Application SLA Breach', unnest($4::text[]), false, NOW()`,
+          [notifIds, notifUserIds, notifArns, notifMessages]
+        );
+        result.notificationsCreated = notifIds.length;
+      }
+
+      // Bulk update task remarks
+      await client.query(
+        `UPDATE task SET remarks = COALESCE(remarks || '; ', '') || 'SLA_BREACHED at ' || NOW()::text
+         WHERE task_id = ANY($1::text[])`,
+        [taskIds]
+      );
+
+      await client.query("COMMIT");
+    } catch (err: any) {
+      await client.query("ROLLBACK").catch(() => {});
+      result.errors.push(`Set-based SLA processing failed: ${err.message}`);
+    } finally {
+      client.release();
     }
   } catch (err: any) {
     result.errors.push(`SLA check failed: ${err.message}`);

@@ -170,6 +170,13 @@ export async function getDocumentFile(docId: string): Promise<Buffer | null> {
   return getStorage().read(doc.storage_key);
 }
 
+/** PERF-011: Stream version of getDocumentFile for downloads. */
+export async function getDocumentFileStream(docId: string): Promise<import("stream").Readable | null> {
+  const doc = await getDocument(docId);
+  if (!doc || !doc.storage_key) return null;
+  return getStorage().readStream(doc.storage_key);
+}
+
 // --- Citizen Document Locker functions ---
 
 export interface CitizenDocument {
@@ -451,24 +458,23 @@ export async function batchUpdateDocumentVerifications(
   updates: Array<{ appDocId: string; status: string; remarks?: string }>,
   verifiedByUserId: string
 ): Promise<void> {
-  const client = await getClient();
-  try {
-    await client.query("BEGIN");
-    for (const update of updates) {
-      await client.query(
-        `UPDATE application_document
-         SET verification_status = $1, verified_by_user_id = $2, verified_at = NOW(), verification_remarks = $3
-         WHERE app_doc_id = $4`,
-        [update.status, verifiedByUserId, update.remarks || null, update.appDocId]
-      );
-    }
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  if (updates.length === 0) return;
+
+  // PERF-018: Single UNNEST-based bulk update instead of per-row loop
+  const appDocIds = updates.map((u) => u.appDocId);
+  const statuses = updates.map((u) => u.status);
+  const remarksList = updates.map((u) => u.remarks || null);
+
+  await query(
+    `UPDATE application_document ad
+     SET verification_status = u.status,
+         verified_by_user_id = $2,
+         verified_at = NOW(),
+         verification_remarks = u.remarks
+     FROM UNNEST($1::text[], $3::text[], $4::text[]) AS u(app_doc_id, status, remarks)
+     WHERE ad.app_doc_id = u.app_doc_id`,
+    [appDocIds, verifiedByUserId, statuses, remarksList]
+  );
 }
 
 export async function resetVerificationOnReupload(
@@ -552,6 +558,13 @@ export async function getCitizenDocumentFile(citizenDocId: string): Promise<Buff
   const doc = await getCitizenDocument(citizenDocId);
   if (!doc || !doc.storage_key) return null;
   return getStorage().read(doc.storage_key);
+}
+
+/** PERF-011: Stream version of getCitizenDocumentFile for downloads. */
+export async function getCitizenDocumentFileStream(citizenDocId: string): Promise<import("stream").Readable | null> {
+  const doc = await getCitizenDocument(citizenDocId);
+  if (!doc || !doc.storage_key) return null;
+  return getStorage().readStream(doc.storage_key);
 }
 
 export async function issueCitizenDocument(

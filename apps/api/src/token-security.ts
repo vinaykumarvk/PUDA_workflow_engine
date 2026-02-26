@@ -54,35 +54,30 @@ export async function checkTokenRevocation(
     return { revoked: true, reason: "MISSING_JTI" };
   }
 
-  if (normalizedJti) {
-    const denylistResult = await query(
-      `SELECT EXISTS(
-         SELECT 1
-         FROM auth_token_denylist
-         WHERE jti = $1
-           AND expires_at > NOW()
-       ) AS token_revoked`,
-      [normalizedJti]
-    );
-    if (denylistResult.rows[0]?.token_revoked === true) {
-      return { revoked: true, reason: "TOKEN_DENYLISTED" };
-    }
-  }
-
+  // PERF-013: Single query checks both denylist and user-level cutoff revocation
   const issuedAt = normalizeEpochSeconds(claims.iat);
-  if (!issuedAt) {
-    return { revoked: false };
+  const result = await query(
+    `SELECT
+       COALESCE((
+         SELECT TRUE FROM auth_token_denylist
+         WHERE jti = $1 AND expires_at > NOW()
+         LIMIT 1
+       ), FALSE) AS token_denylisted,
+       (
+         SELECT FLOOR(EXTRACT(EPOCH FROM revoked_before))::bigint
+         FROM user_token_security
+         WHERE user_id = $2
+       ) AS revoked_before_epoch`,
+    [normalizedJti || null, claims.userId]
+  );
+
+  const row = result.rows[0];
+  if (row?.token_denylisted === true) {
+    return { revoked: true, reason: "TOKEN_DENYLISTED" };
   }
 
-  const cutoffResult = await query(
-    `SELECT FLOOR(EXTRACT(EPOCH FROM revoked_before))::bigint AS revoked_before_epoch
-     FROM user_token_security
-     WHERE user_id = $1`,
-    [claims.userId]
-  );
-  const revokedBeforeEpoch = cutoffResult.rows[0]?.revoked_before_epoch;
-  if (revokedBeforeEpoch !== undefined && revokedBeforeEpoch !== null) {
-    const normalizedCutoff = Number.parseInt(String(revokedBeforeEpoch), 10);
+  if (issuedAt && row?.revoked_before_epoch != null) {
+    const normalizedCutoff = Number.parseInt(String(row.revoked_before_epoch), 10);
     if (Number.isFinite(normalizedCutoff) && issuedAt <= normalizedCutoff) {
       return { revoked: true, reason: "TOKEN_CUTOFF_REVOKED" };
     }

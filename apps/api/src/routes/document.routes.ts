@@ -168,10 +168,11 @@ export async function registerDocumentRoutes(app: FastifyInstance) {
     );
     if (!internalArn) return;
 
-    const fileBuffer = await documents.getDocumentFile(params.docId);
-    if (!fileBuffer) return send404(reply, "FILE_NOT_FOUND");
+    // PERF-011: Stream file to response instead of buffering
+    const fileStream = await documents.getDocumentFileStream(params.docId);
+    if (!fileStream) return send404(reply, "FILE_NOT_FOUND");
     reply.type(doc?.mime_type || "application/octet-stream");
-    return fileBuffer;
+    return reply.send(fileStream);
   });
 
   // Per-document verification (officer action)
