@@ -529,106 +529,69 @@
 }
 
 /* Completion card (dashboard) */
-.profile-completion-card {
-  background: var(--color-surface);
+/* Compact single-row profile completion banner */
+.profile-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-brand);
   border-radius: var(--radius-md);
-  padding: var(--space-4);
-}
-
-.profile-completion-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.profile-completion-card__title {
-  font-weight: 600;
-  font-size: 1rem;
-  margin: 0;
-}
-
-.profile-completion-card__counter {
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.profile-completion-card__grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-2);
-}
-
-/* Individual section tile */
-.profile-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-2);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-brand), transparent 94%);
   cursor: pointer;
-  text-align: center;
-  min-height: 2.75rem;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
-  transition: border-color 120ms ease, background 120ms ease;
+  width: 100%;
+  text-align: left;
+  min-height: 2.75rem;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
-.profile-tile:hover {
-  border-color: color-mix(in srgb, var(--color-brand), var(--color-border) 40%);
+.profile-banner:hover {
+  background: color-mix(in srgb, var(--color-brand), transparent 88%);
 }
 
-.profile-tile:active {
-  background: var(--color-surface-muted);
+.profile-banner:active {
+  background: color-mix(in srgb, var(--color-brand), transparent 82%);
 }
 
-.profile-tile--done {
-  background: color-mix(in srgb, var(--color-success), transparent 92%);
-  border-color: color-mix(in srgb, var(--color-success), var(--color-border) 50%);
+.profile-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  white-space: nowrap;
+  min-width: 0;
 }
 
-.profile-tile--done:hover {
-  border-color: var(--color-success);
-}
-
-.profile-tile--pending {
-  border-style: dashed;
-}
-
-.profile-tile__icon {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.profile-tile--done .profile-tile__icon {
-  color: var(--color-success);
-  font-weight: 700;
-}
-
-.profile-tile__label {
-  font-size: 0.82rem;
+.profile-banner__title {
   font-weight: 600;
+  font-size: 0.875rem;
   color: var(--color-text);
 }
 
-.profile-tile__status {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 600;
+.profile-banner__counter {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
-.profile-tile--done .profile-tile__status {
-  color: var(--color-success);
+.profile-banner__bar {
+  flex: 1;
+  min-width: 3rem;
+  height: 0.375rem;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
-.profile-tile--pending .profile-tile__status {
+.profile-banner__fill {
+  height: 100%;
+  background: var(--color-brand);
+  border-radius: var(--radius-sm);
+  transition: width 300ms ease;
+}
+
+.profile-banner__arrow {
+  flex-shrink: 0;
   color: var(--color-brand);
 }

@@ -705,60 +705,23 @@ export default function Dashboard({
         </Card>
       )}
 
-      {/* 2. Profile Completion Card (only when incomplete) */}
+      {/* 2. Profile Completion Banner (only when incomplete) */}
       {profileCompleteness && (profileCompleteness.completionPercent ?? 0) < 100 && onNavigateToProfile && (
-        <div className="profile-completion-card">
-          <div className="profile-completion-card__header">
-            <div className="profile-completion-card__title">{t("dashboard.profile_title")}</div>
-            <span className="profile-completion-card__counter">
+        <button type="button" className="profile-banner" onClick={onNavigateToProfile}>
+          <div className="profile-banner__text">
+            <span className="profile-banner__title">{t("dashboard.profile_title")}</span>
+            <span className="profile-banner__counter">
               {t("dashboard.profile_percent", { percent: profileCompleteness.completionPercent ?? 0 })}
             </span>
           </div>
-          <div className="profile-completion-card__progress-bar">
+          <div className="profile-banner__bar">
             <div
-              className="profile-completion-card__progress-fill"
+              className="profile-banner__fill"
               style={{ width: `${profileCompleteness.completionPercent ?? 0}%` }}
             />
           </div>
-          {profileCompleteness.sections && (
-            <div className="profile-completion-card__grid">
-              {(["identity", "personal", "contact", "address"] as const).map((key) => {
-                const done = profileCompleteness.sections?.[key]?.complete ?? false;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`profile-tile ${done ? "profile-tile--done" : "profile-tile--pending"}`}
-                    onClick={onNavigateToProfile}
-                  >
-                    <span className="profile-tile__icon" aria-hidden="true">
-                      {done ? "\u2713" : profileSectionIcons[key]}
-                    </span>
-                    <span className="profile-tile__label">{profileSectionLabels[key]}</span>
-                    <span className="profile-tile__status">
-                      {done ? t("dashboard.profile_done") : t("dashboard.profile_fill_in")}
-                    </span>
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                className={`profile-tile ${verificationPendingCount === 0 ? "profile-tile--done" : "profile-tile--pending"}`}
-                onClick={onNavigateToProfile}
-              >
-                <span className="profile-tile__icon" aria-hidden="true">
-                  {verificationPendingCount === 0 ? "\u2713" : "\uD83D\uDD12"}
-                </span>
-                <span className="profile-tile__label">{t("dashboard.profile_verification")}</span>
-                <span className="profile-tile__status">
-                  {verificationPendingCount === 0
-                    ? t("dashboard.profile_done")
-                    : t("dashboard.profile_verify_pending", { count: verificationPendingCount })}
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
+          <svg className="profile-banner__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       )}
 
       {/* 3. Requires Attention (collapsible, shows 2) */}
