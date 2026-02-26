@@ -11,6 +11,7 @@ import OfficerLogin from "./OfficerLogin";
 import { useTheme } from "./theme";
 import { usePreferences } from "./preferences";
 import { SecondaryLanguageProvider } from "./SecondaryLanguageContext";
+import { ensureLocaleLoaded } from "./i18n";
 import { readCached, writeCached, clearOfficerCachedState } from "./cache";
 
 const Inbox = lazy(() => import("./Inbox"));
@@ -72,6 +73,13 @@ export default function App() {
     clearOfficerCachedState();
     logout();
   }, [logout]);
+
+  // PERF-026: Lazy-load secondary locale bundle when language preference changes
+  useEffect(() => {
+    if (preferences.language && preferences.language !== "none") {
+      ensureLocaleLoaded(preferences.language);
+    }
+  }, [preferences.language]);
 
   // Sync theme preference → useTheme
   useEffect(() => {
@@ -562,6 +570,7 @@ export default function App() {
                   fromSearch={fromSearch}
                   onBack={handleBack}
                   onActionComplete={handleActionComplete}
+                  onApplicationUpdate={(updater) => setApplication((prev) => prev ? updater(prev) : prev)}
                   onDirtyChange={setFormDirty}
                 />
               )}

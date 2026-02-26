@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
 import { Bilingual } from "./Bilingual";
@@ -322,29 +322,31 @@ export default function DocumentLocker({ onBack, isOffline, initialFilter }: Doc
   const isImage = previewMimeType.startsWith("image/");
   const isPdf = previewMimeType === "application/pdf";
 
-  // Filter and sort documents
-  const filteredDocuments = documents.filter((doc) => {
-    // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchesFilename = (doc.original_filename || "").toLowerCase().includes(q);
-      const matchesDocType = humanizeDocType(doc.doc_type_id).toLowerCase().includes(q);
-      if (!matchesFilename && !matchesDocType) return false;
-    }
-    // Status filter
-    if (activeFilter === "all") return true;
-    if (activeFilter === "valid") return doc.computed_status === "VALID";
-    if (activeFilter === "expired") return doc.computed_status === "EXPIRED";
-    if (activeFilter === "mismatch") return doc.computed_status === "MISMATCH";
-    if (activeFilter === "cancelled") return doc.computed_status === "CANCELLED";
-    return true;
-  });
+  // PERF-027: Memoized filter and sort to avoid re-computation on every render
+  const sortedDocuments = useMemo(() => {
+    const filtered = documents.filter((doc) => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesFilename = (doc.original_filename || "").toLowerCase().includes(q);
+        const matchesDocType = humanizeDocType(doc.doc_type_id).toLowerCase().includes(q);
+        if (!matchesFilename && !matchesDocType) return false;
+      }
+      // Status filter
+      if (activeFilter === "all") return true;
+      if (activeFilter === "valid") return doc.computed_status === "VALID";
+      if (activeFilter === "expired") return doc.computed_status === "EXPIRED";
+      if (activeFilter === "mismatch") return doc.computed_status === "MISMATCH";
+      if (activeFilter === "cancelled") return doc.computed_status === "CANCELLED";
+      return true;
+    });
 
-  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
-    if (sortBy === "newest") return new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime();
-    if (sortBy === "oldest") return new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime();
-    return humanizeDocType(a.doc_type_id).localeCompare(humanizeDocType(b.doc_type_id));
-  });
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "newest") return new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime();
+      if (sortBy === "oldest") return new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime();
+      return humanizeDocType(a.doc_type_id).localeCompare(humanizeDocType(b.doc_type_id));
+    });
+  }, [documents, searchQuery, activeFilter, sortBy]);
 
   return (
     <div className="document-locker">

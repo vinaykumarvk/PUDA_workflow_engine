@@ -18,6 +18,7 @@ import { FormRenderer } from "@puda/shared/form-renderer";
 import { getStatusBadgeClass, getStatusLabel, formatDate, getServiceDisplayName } from "@puda/shared/utils";
 import type { FormConfig, CitizenProperty } from "@puda/shared/form-renderer";
 import { useTranslation } from "react-i18next";
+import { ensureLocaleLoaded } from "./i18n";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useAuth } from "./AuthContext";
 import Login from "./Login";
@@ -656,15 +657,19 @@ export default function App() {
   }, [user, authHeaders, isOffline, markStaleData, markSync]);
 
   // All hooks must be called before any conditional returns
+  // PERF-007: Consolidated initial + reconnection data loading (was two separate effects)
   useEffect(() => {
-    if (user) {
-      loadServices();
-      loadUserApplications();
-      loadProfile();
-      loadCitizenProperties();
-      loadCitizenDocuments();
+    if (!user) return;
+    loadCitizenProperties();
+    loadCitizenDocuments();
+    if (isOffline) return;
+    loadServices();
+    loadUserApplications();
+    loadProfile();
+    if (currentApplication?.arn) {
+      loadApplicationDetail(currentApplication.arn);
     }
-  }, [user, loadServices, loadUserApplications, loadProfile, loadCitizenProperties, loadCitizenDocuments]);
+  }, [user, isOffline, currentApplication?.arn, loadServices, loadUserApplications, loadProfile, loadCitizenProperties, loadCitizenDocuments, loadApplicationDetail]);
 
   // Post-login: redirect to onboarding if profile incomplete and not onboarded
   useEffect(() => {
@@ -836,15 +841,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [view, selectedService, formData?.property?.upn, isOffline, authHeaders]);
 
-  useEffect(() => {
-    if (!user || isOffline) return;
-    loadServices();
-    loadUserApplications();
-    loadProfile();
-    if (currentApplication?.arn) {
-      loadApplicationDetail(currentApplication.arn);
-    }
-  }, [isOffline, user, currentApplication?.arn, loadServices, loadUserApplications, loadProfile, loadApplicationDetail]);
+  // PERF-007: Removed — consolidated into the single data-loading effect above.
 
   useEffect(() => {
     const handleOnline = () => {
@@ -979,6 +976,13 @@ export default function App() {
     };
     writeCached(resumeStateKey(user.user_id), snapshot, { schema: CACHE_SCHEMAS.resume });
   }, [user, view, showDashboard, selectedService, currentApplication, formData]);
+
+  // PERF-026: Lazy-load secondary locale bundle when language preference changes
+  useEffect(() => {
+    if (preferences.language && preferences.language !== "none") {
+      ensureLocaleLoaded(preferences.language);
+    }
+  }, [preferences.language]);
 
   // Bridge preferences → theme system
   useEffect(() => {

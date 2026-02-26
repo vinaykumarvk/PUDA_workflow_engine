@@ -1,8 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./locales/en";
-import hi from "./locales/hi";
-import pa from "./locales/pa";
 
 export const SECONDARY_LANGUAGES = [
   { code: "none", label: "None (English only)" },
@@ -17,10 +15,9 @@ export const SUPPORTED_LANGUAGES = [
   { code: "pa", label: "ਪੰਜਾਬੀ" },
 ] as const;
 
+// PERF-026: Only load English eagerly; secondary locales loaded on demand
 const resources = {
   en: { translation: en },
-  hi: { translation: hi },
-  pa: { translation: pa },
 };
 
 i18n
@@ -33,6 +30,23 @@ i18n
   });
 
 document.documentElement.lang = "en";
+
+// PERF-026: Lazy-load secondary locale bundles
+const localeLoaders: Record<string, () => Promise<{ default: Record<string, string> }>> = {
+  hi: () => import("./locales/hi"),
+  pa: () => import("./locales/pa"),
+};
+const loadedLocales = new Set<string>(["en"]);
+
+/** Ensure a locale's resources are loaded into i18next. Call before rendering Bilingual content. */
+export async function ensureLocaleLoaded(lang: string): Promise<void> {
+  if (lang === "none" || loadedLocales.has(lang)) return;
+  const loader = localeLoaders[lang];
+  if (!loader) return;
+  const mod = await loader();
+  i18n.addResourceBundle(lang, "translation", mod.default, true, true);
+  loadedLocales.add(lang);
+}
 
 // Kept for backward compat but is effectively a no-op now since lng stays "en"
 export function changeLanguage(code: string) {

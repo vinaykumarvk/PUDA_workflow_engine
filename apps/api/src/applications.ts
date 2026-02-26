@@ -689,16 +689,17 @@ export async function searchApplications(
   }
 
   if (searchTerm) {
+    // PERF-001: Use concatenated expression matching idx_application_search_text_trgm
     const searchPattern = `%${searchTerm}%`;
     sql += ` AND (
-      arn ILIKE $${paramIndex}
-      OR public_arn ILIKE $${paramIndex}
-      OR data_jsonb->'applicant'->>'full_name' ILIKE $${paramIndex}
-      OR data_jsonb->'applicant'->>'name' ILIKE $${paramIndex}
-      OR data_jsonb->'property'->>'upn' ILIKE $${paramIndex}
-      OR data_jsonb->'property'->>'plot_no' ILIKE $${paramIndex}
-      OR data_jsonb->'property'->>'scheme_name' ILIKE $${paramIndex}
-    )`;
+      COALESCE(public_arn, '') || ' ' ||
+      arn || ' ' ||
+      COALESCE(data_jsonb->'applicant'->>'full_name', '') || ' ' ||
+      COALESCE(data_jsonb->'applicant'->>'name', '') || ' ' ||
+      COALESCE(data_jsonb->'property'->>'upn', '') || ' ' ||
+      COALESCE(data_jsonb->'property'->>'plot_no', '') || ' ' ||
+      COALESCE(data_jsonb->'property'->>'scheme_name', '')
+    ) ILIKE $${paramIndex}`;
     params.push(searchPattern);
     paramIndex++;
   }
@@ -731,7 +732,7 @@ export async function exportApplicationsToCSV(
   authorityId?: string,
   searchTerm?: string,
   status?: string
-): Promise<string> {
+): Promise<import("stream").Readable> {
   // Build query directly (avoids intermediate Application objects)
   const conditions: string[] = [];
   const params: any[] = [];
@@ -746,13 +747,16 @@ export async function exportApplicationsToCSV(
     params.push(status);
   }
   if (searchTerm) {
+    // PERF-001: Use same expression as idx_application_search_text_trgm
     const term = `%${searchTerm}%`;
     conditions.push(`(
-      COALESCE(a.public_arn,'') || ' ' || a.arn || ' ' ||
-      COALESCE(a.data_jsonb->'applicant'->>'full_name','') || ' ' ||
-      COALESCE(a.data_jsonb->'property'->>'upn','') || ' ' ||
-      COALESCE(a.data_jsonb->'property'->>'plot_no','') || ' ' ||
-      COALESCE(a.data_jsonb->'property'->>'scheme_name','')
+      COALESCE(a.public_arn, '') || ' ' ||
+      a.arn || ' ' ||
+      COALESCE(a.data_jsonb->'applicant'->>'full_name', '') || ' ' ||
+      COALESCE(a.data_jsonb->'applicant'->>'name', '') || ' ' ||
+      COALESCE(a.data_jsonb->'property'->>'upn', '') || ' ' ||
+      COALESCE(a.data_jsonb->'property'->>'plot_no', '') || ' ' ||
+      COALESCE(a.data_jsonb->'property'->>'scheme_name', '')
     ) ILIKE $${idx++}`);
     params.push(term);
   }
@@ -775,8 +779,8 @@ export async function exportApplicationsToCSV(
   ORDER BY a.created_at DESC
   LIMIT 10000`;
 
-  const result = await query(sql, params);
-
+  // PERF-003: Stream CSV rows instead of building full string in memory
+  const { Readable } = await import("stream");
   const headers = ["ARN","Service Key","Authority ID","Applicant Name","UPN","Plot No","Scheme Name","Status","Created At","Submitted At","Disposed At","Disposal Type"];
 
   function esc(v: string): string {
@@ -788,9 +792,8 @@ export async function exportApplicationsToCSV(
       : safeValue;
   }
 
-  const lines: string[] = [headers.join(",")];
-  for (const row of result.rows) {
-    lines.push([
+  function rowToCsv(row: any): string {
+    return [
       esc(row.arn), esc(row.service_key), esc(row.authority_id),
       esc(row.applicant_name), esc(row.upn), esc(row.plot_no), esc(row.scheme_name),
       esc(row.state_id),
@@ -798,9 +801,20 @@ export async function exportApplicationsToCSV(
       row.submitted_at ? new Date(row.submitted_at).toISOString() : "",
       row.disposed_at ? new Date(row.disposed_at).toISOString() : "",
       esc(row.disposal_type),
-    ].join(","));
+    ].join(",");
   }
-  return lines.join("\n");
+
+  const result = await query(sql, params);
+
+  return new Readable({
+    read() {
+      this.push(headers.join(",") + "\n");
+      for (const row of result.rows) {
+        this.push(rowToCsv(row) + "\n");
+      }
+      this.push(null);
+    },
+  });
 }
 
 const IN_PROGRESS_STATES = [

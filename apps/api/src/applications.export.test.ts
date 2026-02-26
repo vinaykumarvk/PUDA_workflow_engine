@@ -33,8 +33,11 @@ describe("exportApplicationsToCSV", () => {
       ],
     } as any);
 
-    const csv = await exportApplicationsToCSV();
-    const lines = csv.split("\n");
+    const stream = await exportApplicationsToCSV();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const csv = Buffer.concat(chunks).toString("utf-8");
+    const lines = csv.trimEnd().split("\n");
     const row = lines[1].split(",");
 
     expect(row[0]).toBe("'=2+2");

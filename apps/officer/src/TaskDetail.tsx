@@ -104,6 +104,7 @@ interface TaskDetailProps {
   fromSearch: boolean;
   onBack: () => void;
   onActionComplete: (feedback?: { variant: "info" | "success" | "warning" | "error"; text: string }) => void;
+  onApplicationUpdate?: (updater: (prev: Application) => Application) => void;
   onDirtyChange?: (dirty: boolean) => void;
 }
 
@@ -117,6 +118,7 @@ export default function TaskDetail({
   fromSearch,
   onBack,
   onActionComplete,
+  onApplicationUpdate,
   onDirtyChange,
 }: TaskDetailProps) {
   const { t } = useTranslation();
@@ -258,11 +260,16 @@ export default function TaskDetail({
         throw new Error(err.error || "Verification failed");
       }
       setDocVerifyFeedback({ docId, variant: "success", text: `Document marked as ${status}` });
-      // Update the local document's verification_status for immediate feedback
-      const doc = application.documents.find((d: any) => d.doc_id === docId);
-      if (doc) {
-        doc.verification_status = status;
-        doc.verification_remarks = remarks;
+      // PERF-028: Immutable update for optimistic document verification feedback
+      if (onApplicationUpdate) {
+        onApplicationUpdate((prev) => ({
+          ...prev,
+          documents: prev.documents.map((d: any) =>
+            d.doc_id === docId
+              ? { ...d, verification_status: status, verification_remarks: remarks }
+              : d
+          ),
+        }));
       }
     } catch (err) {
       setDocVerifyFeedback({ docId, variant: "error", text: err instanceof Error ? err.message : "Verification failed" });
