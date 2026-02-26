@@ -8,6 +8,7 @@
  * this module provides the relational infrastructure for all modes.
  */
 import { query, getClient } from "./db";
+import { resolveActiveVersion } from "./service-version";
 import { v4 as uuidv4 } from "uuid";
 import { updateDemandPayment } from "./fees";
 import type { PoolClient } from "pg";
@@ -431,13 +432,13 @@ export interface FeeSchedule {
  * Fails closed when fee schedules are missing or invalid.
  */
 export async function calculateFees(serviceKey: string, authorityId: string): Promise<FeeSchedule[]> {
+  const activeVersion = await resolveActiveVersion(serviceKey);
+  if (!activeVersion) {
+    throw new Error("SERVICE_VERSION_NOT_FOUND");
+  }
   const configResult = await query(
-    `SELECT config_jsonb
-     FROM service_version
-     WHERE service_key = $1 AND status = 'published'
-     ORDER BY effective_from DESC
-     LIMIT 1`,
-    [serviceKey]
+    `SELECT config_jsonb FROM service_version WHERE service_key = $1 AND version = $2`,
+    [serviceKey, activeVersion]
   );
   if (configResult.rows.length === 0) {
     throw new Error("SERVICE_VERSION_NOT_FOUND");

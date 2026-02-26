@@ -14,9 +14,10 @@ const Inbox = lazy(() => import("./Inbox"));
 const TaskDetail = lazy(() => import("./TaskDetail"));
 const SearchPanel = lazy(() => import("./SearchPanel"));
 const ComplaintManagement = lazy(() => import("./ComplaintManagement"));
+const ServiceConfigView = lazy(() => import("./ServiceConfigView"));
 import { useTheme } from "./theme";
 
-type View = "inbox" | "task" | "search" | "complaints";
+type View = "inbox" | "task" | "search" | "complaints" | "service-config";
 
 export default function App() {
   const { auth, login, logout, authHeaders, postings, roles, authorities } = useOfficerAuth();
@@ -166,6 +167,19 @@ export default function App() {
     return <OfficerLogin onLogin={login} />;
   }
 
+  // --- Service Config ---
+  if (view === "service-config") {
+    return (
+      <Suspense fallback={<div className="page"><div className="panel" style={{display:"grid",gap:"var(--space-3)"}}><SkeletonBlock height="2rem" width="50%" /><SkeletonBlock height="4rem" /><SkeletonBlock height="4rem" /></div></div>}>
+        <ServiceConfigView
+          authHeaders={authHeaders}
+          isOffline={isOffline}
+          onBack={() => setView("inbox")}
+        />
+      </Suspense>
+    );
+  }
+
   // --- Complaint Management ---
   if (view === "complaints") {
     return (
@@ -239,6 +253,13 @@ export default function App() {
               type="button"
             >
               Complaints
+            </Button>
+            <Button
+              onClick={() => setView("service-config")}
+              className="search-toggle-btn"
+              type="button"
+            >
+              Service Config
             </Button>
           </div>
         </div>

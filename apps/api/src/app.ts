@@ -244,6 +244,7 @@ const GET_ROUTES_REQUIRING_STRICT_QUERY_SCHEMA = new Set([
   "/api/v1/auth/me/postings",
   "/api/v1/profile/me",
   "/api/v1/citizens/me/documents",
+  "/api/v1/config/services/:serviceKey/versions/compare",
 ]);
 
 async function runServicePackPreflight(): Promise<void> {
@@ -588,6 +589,167 @@ export async function buildApp(logger = true): Promise<FastifyInstance> {
       reply.code(404);
       return { error: "SERVICE_NOT_FOUND" };
     }
+    }
+  );
+
+  // Version listing for a service
+  app.get(
+    "/api/v1/config/services/:serviceKey/versions",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["serviceKey"],
+          additionalProperties: false,
+          properties: {
+            serviceKey: { type: "string", pattern: "^[a-z0-9_]+$" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { serviceKey } = request.params as { serviceKey: string };
+      const { query: dbQuery } = await import("./db");
+      const result = await dbQuery(
+        `SELECT
+           sv.version,
+           sv.status,
+           sv.effective_from,
+           sv.effective_to,
+           sv.created_at,
+           COALESCE(ac.cnt, 0)::int AS application_count,
+           CASE WHEN sv.version = (
+             SELECT version FROM service_version
+             WHERE service_key = $1
+               AND status = 'published'
+               AND (effective_from IS NULL OR effective_from <= NOW())
+               AND (effective_to   IS NULL OR effective_to   >  NOW())
+             ORDER BY effective_from DESC NULLS LAST
+             LIMIT 1
+           ) THEN true ELSE false END AS is_active
+         FROM service_version sv
+         LEFT JOIN (
+           SELECT service_key, service_version, COUNT(*)::int AS cnt
+           FROM application
+           GROUP BY service_key, service_version
+         ) ac ON ac.service_key = sv.service_key AND ac.service_version = sv.version
+         WHERE sv.service_key = $1
+         ORDER BY sv.created_at DESC`,
+        [serviceKey]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404);
+        return { error: "SERVICE_NOT_FOUND", message: `No versions found for service '${serviceKey}'`, statusCode: 404 };
+      }
+      return {
+        versions: result.rows.map((r: any) => ({
+          version: r.version,
+          status: r.status,
+          effectiveFrom: r.effective_from,
+          effectiveTo: r.effective_to,
+          createdAt: r.created_at,
+          applicationCount: r.application_count,
+          isActive: r.is_active,
+        })),
+      };
+    }
+  );
+
+  // Single version config for a service
+  app.get(
+    "/api/v1/config/services/:serviceKey/versions/:version",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["serviceKey", "version"],
+          additionalProperties: false,
+          properties: {
+            serviceKey: { type: "string", pattern: "^[a-z0-9_]+$" },
+            version: { type: "string", pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { serviceKey, version } = request.params as { serviceKey: string; version: string };
+      const { query: dbQuery } = await import("./db");
+      const result = await dbQuery(
+        `SELECT sv.version, sv.status, sv.effective_from, sv.effective_to, sv.created_at, sv.config_jsonb,
+                s.name AS display_name, s.category, s.description
+         FROM service_version sv
+         JOIN service s ON s.service_key = sv.service_key
+         WHERE sv.service_key = $1 AND sv.version = $2`,
+        [serviceKey, version]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404);
+        return { error: "VERSION_NOT_FOUND", message: `Version '${version}' not found for service '${serviceKey}'`, statusCode: 404 };
+      }
+      const row = result.rows[0];
+      const config = typeof row.config_jsonb === "string" ? JSON.parse(row.config_jsonb) : row.config_jsonb;
+      return {
+        serviceKey,
+        version: row.version,
+        status: row.status,
+        effectiveFrom: row.effective_from,
+        effectiveTo: row.effective_to,
+        createdAt: row.created_at,
+        displayName: row.display_name,
+        category: row.category,
+        description: row.description,
+        ...config,
+      };
+    }
+  );
+
+  // Compare two versions of a service
+  app.get(
+    "/api/v1/config/services/:serviceKey/versions/compare",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["serviceKey"],
+          additionalProperties: false,
+          properties: {
+            serviceKey: { type: "string", pattern: "^[a-z0-9_]+$" },
+          },
+        },
+        querystring: {
+          type: "object",
+          required: ["v1", "v2"],
+          additionalProperties: false,
+          properties: {
+            v1: { type: "string", pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+            v2: { type: "string", pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { serviceKey } = request.params as { serviceKey: string };
+      const { v1, v2 } = request.query as { v1: string; v2: string };
+      const { query: dbQuery } = await import("./db");
+      const { diffWorkflows, diffDocuments } = await import("./version-diff");
+
+      const result = await dbQuery(
+        `SELECT version, config_jsonb FROM service_version WHERE service_key = $1 AND version IN ($2, $3)`,
+        [serviceKey, v1, v2]
+      );
+      const byVersion = new Map(result.rows.map((r: any) => [r.version, typeof r.config_jsonb === "string" ? JSON.parse(r.config_jsonb) : r.config_jsonb]));
+      const configA = byVersion.get(v1);
+      const configB = byVersion.get(v2);
+      if (!configA || !configB) {
+        reply.code(404);
+        return { error: "VERSION_NOT_FOUND", message: `One or both versions not found`, statusCode: 404 };
+      }
+      return {
+        v1,
+        v2,
+        workflow: diffWorkflows(configA.workflow, configB.workflow),
+        documents: diffDocuments(configA.documents, configB.documents),
+      };
     }
   );
 

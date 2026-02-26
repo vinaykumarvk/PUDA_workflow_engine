@@ -6,6 +6,7 @@ import { upsertPropertyFromApplication } from "./properties";
 import type { PoolClient } from "pg";
 import { ensureApplicantProfileComplete } from "./profile";
 import { logWarn } from "./logger";
+import { resolveActiveVersion } from "./service-version";
 
 export interface Application {
   arn: string;
@@ -209,7 +210,7 @@ async function validateRequiredDocuments(
   if (requiredDocTypeIds.length === 0) return;
 
   const existingResult = await client.query(
-    "SELECT doc_type_id FROM document WHERE arn = $1 AND is_current = TRUE",
+    "SELECT doc_type_id FROM application_document WHERE arn = $1 AND is_current = TRUE UNION SELECT doc_type_id FROM document WHERE arn = $1 AND is_current = TRUE",
     [arn]
   );
   const existing = new Set(existingResult.rows.map((row) => row.doc_type_id));
@@ -240,17 +241,11 @@ export async function createApplication(
   const seq = String(seqResult.rows[0].seq).padStart(6, "0");
   const arn = `${authorityId}/${year}/DFT/${seq}`;
   
-  // Get latest published version
-  const versionResult = await query(
-    "SELECT version FROM service_version WHERE service_key = $1 AND status = 'published' ORDER BY effective_from DESC LIMIT 1",
-    [serviceKey]
-  );
-  
-  if (versionResult.rows.length === 0) {
+  // Get currently-active published version (respects effective_from/effective_to)
+  const serviceVersion = await resolveActiveVersion(serviceKey);
+  if (!serviceVersion) {
     throw new Error("SERVICE_NOT_FOUND");
   }
-  
-  const serviceVersion = versionResult.rows[0].version;
   const channel = submissionChannel || "SELF";
 
   let dataPayload = initialData || {};
