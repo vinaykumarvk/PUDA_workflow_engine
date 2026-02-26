@@ -12,7 +12,13 @@ import {
   Select,
   useToast,
   timeAgo,
-  SkeletonBlock
+  SkeletonBlock,
+  parseHash,
+  buildHash,
+  pushHash,
+  replaceHash,
+  isSuppressed,
+  validateView
 } from "@puda/shared";
 import { FormRenderer } from "@puda/shared/form-renderer";
 import { getStatusBadgeClass, getStatusLabel, formatDate, getServiceDisplayName } from "@puda/shared/utils";
@@ -248,6 +254,10 @@ export default function App() {
   type ViewSnapshot = { view: ViewId; showDashboard: boolean };
   const [view, setView] = useState<ViewId>("catalog");
   const navStackRef = useRef<ViewSnapshot[]>([]);
+  const navDirectionRef = useRef<"push" | "replace" | "none">("push");
+  const hashInitializedRef = useRef(false);
+  const formDirtyRef = useRef(false);
+  const deepLinkAppliedRef = useRef(false);
   const [lockerFilter, setLockerFilter] = useState<string | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<ServiceSummary | null>(null);
   const [serviceConfig, setServiceConfig] = useState<any>(null);
@@ -334,9 +344,13 @@ export default function App() {
     return window.confirm(t("common.unsaved_confirm"));
   }, [formDirty]);
 
+  // Keep formDirtyRef in sync for the popstate closure
+  useEffect(() => { formDirtyRef.current = formDirty; }, [formDirty]);
+
   /** Push current view onto nav stack and navigate to a new view. */
   const navigateTo = useCallback((nextView: ViewId, nextDashboard: boolean) => {
     if (!confirmNavigation()) return;
+    navDirectionRef.current = "push";
     setFormDirty(false);
     setFormStep("form");
     setAvatarMenuOpen(false);
@@ -348,6 +362,7 @@ export default function App() {
   /** Pop the nav stack and return to the previous view. Falls back to dashboard. */
   const navigateBack = useCallback(() => {
     if (!confirmNavigation()) return;
+    navDirectionRef.current = "push";
     setFormDirty(false);
     const prev = navStackRef.current.pop();
     if (prev) {
@@ -925,6 +940,8 @@ export default function App() {
   useEffect(() => {
     if (user) return;
     resumeHydratedRef.current = null;
+    hashInitializedRef.current = false;
+    deepLinkAppliedRef.current = false;
     setUsingStaleData(false);
     setLastSyncAt(null);
   }, [user]);
@@ -932,6 +949,8 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     if (resumeHydratedRef.current === user.user_id) return;
+    // Deep-link from URL takes precedence over resume state
+    if (deepLinkAppliedRef.current) { resumeHydratedRef.current = user.user_id; return; }
     const key = resumeStateKey(user.user_id);
     resumeHydratedRef.current = user.user_id;
     const cached = readCached<ResumeSnapshot>(key, {
@@ -976,6 +995,188 @@ export default function App() {
     };
     writeCached(resumeStateKey(user.user_id), snapshot, { schema: CACHE_SCHEMAS.resume });
   }, [user, view, showDashboard, selectedService, currentApplication, formData]);
+
+  // --- Hash-based routing ---
+
+  const CITIZEN_VALID_VIEWS = ["", "services", "create", "track", "applications", "locker", "profile", "settings", "guide", "complaints"] as const;
+
+  /** Map current app state → hash string */
+  const citizenViewToHash = useCallback((): string => {
+    if (view === "catalog" && showDashboard) return buildHash("");
+    if (view === "catalog" && !showDashboard) return buildHash("services");
+    if (view === "create" && selectedService) return buildHash("create", selectedService.serviceKey);
+    if (view === "create") return buildHash("services");
+    if (view === "track" && currentApplication) return buildHash("track", currentApplication.arn);
+    if (view === "applications") {
+      const params: Record<string, string> = {};
+      if (appStatusFilter) params.status = appStatusFilter;
+      return buildHash("applications", undefined, Object.keys(params).length > 0 ? params : undefined);
+    }
+    if (view === "locker") {
+      const params: Record<string, string> = {};
+      if (lockerFilter) params.filter = lockerFilter;
+      return buildHash("locker", undefined, Object.keys(params).length > 0 ? params : undefined);
+    }
+    if (view === "profile" || view === "profile-update") return buildHash("profile");
+    if (view === "settings") return buildHash("settings");
+    if (view === "guide") return buildHash("guide");
+    if (view === "complaints") return buildHash("complaints");
+    return buildHash("");
+  }, [view, showDashboard, selectedService, currentApplication, appStatusFilter, lockerFilter]);
+
+  // Effect A — Sync state → URL hash
+  useEffect(() => {
+    if (!user) return;
+    const hash = citizenViewToHash();
+    const direction = navDirectionRef.current;
+    navDirectionRef.current = "push"; // reset for next navigation
+    if (direction === "none") return;
+    if (direction === "replace") { replaceHash(hash); return; }
+    pushHash(hash);
+  }, [user, view, showDashboard, selectedService?.serviceKey, currentApplication?.arn, appStatusFilter, lockerFilter]);
+
+  // Effect B — Deep-link init (runs once after auth)
+  useEffect(() => {
+    if (!user || hashInitializedRef.current) return;
+    hashInitializedRef.current = true;
+    const hash = window.location.hash;
+    if (!hash || hash === "#" || hash === "#/") return; // no deep link — let resume-state handle it
+    const parsed = parseHash(hash);
+    const validView = validateView(parsed.view, CITIZEN_VALID_VIEWS, "");
+    if (validView === "" || validView === "services") {
+      // Dashboard/services — set state directly
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      setView("catalog");
+      setShowDashboard(validView === "");
+      return;
+    }
+    if (validView === "track" && parsed.resourceId) {
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      setView("track");
+      setShowDashboard(false);
+      openApplication(parsed.resourceId, { skipNav: true });
+      return;
+    }
+    if (validView === "create" && parsed.resourceId) {
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      // Load the service config and set state — the service key is the resourceId
+      const serviceKey = parsed.resourceId;
+      setShowDashboard(false);
+      loadServiceConfig(serviceKey).then(() => {
+        setSelectedService({ serviceKey, displayName: serviceKey, category: "" });
+        setView("create");
+      });
+      return;
+    }
+    if (validView === "create") {
+      // No service key — redirect to services
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      setView("catalog");
+      setShowDashboard(false);
+      replaceHash(buildHash("services"));
+      return;
+    }
+    if (validView === "applications") {
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      if (parsed.params.status) setAppStatusFilter(parsed.params.status);
+      setView("applications");
+      setShowDashboard(false);
+      return;
+    }
+    if (validView === "locker") {
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      if (parsed.params.filter) setLockerFilter(parsed.params.filter);
+      setView("locker");
+      setShowDashboard(false);
+      return;
+    }
+    // Simple views: profile, settings, guide, complaints
+    const simpleViewMap: Record<string, ViewId> = {
+      profile: "profile",
+      settings: "settings",
+      guide: "guide",
+      complaints: "complaints"
+    };
+    if (simpleViewMap[validView]) {
+      deepLinkAppliedRef.current = true;
+      navDirectionRef.current = "replace";
+      setView(simpleViewMap[validView]);
+      setShowDashboard(false);
+      return;
+    }
+    // Invalid — replace with default
+    replaceHash(buildHash(""));
+  }, [user]);
+
+  // Effect C — Popstate handler (browser back/forward)
+  useEffect(() => {
+    if (!user) return;
+    const handlePopState = () => {
+      if (isSuppressed()) return;
+      // Dirty form guard
+      if (formDirtyRef.current) {
+        if (!window.confirm(t("common.unsaved_confirm"))) {
+          // Undo the browser's back by re-pushing current hash
+          pushHash(citizenViewToHash());
+          return;
+        }
+        setFormDirty(false);
+      }
+      const parsed = parseHash(window.location.hash);
+      const validView = validateView(parsed.view, CITIZEN_VALID_VIEWS, "");
+      navDirectionRef.current = "none"; // prevent sync effect from pushing
+      navStackRef.current.pop(); // mirror the browser's back
+      if (validView === "" || validView === "services") {
+        setView("catalog");
+        setShowDashboard(validView === "");
+        setCurrentApplication(null);
+        setApplicationDetail(null);
+        return;
+      }
+      if (validView === "track" && parsed.resourceId) {
+        setView("track");
+        setShowDashboard(false);
+        openApplication(parsed.resourceId, { skipNav: true });
+        return;
+      }
+      if (validView === "applications") {
+        setAppStatusFilter(parsed.params.status || "");
+        setView("applications");
+        setShowDashboard(false);
+        setCurrentApplication(null);
+        setApplicationDetail(null);
+        return;
+      }
+      if (validView === "locker") {
+        setLockerFilter(parsed.params.filter || undefined);
+        setView("locker");
+        setShowDashboard(false);
+        return;
+      }
+      const simpleViewMap: Record<string, ViewId> = {
+        profile: "profile",
+        settings: "settings",
+        guide: "guide",
+        complaints: "complaints"
+      };
+      if (simpleViewMap[validView]) {
+        setView(simpleViewMap[validView]);
+        setShowDashboard(false);
+        return;
+      }
+      // Fallback for create or unknown
+      setView("catalog");
+      setShowDashboard(true);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [user, t]);
 
   // PERF-026: Lazy-load secondary locale bundle when language preference changes
   useEffect(() => {
@@ -1868,7 +2069,7 @@ export default function App() {
     }
   };
 
-  async function openApplication(arn: string) {
+  async function openApplication(arn: string, opts?: { skipNav?: boolean }) {
     if (!user) return;
     setError(null);
     setFeedback(null);
@@ -1892,7 +2093,7 @@ export default function App() {
           setApplicationDetail(appData);
           writeCached(cacheKey, appData, { schema: CACHE_SCHEMAS.applicationDetail });
           await loadServiceConfig(appData.service_key);
-          navigateTo("track", false);
+          if (!opts?.skipNav) navigateTo("track", false);
           markSync();
           return;
         }
@@ -1917,7 +2118,7 @@ export default function App() {
         });
         setApplicationDetail(appData);
         await loadServiceConfig(appData.service_key);
-        navigateTo("track", false);
+        if (!opts?.skipNav) navigateTo("track", false);
         markStaleData(cached.fetchedAt, isOffline ? "offline" : "error", "application_open");
         return;
       }

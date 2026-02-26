@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import "./app.css";
-import { Alert, Button, Drawer, useToast, SkeletonBlock } from "@puda/shared";
+import { Alert, Button, Drawer, useToast, SkeletonBlock, parseHash, buildHash, pushHash, replaceHash, isSuppressed, validateView } from "@puda/shared";
 import { Task, Application, apiBaseUrl } from "./types";
 import { useOfficerAuth } from "./useOfficerAuth";
 import OfficerLogin from "./OfficerLogin";
@@ -62,6 +62,9 @@ export default function App() {
   // Navigation history stack
   type ViewSnapshot = { view: View; fromSearch: boolean };
   const navStackRef = useRef<ViewSnapshot[]>([]);
+  const navDirectionRef = useRef<"push" | "replace" | "none">("push");
+  const hashInitializedRef = useRef(false);
+  const formDirtyRef = useRef(false);
   const [formDirty, setFormDirty] = useState(false);
 
   // Inbox cache
@@ -127,6 +130,9 @@ export default function App() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [avatarMenuOpen]);
+
+  // Keep formDirtyRef in sync for the popstate closure
+  useEffect(() => { formDirtyRef.current = formDirty; }, [formDirty]);
 
   const confirmNavigation = useCallback((): boolean => {
     if (!formDirty) return true;
@@ -200,6 +206,7 @@ export default function App() {
       return;
     }
     setInboxFeedback(null);
+    navDirectionRef.current = "push";
     navStackRef.current.push({ view, fromSearch });
     setFromSearch(false);
     setSelectedTask(task);
@@ -219,6 +226,7 @@ export default function App() {
       setInboxFeedback({ variant: "warning", text: t("offline.search_readonly") });
       return;
     }
+    navDirectionRef.current = "push";
     navStackRef.current.push({ view, fromSearch });
     setFromSearch(true);
     await loadApplication(app.arn);
@@ -234,6 +242,7 @@ export default function App() {
   };
 
   const handleActionComplete = (feedback?: { variant: "info" | "success" | "warning" | "error"; text: string }) => {
+    navDirectionRef.current = "replace";
     setInboxFeedback(feedback ?? null);
     if (feedback) showToast(feedback.variant, feedback.text);
     setSelectedTask(null);
@@ -251,6 +260,7 @@ export default function App() {
 
   const handleBack = () => {
     if (!confirmNavigation()) return;
+    navDirectionRef.current = "push";
     setFormDirty(false);
     const prev = navStackRef.current.pop();
     if (prev) {
@@ -285,6 +295,7 @@ export default function App() {
   // Navigate via sidebar/bottom nav
   const navigate = (target: View) => {
     if (!confirmNavigation()) return;
+    navDirectionRef.current = "push";
     navStackRef.current.push({ view, fromSearch });
     setFormDirty(false);
     setSelectedTask(null);
@@ -294,6 +305,136 @@ export default function App() {
     setView(target);
     setDrawerOpen(false);
   };
+
+  // --- Hash-based routing ---
+
+  const OFFICER_VALID_VIEWS = ["", "task", "search", "complaints", "service-config", "settings"] as const;
+
+  /** Map current officer state → hash string */
+  const officerViewToHash = useCallback((): string => {
+    if (view === "task" && selectedTask?.task_id) {
+      const params: Record<string, string> = {};
+      if (fromSearch) params.from = "search";
+      return buildHash("task", selectedTask.task_id, Object.keys(params).length > 0 ? params : undefined);
+    }
+    if (view === "inbox") return buildHash("");
+    if (view === "search") return buildHash("search");
+    if (view === "complaints") return buildHash("complaints");
+    if (view === "service-config") return buildHash("service-config");
+    if (view === "settings") return buildHash("settings");
+    return buildHash("");
+  }, [view, selectedTask?.task_id, fromSearch]);
+
+  // Effect A — Sync state → URL hash
+  useEffect(() => {
+    if (!auth) return;
+    const hash = officerViewToHash();
+    const direction = navDirectionRef.current;
+    navDirectionRef.current = "push";
+    if (direction === "none") return;
+    if (direction === "replace") { replaceHash(hash); return; }
+    pushHash(hash);
+  }, [auth, view, selectedTask?.task_id, fromSearch]);
+
+  // Effect B — Deep-link init (runs once after auth)
+  useEffect(() => {
+    if (!auth || hashInitializedRef.current) return;
+    hashInitializedRef.current = true;
+    const hash = window.location.hash;
+    if (!hash || hash === "#" || hash === "#/") return;
+    const parsed = parseHash(hash);
+    const validView = validateView(parsed.view, OFFICER_VALID_VIEWS, "");
+    if (validView === "task" && parsed.resourceId) {
+      navDirectionRef.current = "replace";
+      // Load task by ID
+      const taskId = parsed.resourceId;
+      const isFromSearch = parsed.params.from === "search";
+      setFromSearch(isFromSearch);
+      (async () => {
+        try {
+          const res = await fetch(`${apiBaseUrl}/api/v1/tasks/${taskId}`, { headers: authHeaders() });
+          if (!res.ok) throw new Error(`Task not found`);
+          const taskData = await res.json();
+          setSelectedTask(taskData);
+          await loadApplication(taskData.arn);
+          setView("task");
+        } catch {
+          // Task not found — fall back to inbox
+          replaceHash(buildHash(""));
+        }
+      })();
+      return;
+    }
+    const simpleMap: Record<string, View> = {
+      search: "search",
+      complaints: "complaints",
+      "service-config": "service-config",
+      settings: "settings"
+    };
+    if (simpleMap[validView]) {
+      navDirectionRef.current = "replace";
+      setView(simpleMap[validView]);
+      return;
+    }
+    // Default or invalid
+    replaceHash(buildHash(""));
+  }, [auth]);
+
+  // Effect C — Popstate handler (browser back/forward)
+  useEffect(() => {
+    if (!auth) return;
+    const handlePopState = () => {
+      if (isSuppressed()) return;
+      if (formDirtyRef.current) {
+        if (!window.confirm(t("common.unsaved_confirm"))) {
+          pushHash(officerViewToHash());
+          return;
+        }
+        setFormDirty(false);
+      }
+      const parsed = parseHash(window.location.hash);
+      const validView = validateView(parsed.view, OFFICER_VALID_VIEWS, "");
+      navDirectionRef.current = "none";
+      navStackRef.current.pop();
+      if (validView === "" || validView === "search" || validView === "complaints" || validView === "service-config" || validView === "settings") {
+        const viewMap: Record<string, View> = { "": "inbox", search: "search", complaints: "complaints", "service-config": "service-config", settings: "settings" };
+        setView(viewMap[validView] || "inbox");
+        setSelectedTask(null);
+        setApplication(null);
+        setServiceConfig(null);
+        setFromSearch(false);
+        return;
+      }
+      if (validView === "task" && parsed.resourceId) {
+        const taskId = parsed.resourceId;
+        const isFromSearch = parsed.params.from === "search";
+        setFromSearch(isFromSearch);
+        (async () => {
+          try {
+            const res = await fetch(`${apiBaseUrl}/api/v1/tasks/${taskId}`, { headers: authHeaders() });
+            if (!res.ok) throw new Error("Not found");
+            const taskData = await res.json();
+            setSelectedTask(taskData);
+            await loadApplication(taskData.arn);
+            setView("task");
+          } catch {
+            setView("inbox");
+            replaceHash(buildHash(""));
+          }
+        })();
+        return;
+      }
+      setView("inbox");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [auth, t]);
+
+  // Reset hash state on logout
+  useEffect(() => {
+    if (auth) return;
+    hashInitializedRef.current = false;
+  }, [auth]);
 
   // --- Login gate ---
   if (!auth) {
