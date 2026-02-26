@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Input, Select } from "@puda/shared";
 import { Application, apiBaseUrl } from "./types";
 
@@ -9,6 +10,7 @@ interface SearchPanelProps {
 }
 
 export default function SearchPanel({ authHeaders, onSelectApplication, isOffline }: SearchPanelProps) {
+  const { t } = useTranslation();
   const skeletonItems = [0, 1, 2, 3];
   const [searchTerm, setSearchTerm] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
@@ -84,12 +86,12 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
       <div className="search-form">
         <div className="search-input-group">
           <label htmlFor="officer-search-term" className="sr-only">
-            Search applications
+            {t("search.placeholder")}
           </label>
           <Input
             id="officer-search-term"
             type="text"
-            placeholder="Search by ARN, applicant name, UPN, plot, or scheme..."
+            placeholder={t("search.placeholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && performSearch()}
@@ -97,7 +99,7 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
             disabled={isOffline}
           />
           <label htmlFor="officer-search-status" className="sr-only">
-            Filter by status
+            {t("search.filter_status_label")}
           </label>
           <Select
             id="officer-search-status"
@@ -106,35 +108,35 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
             className="search-status-select"
             disabled={isOffline}
           >
-            <option value="">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="PENDING_AT_CLERK">Pending at Clerk</option>
-            <option value="QUERY_PENDING">Query Pending</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="CLOSED">Closed</option>
+            <option value="">{t("search.all_statuses")}</option>
+            <option value="DRAFT">{t("status.draft")}</option>
+            <option value="SUBMITTED">{t("status.submitted")}</option>
+            <option value="PENDING_AT_CLERK">{t("status.pending_at_clerk")}</option>
+            <option value="QUERY_PENDING">{t("status.query_pending")}</option>
+            <option value="APPROVED">{t("status.approved")}</option>
+            <option value="REJECTED">{t("status.rejected")}</option>
+            <option value="CLOSED">{t("status.closed")}</option>
           </Select>
           <Button onClick={performSearch} className="search-button" disabled={searchLoading || isOffline}>
-            {searchLoading ? "Searching..." : "Search"}
+            {t(searchLoading ? "search.searching" : "search.button")}
           </Button>
           {searchResults.length > 0 && (
             <Button variant="success" onClick={handleExport} className="export-button" disabled={exportLoading || isOffline}>
-              {exportLoading ? "Exporting..." : "Export CSV"}
+              {t(exportLoading ? "search.exporting" : "search.export_csv")}
             </Button>
           )}
         </div>
       </div>
 
       {isOffline ? (
-        <Alert variant="warning">Offline mode is active. Search and export are disabled.</Alert>
+        <Alert variant="warning">{t("offline.search_disabled")}</Alert>
       ) : null}
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       {searchLoading ? (
         <div className="search-results">
-          <h2>Search Results</h2>
-          <ul className="task-list officer-skeleton-list" aria-label="Searching applications">
+          <h2>{t("search.results")}</h2>
+          <ul className="task-list officer-skeleton-list" aria-label={t("search.searching")}>
             {skeletonItems.map((idx) => (
               <li key={idx}>
                 <Card className="task-card-wrap task-card-skeleton" aria-hidden="true">
@@ -150,7 +152,7 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
 
       {searchResults.length > 0 && (
         <div className="search-results">
-          <h2>Search Results ({searchResults.length})</h2>
+          <h2>{t("search.results_count", { count: searchResults.length })}</h2>
           <ul className="task-list">
             {searchResults.map((app) => (
               <li key={app.arn}>
@@ -162,10 +164,10 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
                     onClick={() => onSelectApplication(app)}
                   >
                     <div>
-                      <h2>ARN: {app.arn}</h2>
-                      <p>Service: {app.service_key}</p>
-                      <p>Status: {app.state_id}</p>
-                      <p>Applicant: {app.data_jsonb?.applicant?.full_name || app.data_jsonb?.applicant?.name || "N/A"}</p>
+                      <h2>{t("inbox.arn_label", { arn: app.arn })}</h2>
+                      <p>{t("inbox.service")}: {app.service_key}</p>
+                      <p>{t("common.status")}: {app.state_id}</p>
+                      <p>{t("inbox.applicant")}: {app.data_jsonb?.applicant?.full_name || app.data_jsonb?.applicant?.name || "N/A"}</p>
                       {app.data_jsonb?.property?.upn && <p>UPN: {app.data_jsonb.property.upn}</p>}
                       {app.data_jsonb?.property?.plot_no && <p>Plot: {app.data_jsonb.property.plot_no}</p>}
                     </div>
@@ -183,8 +185,8 @@ export default function SearchPanel({ authHeaders, onSelectApplication, isOfflin
           <div className="empty-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </div>
-          <h3>No applications found</h3>
-          <p>No applications matched your search criteria. Try broadening your search.</p>
+          <h3>{t("search.no_results")}</h3>
+          <p>{t("search.no_results_desc")}</p>
         </div>
       )}
     </section>

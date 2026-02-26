@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Button, SkeletonBlock } from "@puda/shared";
 import { apiBaseUrl } from "./types";
 import "./service-config.css";
@@ -95,6 +96,7 @@ type SubView = "service-list" | "version-list" | "version-detail";
 type DetailTab = "workflow" | "documents" | "fees" | "compare";
 
 export default function ServiceConfigView({ authHeaders, isOffline, onBack }: ServiceConfigViewProps) {
+  const { t } = useTranslation();
   const [subView, setSubView] = useState<SubView>("service-list");
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [versions, setVersions] = useState<VersionSummary[]>([]);
@@ -264,8 +266,8 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
   const renderServiceList = () => (
     <>
-      <Button className="svc-back-btn" variant="ghost" type="button" onClick={onBack}>&larr; Back to Workbench</Button>
-      <h2 style={{ margin: `0 0 var(--space-4) 0`, fontSize: "clamp(1.1rem, 2.5vw, 1.4rem)" }}>Service Configurations</h2>
+      <Button className="svc-back-btn" variant="ghost" type="button" onClick={onBack}>&larr; {t("svc.back_to_workbench")}</Button>
+      <h2 style={{ margin: `0 0 var(--space-4) 0`, fontSize: "clamp(1.1rem, 2.5vw, 1.4rem)" }}>{t("svc.configurations_heading")}</h2>
       {loading ? (
         <div className="svc-grid">
           {[1,2,3,4].map(i => <SkeletonBlock key={i} height="6rem" />)}
@@ -275,8 +277,8 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
           <div className="empty-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </div>
-          <h3>No services configured</h3>
-          <p>Service configurations will appear here once created.</p>
+          <h3>{t("svc.no_services")}</h3>
+          <p>{t("svc.no_services_desc")}</p>
         </div>
       ) : (
         <div className="svc-grid">
@@ -304,9 +306,9 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
   const renderVersionList = () => (
     <>
-      <Button className="svc-back-btn" variant="ghost" type="button" onClick={handleBackToServices}>&larr; All Services</Button>
+      <Button className="svc-back-btn" variant="ghost" type="button" onClick={handleBackToServices}>&larr; {t("svc.all_services")}</Button>
       <h2 style={{ margin: `0 0 var(--space-4) 0`, fontSize: "clamp(1.1rem, 2.5vw, 1.4rem)" }}>
-        {selectedServiceName} — Versions
+        {t("svc.versions_heading", { name: selectedServiceName })}
       </h2>
 
       {versions.length >= 2 && (
@@ -316,7 +318,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
             type="button"
             onClick={() => { setListCompareMode(m => !m); setListCompareResult(null); }}
           >
-            {listCompareMode ? "Hide Compare" : "Compare Versions"}
+            {listCompareMode ? t("svc.hide_compare") : t("svc.compare_versions")}
           </Button>
 
           {listCompareMode && (
@@ -324,13 +326,13 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
               <div className="compare-selectors" style={{ marginTop: `var(--space-3)` }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "var(--space-1)" }}>
-                    Version A
+                    {t("svc.version_a")}
                   </label>
                   <select
                     value={listCompareV1}
                     onChange={e => { setListCompareV1(e.target.value); setListCompareResult(null); }}
                   >
-                    <option value="">Select...</option>
+                    <option value="">{t("svc.select")}</option>
                     {versions.map(v => (
                       <option key={v.version} value={v.version}>v{v.version}</option>
                     ))}
@@ -338,13 +340,13 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "var(--space-1)" }}>
-                    Version B
+                    {t("svc.version_b")}
                   </label>
                   <select
                     value={listCompareV2}
                     onChange={e => { setListCompareV2(e.target.value); setListCompareResult(null); }}
                   >
-                    <option value="">Select...</option>
+                    <option value="">{t("svc.select")}</option>
                     {versions.map(v => (
                       <option key={v.version} value={v.version}>v{v.version}</option>
                     ))}
@@ -356,7 +358,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
                   disabled={!listCompareV1 || !listCompareV2 || listCompareV1 === listCompareV2 || listCompareLoading}
                   onClick={() => void loadListCompare()}
                 >
-                  Compare
+                  {t("svc.compare")}
                 </Button>
               </div>
 
@@ -376,8 +378,8 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
           <div className="empty-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           </div>
-          <h3>No versions found</h3>
-          <p>No versions exist for this service configuration.</p>
+          <h3>{t("svc.no_versions")}</h3>
+          <p>{t("svc.no_versions_desc")}</p>
         </div>
       ) : (
         <div className="ver-timeline">
@@ -412,7 +414,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
   // ---- Sub-view: Version detail — Workflow tab ----
 
   const renderWorkflowTab = () => {
-    if (!versionDetail?.workflow) return <p className="svc-empty">No workflow configured.</p>;
+    if (!versionDetail?.workflow) return <p className="svc-empty">{t("svc.no_workflow")}</p>;
     const { states = [], transitions = [] } = versionDetail.workflow;
 
     // Build adjacency map: stateId → outgoing transitions
@@ -457,7 +459,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
     return (
       <>
-        <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>Workflow Flow</h3>
+        <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>{t("svc.workflow_flow")}</h3>
         <div className="wf-flow">
           {happyPath.map((state, idx) => {
             const branches = state.type === "task" ? getBranches(state.stateId) : null;
@@ -488,14 +490,14 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
         {queryState && resubmittedState && firstTaskState && (
           <div className="wf-query-loop">
-            <strong>Query Loop:</strong>{" "}
+            <strong>{t("svc.query_loop")}</strong>{" "}
             {queryState.label || queryState.stateId} → {resubmittedState.label || resubmittedState.stateId} → {firstTaskState.label || firstTaskState.stateId}
           </div>
         )}
 
-        <h3 style={{ margin: `var(--space-5) 0 var(--space-3) 0`, fontSize: "1rem" }}>All Transitions</h3>
+        <h3 style={{ margin: `var(--space-5) 0 var(--space-3) 0`, fontSize: "1rem" }}>{t("svc.all_transitions")}</h3>
         {transitions.length === 0 ? (
-          <p className="svc-empty">No transitions defined.</p>
+          <p className="svc-empty">{t("svc.no_transitions")}</p>
         ) : (
           <table className="wf-transition-table">
             <thead>
@@ -528,7 +530,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
   const renderDocumentsTab = () => {
     const docs = versionDetail?.documents?.documentTypes || [];
-    if (docs.length === 0) return <p className="svc-empty">No document types configured.</p>;
+    if (docs.length === 0) return <p className="svc-empty">{t("svc.no_documents")}</p>;
 
     return (
       <div className="doc-type-list">
@@ -583,14 +585,14 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
     const byAuthority = schedule?.byAuthority;
 
     if (defaultFees.length === 0 && !byAuthority) {
-      return <p className="svc-empty">No fee schedule configured.</p>;
+      return <p className="svc-empty">{t("svc.no_fees")}</p>;
     }
 
     return (
       <>
         {defaultFees.length > 0 && (
           <>
-            <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>Default Fees</h3>
+            <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>{t("svc.default_fees")}</h3>
             {renderFeeTable(defaultFees)}
           </>
         )}
@@ -614,7 +616,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
         <div className="compare-selectors">
           <div>
             <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "var(--space-1)" }}>
-              Base (current)
+              {t("svc.base_current")}
             </label>
             <select value={compareV1} disabled>
               <option value={compareV1}>v{compareV1}</option>
@@ -622,13 +624,13 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
           </div>
           <div>
             <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "var(--space-1)" }}>
-              Compare with
+              {t("svc.compare_with")}
             </label>
             <select
               value={compareV2}
               onChange={e => { setCompareV2(e.target.value); setCompareResult(null); }}
             >
-              <option value="">Select version...</option>
+              <option value="">{t("svc.select_version")}</option>
               {otherVersions.map(v => (
                 <option key={v.version} value={v.version}>v{v.version}</option>
               ))}
@@ -638,7 +640,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
         {compareLoading && <SkeletonBlock height="8rem" />}
         {!compareV2 && !compareLoading && (
-          <p className="svc-empty">Select a version to compare with.</p>
+          <p className="svc-empty">{t("svc.select_version_compare")}</p>
         )}
         {compareResult && renderDiff(compareResult)}
       </>
@@ -655,7 +657,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
       <div className="diff-section">
         <p className="diff-section__title">{title}</p>
         {isEmpty ? (
-          <p className="diff-empty">No changes</p>
+          <p className="diff-empty">{t("svc.no_changes")}</p>
         ) : (
           <div className="diff-list">
             {diff.added.map((item, i) => (
@@ -687,7 +689,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
     if (!versionDetail && loading) {
       return <SkeletonBlock height="20rem" />;
     }
-    if (!versionDetail) return <p className="svc-empty">Version not found.</p>;
+    if (!versionDetail) return <p className="svc-empty">{t("svc.version_not_found")}</p>;
 
     return (
       <>
@@ -710,7 +712,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
               onClick={() => setActiveTab(tab)}
               aria-pressed={activeTab === tab}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {t(`svc.tab_${tab}`)}
             </button>
           ))}
         </nav>

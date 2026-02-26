@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Button, Field, Input, PasswordInput } from "@puda/shared";
 import { useTheme } from "./theme";
 import type { ThemePreference } from "./theme";
@@ -9,6 +10,7 @@ interface OfficerLoginProps {
 
 export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
   const { theme, setTheme } = useTheme("puda_officer_theme");
+  const { t } = useTranslation();
   const [loginId, setLoginId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -34,8 +36,8 @@ export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
       </a>
       <header className="page__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "var(--space-3)" }}>
         <div>
-          <p className="eyebrow">PUDA Officer Workbench</p>
-          <h1>Officer Login</h1>
+          <p className="eyebrow">{t("app.brand")}</p>
+          <h1>{t("login.title")}</h1>
         </div>
         <select
           className="login-theme-select"
@@ -43,32 +45,32 @@ export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
           onChange={(e) => setTheme(e.target.value as ThemePreference)}
           aria-label="Theme"
         >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">System</option>
+          <option value="light">{t("settings.theme_light")}</option>
+          <option value="dark">{t("settings.theme_dark")}</option>
+          <option value="system">{t("settings.theme_system")}</option>
         </select>
       </header>
       <main id="officer-login-main" className="panel officer-login-panel" role="main">
         <form onSubmit={handleSubmit} className="officer-login-form">
           {loginError ? <Alert variant="error">{loginError}</Alert> : null}
-          <Field label="User ID" htmlFor="officer-login-id" required>
+          <Field label={t("login.user_id")} htmlFor="officer-login-id" required>
             <Input
               id="officer-login-id"
               type="text"
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
               required
-              placeholder="e.g. officer1"
+              placeholder={t("login.user_id_placeholder")}
               autoComplete="username"
             />
           </Field>
-          <Field label="Password" htmlFor="officer-login-password" required>
+          <Field label={t("login.password")} htmlFor="officer-login-password" required>
             <PasswordInput
               id="officer-login-password"
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
               required
-              placeholder="Enter password"
+              placeholder={t("login.password_placeholder")}
               autoComplete="current-password"
             />
           </Field>
@@ -77,7 +79,7 @@ export default function OfficerLogin({ onLogin }: OfficerLoginProps) {
             disabled={loginLoading}
             fullWidth
           >
-            {loginLoading ? "Logging in..." : "Login"}
+            {t(loginLoading ? "login.loading" : "login.submit")}
           </Button>
           <div className="test-credentials">
             <p className="test-credentials__title">Test Credentials (password: password123)</p>

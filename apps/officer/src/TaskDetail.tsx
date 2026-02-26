@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Field, Input, Modal, Textarea } from "@puda/shared";
 import { Task, Application, apiBaseUrl } from "./types";
 
@@ -118,6 +119,7 @@ export default function TaskDetail({
   onActionComplete,
   onDirtyChange,
 }: TaskDetailProps) {
+  const { t } = useTranslation();
 
   const [feedback, setFeedback] = useState<{ variant: "info" | "success" | "warning" | "error"; text: string } | null>(null);
   const [action, setAction] = useState<"FORWARD" | "QUERY" | "APPROVE" | "REJECT" | null>(null);
@@ -328,33 +330,33 @@ export default function TaskDetail({
   return (
     <>
       <Button onClick={onBack} className="back-button" variant="ghost">
-        &larr; Back to {fromSearch ? "Search" : "Inbox"}
+        &larr; {t(fromSearch ? "task.back_to_search" : "task.back_to_inbox")}
       </Button>
-      <h1 style={{ marginTop: "var(--space-3)" }}>Application Review</h1>
+      <h1 style={{ marginTop: "var(--space-3)" }}>{t("app.page_task")}</h1>
       <p className="subtitle">ARN: {application.arn}</p>
 
       <div className="panel" style={{ marginTop: "var(--space-4)" }}>
         {isOffline ? (
           <Alert variant="warning" className="task-feedback">
-            Offline mode is active. Changes are disabled.
+            {t("offline.task_disabled")}
           </Alert>
         ) : null}
         {feedback ? <Alert variant={feedback.variant} className="task-feedback">{feedback.text}</Alert> : null}
         {application.sla_due_at && (
           <div className="sla-banner">
-            <strong>SLA due:</strong> {new Date(application.sla_due_at).toLocaleString()}
+            <strong>{t("task.sla_due")}</strong> {new Date(application.sla_due_at).toLocaleString()}
             {new Date(application.sla_due_at) < new Date() && <span className="sla-overdue"> (Overdue)</span>}
           </div>
         )}
 
         <div className="application-details">
-          <h2>Application Data</h2>
+          <h2>{t("task.application_data")}</h2>
           {renderStructuredData(application.data_jsonb)}
         </div>
 
         {checklistItems.length > 0 && (
           <div className="verification-section">
-            <h2>Verification Checklist</h2>
+            <h2>{t("task.verification_checklist")}</h2>
             <div className="checklist-items">
               {checklistItems.map((item) => (
                 <label key={item.key} className="checklist-item">
@@ -368,13 +370,13 @@ export default function TaskDetail({
                 </label>
               ))}
             </div>
-            <Field label="Verification Remarks" htmlFor="verification-remarks">
+            <Field label={t("task.verification_remarks")} htmlFor="verification-remarks">
               <Textarea
                 id="verification-remarks"
                 value={verificationRemarks}
                 onChange={(e) => setVerificationRemarks(e.target.value)}
                 rows={3}
-                placeholder="Enter verification remarks..."
+                placeholder={t("task.verification_remarks_placeholder")}
                 disabled={isOffline || actionLoading}
               />
             </Field>
@@ -382,7 +384,7 @@ export default function TaskDetail({
         )}
 
         <div className="documents-section">
-          <h2>Documents ({application.documents.length})</h2>
+          <h2>{t("task.documents_section", { count: application.documents.length })}</h2>
           {application.documents.length > 0 ? (
             <div className="detail-card-list">
               {application.documents.map((doc) => {
@@ -414,11 +416,11 @@ export default function TaskDetail({
                   <div className="doc-actions">
                     <Button variant="ghost" className="doc-actions__btn" onClick={() => void handlePreview(doc)}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      Preview
+                      {t("action.preview")}
                     </Button>
                     <Button variant="ghost" className="doc-actions__btn" onClick={() => void handleDownload(doc)}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      Download
+                      {t("action.download")}
                     </Button>
                   </div>
                   {/* Per-document verification controls */}
@@ -431,7 +433,7 @@ export default function TaskDetail({
                           disabled={isOffline || docVerifyLoading === doc.doc_id}
                           onClick={() => void handleDocVerify(doc.doc_id, "VERIFIED")}
                         >
-                          Verify
+                          {t("action.verify")}
                         </Button>
                         <Button
                           size="sm"
@@ -439,7 +441,7 @@ export default function TaskDetail({
                           disabled={isOffline || docVerifyLoading === doc.doc_id}
                           onClick={() => void handleDocVerify(doc.doc_id, "REJECTED")}
                         >
-                          Reject
+                          {t("action.reject")}
                         </Button>
                         <Button
                           size="sm"
@@ -447,13 +449,13 @@ export default function TaskDetail({
                           disabled={isOffline || docVerifyLoading === doc.doc_id}
                           onClick={() => void handleDocVerify(doc.doc_id, "QUERY")}
                         >
-                          Query
+                          {t("action.query")}
                         </Button>
                       </div>
                       <input
                         type="text"
                         className="ui-input doc-verify-remarks"
-                        placeholder="Reason (required for reject/query)..."
+                        placeholder={t("task.doc_verify_reason_placeholder")}
                         value={verEntry.remarks}
                         disabled={isOffline || docVerifyLoading === doc.doc_id}
                         onChange={(e) => setDocVerifications((prev) => ({
@@ -475,13 +477,13 @@ export default function TaskDetail({
             </div>
           ) : (
             <Alert variant="info" className="empty-read-alert">
-              No documents uploaded yet for this application.
+              {t("task.no_documents")}
             </Alert>
           )}
         </div>
 
         <div className="queries-section">
-          <h2>Queries ({application.queries.length})</h2>
+          <h2>{t("task.queries_section", { count: application.queries.length })}</h2>
           {application.queries.length > 0 ? (
             <div className="detail-card-list">
               {application.queries.map((q) => (
@@ -510,13 +512,13 @@ export default function TaskDetail({
             </div>
           ) : (
             <Alert variant="info" className="empty-read-alert">
-              No queries have been raised for this application.
+              {t("task.no_queries")}
             </Alert>
           )}
         </div>
 
         <div className="timeline-section">
-          <h2>Timeline ({application.timeline.length})</h2>
+          <h2>{t("task.timeline_section", { count: application.timeline.length })}</h2>
           {application.timeline.length > 0 ? (
             <div className="detail-card-list">
               {application.timeline.map((event, idx) => (
@@ -541,7 +543,7 @@ export default function TaskDetail({
             </div>
           ) : (
             <Alert variant="info" className="empty-read-alert">
-              Timeline events are not available yet.
+              {t("task.no_timeline")}
             </Alert>
           )}
         </div>
@@ -558,19 +560,19 @@ export default function TaskDetail({
 
         {!fromSearch && !["APPROVED", "REJECTED", "CLOSED"].includes(application.state_id) && task.task_id && (
           <div className="action-panel">
-            <h2>Take Action</h2>
+            <h2>{t("task.take_action")}</h2>
             <div className="action-buttons">
-              <Button onClick={() => setAction("FORWARD")} className="action-btn forward" variant="secondary" disabled={isOffline || actionLoading}>Forward</Button>
-              <Button onClick={() => setAction("QUERY")} className="action-btn query" variant="secondary" disabled={isOffline || actionLoading}>Raise Query</Button>
-              <Button onClick={() => setAction("APPROVE")} className="action-btn approve" variant="secondary" disabled={isOffline || actionLoading}>Approve</Button>
-              <Button onClick={() => setAction("REJECT")} className="action-btn reject" variant="secondary" disabled={isOffline || actionLoading}>Reject</Button>
+              <Button onClick={() => setAction("FORWARD")} className="action-btn forward" variant="secondary" disabled={isOffline || actionLoading}>{t("action.forward")}</Button>
+              <Button onClick={() => setAction("QUERY")} className="action-btn query" variant="secondary" disabled={isOffline || actionLoading}>{t("action.query")}</Button>
+              <Button onClick={() => setAction("APPROVE")} className="action-btn approve" variant="secondary" disabled={isOffline || actionLoading}>{t("action.approve")}</Button>
+              <Button onClick={() => setAction("REJECT")} className="action-btn reject" variant="secondary" disabled={isOffline || actionLoading}>{t("action.reject")}</Button>
             </div>
 
             {action && (
               <div className="action-form">
                 {action === "QUERY" && (
                   <>
-                    <Field label="Query Message" htmlFor="query-message" required>
+                    <Field label={t("task.query_message")} htmlFor="query-message" required>
                       <Textarea
                         id="query-message"
                         value={queryMessage}
@@ -579,7 +581,7 @@ export default function TaskDetail({
                         disabled={isOffline || actionLoading}
                       />
                     </Field>
-                    <Field label="Unlock Fields (comma-separated)" htmlFor="unlock-fields">
+                    <Field label={t("task.unlock_fields")} htmlFor="unlock-fields">
                       <Input
                         id="unlock-fields"
                         type="text"
@@ -589,11 +591,11 @@ export default function TaskDetail({
                             e.target.value.split(",").map((s) => s.trim()).filter((s) => s)
                           )
                         }
-                        placeholder="e.g., property.plot_no, applicant.full_name"
+                        placeholder={t("task.unlock_fields_placeholder")}
                         disabled={isOffline || actionLoading}
                       />
                     </Field>
-                    <Field label="Unlock Documents (doc type IDs, comma-separated)" htmlFor="unlock-documents">
+                    <Field label={t("task.unlock_documents")} htmlFor="unlock-documents">
                       <Input
                         id="unlock-documents"
                         type="text"
@@ -603,13 +605,13 @@ export default function TaskDetail({
                             e.target.value.split(",").map((s) => s.trim()).filter((s) => s)
                           )
                         }
-                        placeholder="e.g., DOC_PAYMENT_RECEIPT"
+                        placeholder={t("task.unlock_documents_placeholder")}
                         disabled={isOffline || actionLoading}
                       />
                     </Field>
                   </>
                 )}
-                <Field label="Remarks" htmlFor="action-remarks" required={action === "REJECT"}>
+                <Field label={t("task.remarks")} htmlFor="action-remarks" required={action === "REJECT"}>
                   <Textarea
                     id="action-remarks"
                     value={remarks}
@@ -629,7 +631,7 @@ export default function TaskDetail({
                       (action === "REJECT" && !remarks.trim())
                     }
                   >
-                    {actionLoading ? "Submitting..." : `Submit ${action}`}
+                    {actionLoading ? t("task.submitting") : t("task.submit_action", { action })}
                   </Button>
                   <Button
                     onClick={() => setAction(null)}
@@ -637,7 +639,7 @@ export default function TaskDetail({
                     variant="ghost"
                     disabled={actionLoading}
                   >
-                    Cancel
+                    {t("action.cancel")}
                   </Button>
                 </div>
               </div>
@@ -649,16 +651,16 @@ export default function TaskDetail({
       <Modal
         open={confirmOpen && (action === "APPROVE" || action === "REJECT")}
         onClose={() => setConfirmOpen(false)}
-        title={action === "APPROVE" ? "Confirm Approval" : "Confirm Rejection"}
+        title={action === "APPROVE" ? t("task.confirm_approval") : t("task.confirm_rejection")}
         description={
           action === "APPROVE"
-            ? "This approval is recorded in the workflow and cannot be auto-undone."
-            : "This rejection is recorded in the workflow and cannot be auto-undone."
+            ? t("task.approval_warning")
+            : t("task.rejection_warning")
         }
         actions={
           <>
             <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>
-              Cancel
+              {t("action.cancel")}
             </Button>
             <Button
               type="button"
@@ -668,7 +670,7 @@ export default function TaskDetail({
                 void handleAction(true);
               }}
             >
-              Confirm {action === "APPROVE" ? "Approval" : "Rejection"}
+              {t(action === "APPROVE" ? "action.confirm_approval" : "action.confirm_rejection")}
             </Button>
           </>
         }
@@ -682,16 +684,16 @@ export default function TaskDetail({
         className="doc-preview-modal"
         actions={
           <>
-            <Button type="button" variant="ghost" onClick={closePreview}>Close</Button>
+            <Button type="button" variant="ghost" onClick={closePreview}>{t("action.close")}</Button>
             {previewBlobUrl && (
               <>
                 <Button type="button" variant="ghost" onClick={() => setFullscreen(true)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                  Fullscreen
+                  {t("action.fullscreen")}
                 </Button>
                 <Button type="button" variant="secondary" onClick={() => void handleDownload(previewDoc)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
+                  {t("action.download")}
                 </Button>
               </>
             )}
@@ -699,7 +701,7 @@ export default function TaskDetail({
         }
       >
         <div className="doc-preview-content">
-          {previewLoading && <p className="doc-preview-loading">Loading preview...</p>}
+          {previewLoading && <p className="doc-preview-loading">{t("task.loading_preview")}</p>}
           {previewError && <Alert variant="error">{previewError}</Alert>}
           {previewBlobUrl && isPreviewImage && (
             <img src={previewBlobUrl} alt={previewDoc?.original_filename || "Document"} className="doc-preview-img" />
@@ -709,8 +711,8 @@ export default function TaskDetail({
           )}
           {previewBlobUrl && !isPreviewImage && !isPreviewPdf && (
             <div className="doc-preview-unsupported">
-              <p>Preview is not available for this file type.</p>
-              <Button variant="secondary" onClick={() => void handleDownload(previewDoc)}>Download to view</Button>
+              <p>{t("task.preview_unavailable")}</p>
+              <Button variant="secondary" onClick={() => void handleDownload(previewDoc)}>{t("task.download_to_view")}</Button>
             </div>
           )}
         </div>
@@ -724,15 +726,15 @@ export default function TaskDetail({
             <div className="doc-preview-fullscreen__actions">
               <Button variant="ghost" onClick={() => void handleDownload(previewDoc)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
+                {t("action.download")}
               </Button>
               <Button variant="ghost" onClick={() => setFullscreen(false)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                Exit Fullscreen
+                {t("action.exit_fullscreen")}
               </Button>
               <Button variant="ghost" onClick={closePreview}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                Close
+                {t("action.close")}
               </Button>
             </div>
           </div>
@@ -745,7 +747,7 @@ export default function TaskDetail({
             )}
             {previewBlobUrl && !isPreviewImage && !isPreviewPdf && (
               <div className="doc-preview-unsupported">
-                <p>Preview is not available for this file type.</p>
+                <p>{t("task.preview_unavailable")}</p>
               </div>
             )}
           </div>

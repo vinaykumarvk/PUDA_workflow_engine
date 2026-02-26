@@ -2,6 +2,7 @@
  * Officer Portal — Main App (app shell with sidebar, bottom nav, avatar menu).
  */
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import "./app.css";
 import { Alert, Button, Drawer, useToast, SkeletonBlock } from "@puda/shared";
 import { Task, Application, apiBaseUrl } from "./types";
@@ -21,19 +22,20 @@ const Settings = lazy(() => import("./Settings"));
 
 type View = "inbox" | "task" | "search" | "complaints" | "service-config" | "settings";
 
-const PAGE_TITLES: Record<View, string> = {
-  inbox: "My Inbox",
-  search: "Search Applications",
-  task: "Application Review",
-  complaints: "Complaint Management",
-  "service-config": "Service Configuration",
-  settings: "Settings",
+const PAGE_TITLE_KEYS: Record<View, string> = {
+  inbox: "app.page_inbox",
+  search: "app.page_search",
+  task: "app.page_task",
+  complaints: "app.page_complaints",
+  "service-config": "app.page_service_config",
+  settings: "app.page_settings",
 };
 
 export default function App() {
   const { auth, login, logout, authHeaders, postings, roles, authorities } = useOfficerAuth();
   const { theme, setTheme } = useTheme("puda_officer_theme");
   const { showToast } = useToast();
+  const { t } = useTranslation();
 
   const officerUserId = auth?.user.user_id || "";
   const { preferences, updatePreference } = usePreferences(apiBaseUrl, authHeaders, officerUserId || undefined);
@@ -120,8 +122,8 @@ export default function App() {
 
   const confirmNavigation = useCallback((): boolean => {
     if (!formDirty) return true;
-    return window.confirm("You have unsaved changes. Are you sure you want to leave?");
-  }, [formDirty]);
+    return window.confirm(t("common.unsaved_confirm"));
+  }, [formDirty, t]);
 
   const loadInbox = useCallback(async () => {
     if (!officerUserId) return;
@@ -132,7 +134,7 @@ export default function App() {
         setLoading(false);
         return;
       }
-      setError("Offline mode is active. Inbox data is unavailable until connection is restored.");
+      setError(t("offline.inbox_unavailable"));
       setLoading(false);
       return;
     }
@@ -167,7 +169,7 @@ export default function App() {
 
   const loadApplication = async (arn: string) => {
     if (isOffline) {
-      setError("Offline mode is active. Application details cannot be loaded.");
+      setError(t("offline.app_unavailable"));
       return;
     }
     try {
@@ -186,7 +188,7 @@ export default function App() {
 
   const handleTaskClick = async (task: Task) => {
     if (isOffline) {
-      setInboxFeedback({ variant: "warning", text: "Offline mode is active. Task actions are disabled." });
+      setInboxFeedback({ variant: "warning", text: t("offline.task_disabled") });
       return;
     }
     setInboxFeedback(null);
@@ -206,7 +208,7 @@ export default function App() {
 
   const handleSearchSelect = async (app: Application) => {
     if (isOffline) {
-      setInboxFeedback({ variant: "warning", text: "Offline mode is active. Search results are read-only." });
+      setInboxFeedback({ variant: "warning", text: t("offline.search_readonly") });
       return;
     }
     navStackRef.current.push({ view, fromSearch });
@@ -293,14 +295,14 @@ export default function App() {
   const userName = auth.user.name || officerUserId;
   const initial = userName.charAt(0).toUpperCase();
   const sidebarCollapsed = preferences.sidebarCollapsed;
-  const pageTitle = PAGE_TITLES[view] || "";
+  const pageTitle = t(PAGE_TITLE_KEYS[view] || "");
 
   // Shared nav items rendered in sidebar + drawer
   const renderNavContent = (context: "sidebar" | "drawer") => (
     <>
       {context === "drawer" && (
         <div className="sidebar__header">
-          <p className="sidebar__portal-name">PUDA Officer</p>
+          <p className="sidebar__portal-name">{t("app.brand")}</p>
           <p className="sidebar__user-name">{userName}</p>
         </div>
       )}
@@ -309,48 +311,48 @@ export default function App() {
           <button
             className={`sidebar__item ${view === "inbox" ? "sidebar__item--active" : ""}`}
             onClick={() => navigate("inbox")}
-            title="My Inbox"
+            title={t("nav.inbox")}
           >
             <span className="sidebar__item-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </span>
-            <span>My Inbox</span>
+            <span>{t("nav.inbox")}</span>
           </button>
         </li>
         <li>
           <button
             className={`sidebar__item ${view === "search" ? "sidebar__item--active" : ""}`}
             onClick={() => navigate("search")}
-            title="Search"
+            title={t("nav.search")}
           >
             <span className="sidebar__item-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
-            <span>Search</span>
+            <span>{t("nav.search")}</span>
           </button>
         </li>
         <li>
           <button
             className={`sidebar__item ${view === "complaints" ? "sidebar__item--active" : ""}`}
             onClick={() => navigate("complaints")}
-            title="Complaints"
+            title={t("nav.complaints")}
           >
             <span className="sidebar__item-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </span>
-            <span>Complaints</span>
+            <span>{t("nav.complaints")}</span>
           </button>
         </li>
         <li>
           <button
             className={`sidebar__item ${view === "service-config" ? "sidebar__item--active" : ""}`}
             onClick={() => navigate("service-config")}
-            title="Service Config"
+            title={t("nav.service_config")}
           >
             <span className="sidebar__item-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </span>
-            <span>Service Config</span>
+            <span>{t("nav.service_config")}</span>
           </button>
         </li>
         <li className="sidebar__divider" role="separator" />
@@ -358,21 +360,21 @@ export default function App() {
           <button
             className={`sidebar__item ${view === "settings" ? "sidebar__item--active" : ""}`}
             onClick={() => navigate("settings")}
-            title="Settings"
+            title={t("nav.settings")}
           >
             <span className="sidebar__item-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
             </span>
-            <span>Settings</span>
+            <span>{t("nav.settings")}</span>
           </button>
         </li>
       </ul>
       <div className="sidebar__footer">
-        <button className="sidebar__item" onClick={handleLogout} title="Logout">
+        <button className="sidebar__item" onClick={handleLogout} title={t("nav.logout")}>
           <span className="sidebar__item-icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </span>
-          <span>Logout</span>
+          <span>{t("nav.logout")}</span>
         </button>
       </div>
     </>
@@ -398,14 +400,14 @@ export default function App() {
           <button
             className="app-bar__hamburger app-bar__hamburger--desktop-only"
             onClick={() => updatePreference("sidebarCollapsed", !sidebarCollapsed)}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={t(sidebarCollapsed ? "app.sidebar_expand" : "app.sidebar_collapse")}
             type="button"
           >
             &#9776;
           </button>
           <div className="app-bar__brand">
             <div className="app-bar__brand-text">
-              <span className="app-bar__brand-name">PUDA Officer Workbench</span>
+              <span className="app-bar__brand-name">{t("app.brand")}</span>
               <span className="app-bar__page-title">{pageTitle}</span>
             </div>
           </div>
@@ -433,7 +435,7 @@ export default function App() {
                   role="menuitem"
                   type="button"
                 >
-                  Settings
+                  {t("nav.settings")}
                 </button>
                 <div className="avatar-menu__divider" />
                 <button
@@ -442,7 +444,7 @@ export default function App() {
                   role="menuitem"
                   type="button"
                 >
-                  Logout
+                  {t("nav.logout")}
                 </button>
               </div>
             )}
@@ -470,7 +472,7 @@ export default function App() {
           <span className="bottom-nav__icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </span>
-          <span className="bottom-nav__label">Inbox</span>
+          <span className="bottom-nav__label">{t("nav.inbox")}</span>
         </button>
         <button
           className={`bottom-nav__tab ${view === "search" ? "bottom-nav__tab--active" : ""}`}
@@ -480,7 +482,7 @@ export default function App() {
           <span className="bottom-nav__icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
-          <span className="bottom-nav__label">Search</span>
+          <span className="bottom-nav__label">{t("nav.search")}</span>
         </button>
         <button
           className={`bottom-nav__tab ${view === "complaints" ? "bottom-nav__tab--active" : ""}`}
@@ -490,7 +492,7 @@ export default function App() {
           <span className="bottom-nav__icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </span>
-          <span className="bottom-nav__label">Complaints</span>
+          <span className="bottom-nav__label">{t("nav.complaints")}</span>
         </button>
         <button
           className={`bottom-nav__tab ${view === "service-config" ? "bottom-nav__tab--active" : ""}`}
@@ -500,7 +502,7 @@ export default function App() {
           <span className="bottom-nav__icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </span>
-          <span className="bottom-nav__label">Config</span>
+          <span className="bottom-nav__label">{t("nav.config_short")}</span>
         </button>
         <button
           className="bottom-nav__tab"
@@ -511,7 +513,7 @@ export default function App() {
           <span className="bottom-nav__icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </span>
-          <span className="bottom-nav__label">More</span>
+          <span className="bottom-nav__label">{t("nav.more")}</span>
         </button>
       </nav>
 
@@ -520,7 +522,7 @@ export default function App() {
         <div className="app-layout__main">
           {isOffline && (
             <Alert variant="warning" className="view-feedback">
-              Offline mode is active. Data-changing actions are disabled.
+              {t("offline.banner")}
             </Alert>
           )}
 
@@ -529,7 +531,7 @@ export default function App() {
               {view === "inbox" && (
                 <>
                   <div className="page__header">
-                    <h1>My Inbox</h1>
+                    <h1>{t("app.page_inbox")}</h1>
                     <p className="subtitle">
                       {postings.map((p) => p.designation_name).join(", ") || "Loading..."} | Roles: {roles.join(", ") || "\u2014"}
                     </p>

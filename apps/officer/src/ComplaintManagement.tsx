@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Field, SkeletonBlock, Textarea } from "@puda/shared";
 import { apiBaseUrl } from "./types";
 
@@ -40,25 +41,25 @@ interface ComplaintManagementProps {
   onBack: () => void;
 }
 
-const VIOLATION_LABELS: Record<string, string> = {
-  UNAUTHORIZED_CONSTRUCTION: "Construction Without Approval",
-  PLAN_DEVIATION: "Deviation from Approved Plan",
-  ENCROACHMENT: "Encroachment on Public/Govt Land",
-  HEIGHT_VIOLATION: "Excess Floors / Height Violation",
-  SETBACK_VIOLATION: "Setback / Open Space Violation",
-  CHANGE_OF_USE: "Unauthorized Change of Land Use",
-  UNAUTHORIZED_COLONY: "Unauthorized Colony / Layout",
-  OTHER: "Other Violation",
+const VIOLATION_KEY: Record<string, string> = {
+  UNAUTHORIZED_CONSTRUCTION: "violation.unauthorized_construction",
+  PLAN_DEVIATION: "violation.plan_deviation",
+  ENCROACHMENT: "violation.encroachment",
+  HEIGHT_VIOLATION: "violation.height_violation",
+  SETBACK_VIOLATION: "violation.setback_violation",
+  CHANGE_OF_USE: "violation.change_of_use",
+  UNAUTHORIZED_COLONY: "violation.unauthorized_colony",
+  OTHER: "violation.other",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  SUBMITTED: "Submitted",
-  UNDER_REVIEW: "Under Review",
-  INSPECTION_ORDERED: "Inspection Ordered",
-  ACTION_TAKEN: "Action Taken",
-  RESOLVED: "Resolved",
-  CLOSED: "Closed",
-  REJECTED: "Rejected",
+const COMPLAINT_STATUS_KEY: Record<string, string> = {
+  SUBMITTED: "complaint_status.submitted",
+  UNDER_REVIEW: "complaint_status.under_review",
+  INSPECTION_ORDERED: "complaint_status.inspection_ordered",
+  ACTION_TAKEN: "complaint_status.action_taken",
+  RESOLVED: "complaint_status.resolved",
+  CLOSED: "complaint_status.closed",
+  REJECTED: "complaint_status.rejected",
 };
 
 const STATUS_OPTIONS = [
@@ -88,6 +89,7 @@ export default function ComplaintManagement({
   isOffline,
   onBack,
 }: ComplaintManagementProps) {
+  const { t } = useTranslation();
   const [subView, setSubView] = useState<"list" | "detail">("list");
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [total, setTotal] = useState(0);
@@ -169,7 +171,7 @@ export default function ComplaintManagement({
   const handleStatusUpdate = async () => {
     if (!selected || !newStatus) return;
     if (isOffline) {
-      setFeedback({ variant: "warning", text: "Offline mode is active." });
+      setFeedback({ variant: "warning", text: t("offline.banner") });
       return;
     }
     setActionLoading(true);
@@ -192,7 +194,7 @@ export default function ComplaintManagement({
       }
       const updated = await res.json();
       setSelected({ ...selected, ...updated });
-      setFeedback({ variant: "success", text: `Status updated to ${STATUS_LABELS[newStatus] || newStatus}` });
+      setFeedback({ variant: "success", text: `${t("complaints.update_status")}: ${t(COMPLAINT_STATUS_KEY[newStatus] || "")}` });
       setNewStatus("");
       setOfficerRemarks("");
       // Refresh list in background
@@ -251,9 +253,9 @@ export default function ComplaintManagement({
     return (
       <>
         <Button onClick={backToList} variant="ghost" className="back-button">
-          &larr; Back to Complaints
+          &larr; {t("complaints.back_to_list")}
         </Button>
-        <h1 style={{ marginTop: "var(--space-3)" }}>Complaint Detail</h1>
+        <h1 style={{ marginTop: "var(--space-3)" }}>{t("complaints.detail_heading")}</h1>
         <p className="subtitle">{selected.complaint_number}</p>
 
         <div className="panel" style={{ marginTop: "var(--space-4)" }}>
@@ -263,12 +265,12 @@ export default function ComplaintManagement({
           <Card className="detail-read-card">
             <div className="read-card-header">
               <p className="read-card-title">{selected.subject}</p>
-              <span className={statusBadgeClass(selected.status)}>{STATUS_LABELS[selected.status] || selected.status}</span>
+              <span className={statusBadgeClass(selected.status)}>{t(COMPLAINT_STATUS_KEY[selected.status] || "")}</span>
             </div>
             <div className="read-card-grid">
               <div className="read-meta-row">
                 <span className="read-meta-key">Violation Type</span>
-                <span className="read-meta-value">{VIOLATION_LABELS[selected.violation_type] || selected.violation_type}</span>
+                <span className="read-meta-value">{t(VIOLATION_KEY[selected.violation_type] || "")}</span>
               </div>
               <div className="read-meta-row">
                 <span className="read-meta-key">Filed On</span>
@@ -338,7 +340,7 @@ export default function ComplaintManagement({
 
           {/* Evidence */}
           <div className="documents-section">
-            <h2>Evidence ({selected.evidence?.length || 0})</h2>
+            <h2>{t("complaints.evidence_section", { count: selected.evidence?.length || 0 })}</h2>
             {selected.evidence && selected.evidence.length > 0 ? (
               <div className="detail-card-list">
                 {selected.evidence.map((ev) => (
@@ -366,14 +368,14 @@ export default function ComplaintManagement({
                         onClick={() => void handleEvidencePreview(ev.evidence_id, selected.complaint_number, ev.original_filename || "evidence")}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        Preview
+                        {t("action.preview")}
                       </Button>
                     </div>
                   </Card>
                 ))}
               </div>
             ) : (
-              <Alert variant="info" className="empty-read-alert">No evidence files uploaded for this complaint.</Alert>
+              <Alert variant="info" className="empty-read-alert">{t("complaints.no_evidence")}</Alert>
             )}
           </div>
 
@@ -382,7 +384,7 @@ export default function ComplaintManagement({
             <div className="complaint-evidence-preview">
               <div className="complaint-evidence-preview__header">
                 <span>{previewFilename}</span>
-                <Button variant="ghost" onClick={closePreview}>Close</Button>
+                <Button variant="ghost" onClick={closePreview}>{t("action.close")}</Button>
               </div>
               <img src={previewUrl} alt={previewFilename} className="complaint-evidence-preview__img" />
             </div>
@@ -391,9 +393,9 @@ export default function ComplaintManagement({
           {/* Status Update Action */}
           {!isTerminal && (
             <div className="action-panel">
-              <h2>Update Status</h2>
+              <h2>{t("complaints.update_status")}</h2>
               <div className="action-form">
-                <Field label="New Status" htmlFor="complaint-new-status" required>
+                <Field label={t("complaints.new_status")} htmlFor="complaint-new-status" required>
                   <select
                     id="complaint-new-status"
                     className="ui-input"
@@ -401,19 +403,19 @@ export default function ComplaintManagement({
                     onChange={(e) => setNewStatus(e.target.value)}
                     disabled={isOffline || actionLoading}
                   >
-                    <option value="">Select status...</option>
+                    <option value="">{t("complaints.select_status")}</option>
                     {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
+                      <option key={s} value={s}>{t(COMPLAINT_STATUS_KEY[s] || "")}</option>
                     ))}
                   </select>
                 </Field>
-                <Field label="Officer Remarks" htmlFor="complaint-remarks">
+                <Field label={t("complaints.officer_remarks")} htmlFor="complaint-remarks">
                   <Textarea
                     id="complaint-remarks"
                     value={officerRemarks}
                     onChange={(e) => setOfficerRemarks(e.target.value)}
                     rows={3}
-                    placeholder="Add remarks about the status change..."
+                    placeholder={t("complaints.remarks_placeholder")}
                     disabled={isOffline || actionLoading}
                   />
                 </Field>
@@ -423,7 +425,7 @@ export default function ComplaintManagement({
                     className="submit-action"
                     disabled={isOffline || actionLoading || !newStatus}
                   >
-                    {actionLoading ? "Updating..." : "Update Status"}
+                    {actionLoading ? t("complaints.updating") : t("complaints.update_status")}
                   </Button>
                 </div>
               </div>
@@ -437,8 +439,8 @@ export default function ComplaintManagement({
   // --- List View ---
   return (
     <>
-      <h1>Complaint Management</h1>
-      <p className="subtitle">Review and manage citizen complaints ({total} total)</p>
+      <h1>{t("app.page_complaints")}</h1>
+      <p className="subtitle">{t("complaints.subtitle", { total })}</p>
 
         {/* Filters */}
         <div className="complaint-filters">
@@ -447,9 +449,9 @@ export default function ComplaintManagement({
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <option value="">All Statuses</option>
-            {Object.entries(STATUS_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+            <option value="">{t("search.all_statuses")}</option>
+            {Object.entries(COMPLAINT_STATUS_KEY).map(([key, tKey]) => (
+              <option key={key} value={key}>{t(tKey)}</option>
             ))}
           </select>
           <select
@@ -457,9 +459,9 @@ export default function ComplaintManagement({
             value={filterViolation}
             onChange={(e) => setFilterViolation(e.target.value)}
           >
-            <option value="">All Violation Types</option>
-            {Object.entries(VIOLATION_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+            <option value="">{t("complaints.all_violation_types")}</option>
+            {Object.entries(VIOLATION_KEY).map(([key, tKey]) => (
+              <option key={key} value={key}>{t(tKey)}</option>
             ))}
           </select>
         </div>
@@ -477,8 +479,8 @@ export default function ComplaintManagement({
             <div className="empty-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
-            <h3>No complaints found</h3>
-            <p>{filterStatus || filterViolation ? "No complaints matching the selected filters." : "No complaints have been submitted yet."}</p>
+            <h3>{t("complaints.no_results")}</h3>
+            <p>{filterStatus || filterViolation ? t("complaints.no_results_filtered") : t("complaints.no_submitted")}</p>
           </div>
         ) : (
           <ul className="task-list">
@@ -493,10 +495,10 @@ export default function ComplaintManagement({
                     <div>
                       <h2>{c.subject}</h2>
                       <p>{c.complaint_number}</p>
-                      <p>{VIOLATION_LABELS[c.violation_type] || c.violation_type} &middot; {c.location_address}</p>
+                      <p>{t(VIOLATION_KEY[c.violation_type] || "")} &middot; {c.location_address}</p>
                       <p>{new Date(c.created_at).toLocaleDateString()}{c.evidence_count ? ` \u00b7 ${c.evidence_count} evidence file(s)` : ""}</p>
                     </div>
-                    <span className={statusBadgeClass(c.status)}>{STATUS_LABELS[c.status] || c.status}</span>
+                    <span className={statusBadgeClass(c.status)}>{t(COMPLAINT_STATUS_KEY[c.status] || "")}</span>
                   </div>
                 </Button>
               </li>
