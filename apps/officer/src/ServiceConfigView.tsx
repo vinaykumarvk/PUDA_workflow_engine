@@ -35,8 +35,8 @@ interface WorkflowState {
 
 interface WorkflowTransition {
   transitionId: string;
-  fromState: string;
-  toState: string;
+  fromStateId: string;
+  toStateId: string;
   action?: string;
   systemRoleId?: string;
   [key: string]: unknown;
@@ -44,12 +44,18 @@ interface WorkflowTransition {
 
 interface DocumentType {
   docTypeId: string;
-  label?: string;
+  name?: string;
   mandatory?: boolean;
   conditional?: boolean;
-  acceptedMimeTypes?: string[];
-  maxSizeBytes?: number;
+  allowedMimeTypes?: string[];
+  maxSizeMB?: number;
   [key: string]: unknown;
+}
+
+interface FeeSchedule {
+  feeType: string;
+  amount: number;
+  description: string;
 }
 
 interface VersionDetail {
@@ -63,6 +69,7 @@ interface VersionDetail {
   description: string;
   workflow?: { states?: WorkflowState[]; transitions?: WorkflowTransition[] };
   documents?: { documentTypes?: DocumentType[] };
+  feeSchedule?: { default?: FeeSchedule[]; byAuthority?: Record<string, FeeSchedule[]> };
 }
 
 interface DiffResult<T> {
@@ -87,7 +94,7 @@ interface ServiceConfigViewProps {
 }
 
 type SubView = "service-list" | "version-list" | "version-detail";
-type DetailTab = "workflow" | "documents" | "compare";
+type DetailTab = "workflow" | "documents" | "fees" | "compare";
 
 export default function ServiceConfigView({ authHeaders, isOffline, onBack }: ServiceConfigViewProps) {
   const { theme, resolvedTheme, setTheme } = useTheme("puda_officer_theme");
@@ -102,11 +109,18 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Compare state
+  // Compare state (version-detail tab)
   const [compareV1, setCompareV1] = useState<string>("");
   const [compareV2, setCompareV2] = useState<string>("");
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+
+  // List-level compare state
+  const [listCompareMode, setListCompareMode] = useState(false);
+  const [listCompareV1, setListCompareV1] = useState<string>("");
+  const [listCompareV2, setListCompareV2] = useState<string>("");
+  const [listCompareResult, setListCompareResult] = useState<CompareResult | null>(null);
+  const [listCompareLoading, setListCompareLoading] = useState(false);
 
   // ---- Data loading ----
 
@@ -175,6 +189,23 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
     }
   }, [authHeaders, isOffline, selectedService, compareV1, compareV2]);
 
+  const loadListCompare = useCallback(async () => {
+    if (isOffline || !selectedService || !listCompareV1 || !listCompareV2) return;
+    setListCompareLoading(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/api/v1/config/services/${selectedService}/versions/compare?v1=${listCompareV1}&v2=${listCompareV2}`,
+        { headers: authHeaders() }
+      );
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      setListCompareResult(await res.json());
+    } catch {
+      setListCompareResult(null);
+    } finally {
+      setListCompareLoading(false);
+    }
+  }, [authHeaders, isOffline, selectedService, listCompareV1, listCompareV2]);
+
   useEffect(() => { void loadServices(); }, [loadServices]);
 
   useEffect(() => {
@@ -207,6 +238,8 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
     setSelectedService(null);
     setVersions([]);
     setVersionDetail(null);
+    setListCompareMode(false);
+    setListCompareResult(null);
   };
 
   const handleBackToVersions = () => {
@@ -273,6 +306,65 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
       <h2 style={{ margin: `0 0 var(--space-4) 0`, fontSize: "clamp(1.1rem, 2.5vw, 1.4rem)" }}>
         {selectedServiceName} — Versions
       </h2>
+
+      {versions.length >= 2 && (
+        <div style={{ marginBottom: `var(--space-4)` }}>
+          <Button
+            variant={listCompareMode ? "primary" : "ghost"}
+            type="button"
+            onClick={() => { setListCompareMode(m => !m); setListCompareResult(null); }}
+          >
+            {listCompareMode ? "Hide Compare" : "Compare Versions"}
+          </Button>
+
+          {listCompareMode && (
+            <>
+              <div className="compare-selectors" style={{ marginTop: `var(--space-3)` }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "var(--space-1)" }}>
+                    Version A
+                  </label>
+                  <select
+                    value={listCompareV1}
+                    onChange={e => { setListCompareV1(e.target.value); setListCompareResult(null); }}
+                  >
+                    <option value="">Select...</option>
+                    {versions.map(v => (
+                      <option key={v.version} value={v.version}>v{v.version}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "var(--space-1)" }}>
+                    Version B
+                  </label>
+                  <select
+                    value={listCompareV2}
+                    onChange={e => { setListCompareV2(e.target.value); setListCompareResult(null); }}
+                  >
+                    <option value="">Select...</option>
+                    {versions.map(v => (
+                      <option key={v.version} value={v.version}>v{v.version}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  variant="primary"
+                  type="button"
+                  disabled={!listCompareV1 || !listCompareV2 || listCompareV1 === listCompareV2 || listCompareLoading}
+                  onClick={() => void loadListCompare()}
+                >
+                  Compare
+                </Button>
+              </div>
+
+              {listCompareLoading && <SkeletonBlock height="8rem" />}
+              {listCompareResult && renderDiff(listCompareResult)}
+            </>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="ver-timeline">
           {[1,2].map(i => <SkeletonBlock key={i} height="5rem" />)}
@@ -315,16 +407,25 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
     if (!versionDetail?.workflow) return <p className="svc-empty">No workflow configured.</p>;
     const { states = [], transitions = [] } = versionDetail.workflow;
 
-    // Build happy path: find initial state and follow transitions
+    // Build adjacency map: stateId → outgoing transitions
     const stateMap = new Map(states.map(s => [s.stateId, s]));
     const transFromMap = new Map<string, WorkflowTransition[]>();
     for (const t of transitions) {
-      const arr = transFromMap.get(t.fromState) || [];
+      const arr = transFromMap.get(t.fromStateId) || [];
       arr.push(t);
-      transFromMap.set(t.fromState, arr);
+      transFromMap.set(t.fromStateId, arr);
     }
 
-    // Walk from initial state
+    // Classify transitions from a state
+    const getBranches = (stateId: string) => {
+      const outgoing = transFromMap.get(stateId) || [];
+      return {
+        query: outgoing.find(t => t.toStateId.includes("QUERY_PENDING")),
+        reject: outgoing.find(t => t.toStateId.includes("REJECTED")),
+      };
+    };
+
+    // Walk happy path using "forward" transitions (skip REJECTED / QUERY_PENDING targets)
     const initialState = states.find(s => s.type === "initial");
     const happyPath: WorkflowState[] = [];
     const visited = new Set<string>();
@@ -334,30 +435,55 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
       const st = stateMap.get(current);
       if (st) happyPath.push(st);
       const outgoing = transFromMap.get(current);
-      current = outgoing?.[0]?.toState;
+      if (!outgoing?.length) break;
+      const forward = outgoing.find(t =>
+        !t.toStateId.includes("REJECTED") && !t.toStateId.includes("QUERY_PENDING")
+      );
+      current = forward?.toStateId ?? outgoing[0]?.toStateId;
     }
+
+    // Detect query loop: QUERY_PENDING → RESUBMITTED → first TASK state
+    const queryState = states.find(s => s.stateId.includes("QUERY_PENDING"));
+    const resubmittedState = states.find(s => s.stateId.includes("RESUBMITTED"));
+    const firstTaskState = happyPath.find(s => s.type === "task");
 
     return (
       <>
         <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>Workflow Flow</h3>
         <div className="wf-flow">
-          {happyPath.map((state, idx) => (
-            <div key={state.stateId} className="wf-step">
-              <div className="wf-step__connector">
-                <div className={`wf-step__dot ${stateTypeDotClass(state.type)}`} />
-                {idx < happyPath.length - 1 && <div className="wf-step__line" />}
-              </div>
-              <div className="wf-step__body">
-                <span className="wf-step__label">{state.label || state.stateId}</span>
-                <div className="wf-step__meta">
-                  {state.type && <span className="wf-step__chip">{state.type}</span>}
-                  {state.systemRoleId && <span className="wf-step__chip">{state.systemRoleId}</span>}
-                  {state.slaDays != null && <span className="wf-step__chip">SLA: {state.slaDays}d</span>}
+          {happyPath.map((state, idx) => {
+            const branches = state.type === "task" ? getBranches(state.stateId) : null;
+            return (
+              <div key={state.stateId} className="wf-step">
+                <div className="wf-step__connector">
+                  <div className={`wf-step__dot ${stateTypeDotClass(state.type)}`} />
+                  {idx < happyPath.length - 1 && <div className="wf-step__line" />}
+                </div>
+                <div className="wf-step__body">
+                  <span className="wf-step__label">{state.label || state.stateId}</span>
+                  <div className="wf-step__meta">
+                    {state.type && <span className="wf-step__chip">{state.type}</span>}
+                    {state.systemRoleId && <span className="wf-step__chip">{state.systemRoleId}</span>}
+                    {state.slaDays != null && <span className="wf-step__chip">SLA: {state.slaDays}d</span>}
+                  </div>
+                  {branches && (branches.query || branches.reject) && (
+                    <div className="wf-step__branches">
+                      {branches.query && <span className="wf-branch-chip wf-branch-chip--query">→ Query</span>}
+                      {branches.reject && <span className="wf-branch-chip wf-branch-chip--reject">→ Reject</span>}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {queryState && resubmittedState && firstTaskState && (
+          <div className="wf-query-loop">
+            <strong>Query Loop:</strong>{" "}
+            {queryState.label || queryState.stateId} → {resubmittedState.label || resubmittedState.stateId} → {firstTaskState.label || firstTaskState.stateId}
+          </div>
+        )}
 
         <h3 style={{ margin: `var(--space-5) 0 var(--space-3) 0`, fontSize: "1rem" }}>All Transitions</h3>
         {transitions.length === 0 ? (
@@ -377,8 +503,8 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
               {transitions.map(t => (
                 <tr key={t.transitionId}>
                   <td data-label="ID">{t.transitionId}</td>
-                  <td data-label="From">{t.fromState}</td>
-                  <td data-label="To">{t.toState}</td>
+                  <td data-label="From">{t.fromStateId}</td>
+                  <td data-label="To">{t.toStateId}</td>
                   <td data-label="Action">{t.action || "—"}</td>
                   <td data-label="Role">{t.systemRoleId || "—"}</td>
                 </tr>
@@ -396,17 +522,11 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
     const docs = versionDetail?.documents?.documentTypes || [];
     if (docs.length === 0) return <p className="svc-empty">No document types configured.</p>;
 
-    const formatSize = (bytes?: number) => {
-      if (!bytes) return null;
-      if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
-      return `${(bytes / 1024).toFixed(0)} KB`;
-    };
-
     return (
       <div className="doc-type-list">
         {docs.map(doc => (
           <div key={doc.docTypeId} className="doc-type-card">
-            <p className="doc-type-card__name">{doc.label || doc.docTypeId}</p>
+            <p className="doc-type-card__name">{doc.name || doc.docTypeId}</p>
             <div className="doc-type-card__meta">
               {doc.mandatory ? (
                 <span className="doc-type-card__badge doc-type-card__badge--mandatory">Mandatory</span>
@@ -415,14 +535,64 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
               ) : (
                 <span className="doc-type-card__badge doc-type-card__badge--optional">Optional</span>
               )}
-              {doc.acceptedMimeTypes && (
-                <span>{doc.acceptedMimeTypes.join(", ")}</span>
+              {doc.allowedMimeTypes && (
+                <span>{doc.allowedMimeTypes.join(", ")}</span>
               )}
-              {formatSize(doc.maxSizeBytes) && <span>Max: {formatSize(doc.maxSizeBytes)}</span>}
+              {doc.maxSizeMB != null && <span>Max: {doc.maxSizeMB} MB</span>}
             </div>
           </div>
         ))}
       </div>
+    );
+  };
+
+  // ---- Sub-view: Version detail — Fees tab ----
+
+  const renderFeeTable = (fees: FeeSchedule[]) => (
+    <table className="wf-transition-table">
+      <thead>
+        <tr>
+          <th>Fee Type</th>
+          <th>Description</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {fees.map((fee, i) => (
+          <tr key={i}>
+            <td data-label="Fee Type">{fee.feeType}</td>
+            <td data-label="Description">{fee.description}</td>
+            <td data-label="Amount">₹{fee.amount.toLocaleString("en-IN")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const renderFeesTab = () => {
+    const schedule = versionDetail?.feeSchedule;
+    const defaultFees = schedule?.default || [];
+    const byAuthority = schedule?.byAuthority;
+
+    if (defaultFees.length === 0 && !byAuthority) {
+      return <p className="svc-empty">No fee schedule configured.</p>;
+    }
+
+    return (
+      <>
+        {defaultFees.length > 0 && (
+          <>
+            <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>Default Fees</h3>
+            {renderFeeTable(defaultFees)}
+          </>
+        )}
+        {byAuthority && Object.entries(byAuthority).map(([authority, fees]) => (
+          <div key={authority} style={{ marginTop: `var(--space-4)` }}>
+            <h3 style={{ margin: `0 0 var(--space-3) 0`, fontSize: "1rem" }}>{authority}</h3>
+            {renderFeeTable(fees)}
+          </div>
+        ))}
+      </>
     );
   };
 
@@ -498,8 +668,8 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
   const renderDiff = (result: CompareResult) => (
     <>
       {renderDiffSection("Workflow States", result.workflow.states, s => s.label || s.stateId)}
-      {renderDiffSection("Workflow Transitions", result.workflow.transitions, t => `${t.fromState} → ${t.toState} (${t.transitionId})`)}
-      {renderDiffSection("Document Types", result.documents, d => d.label || d.docTypeId)}
+      {renderDiffSection("Workflow Transitions", result.workflow.transitions, t => `${t.fromStateId} → ${t.toStateId} (${t.transitionId})`)}
+      {renderDiffSection("Document Types", result.documents, d => d.name || d.docTypeId)}
     </>
   );
 
@@ -524,7 +694,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
         </div>
 
         <nav className="svc-tabs" aria-label="Version detail tabs">
-          {(["workflow", "documents", "compare"] as DetailTab[]).map(tab => (
+          {(["workflow", "documents", "fees", "compare"] as DetailTab[]).map(tab => (
             <button
               key={tab}
               className={`svc-tab ${activeTab === tab ? "svc-tab--active" : ""}`}
@@ -539,6 +709,7 @@ export default function ServiceConfigView({ authHeaders, isOffline, onBack }: Se
 
         {activeTab === "workflow" && renderWorkflowTab()}
         {activeTab === "documents" && renderDocumentsTab()}
+        {activeTab === "fees" && renderFeesTab()}
         {activeTab === "compare" && renderCompareTab()}
       </>
     );
